@@ -1,139 +1,18 @@
-# Specify-web
+# Specify Web
 
-基于 Vue 3 的 AI Agent 平台前端，对接 [Specify](https://github.com/) Python 框架。支持创建和配置 Agent App、多工具编排、文件空间管理，以及 SSE 流式对话。
+基于 Vue 3 的 AI Agent 平台前端，对接 Specify 后端（JeecgBoot）。支持平台管理、开发者创建/编排 App、终端用户运行 App，以及 SSE 流式对话与文件空间管理。
 
 ## 技术栈
 
 | 类别 | 技术 |
 |------|------|
-| 框架 | Vue 3 (Composition API) + Vite |
+| 框架 | Vue 3（Composition API）+ Vite 5 |
 | 状态管理 | Pinia |
-| 路由 | Vue Router 4 |
+| 路由 | Vue Router 4（三套门户 + 角色隔离） |
+| HTTP | Axios |
 | 样式 | 原生 CSS 变量（深色 / 浅色主题） |
-| Markdown | marked + highlight.js |
-| 图片预览 | viewerjs |
-
----
-
-## 项目结构
-
-```
-src/
-├── api/
-│   ├── mock.js              # 全量 Mock（39 个接口），开发期无需后端
-│   ├── request.js           # Axios 封装
-│   ├── chat.js              # 聊天接口
-│   ├── session.js           # 会话接口
-│   ├── upload.js            # 文件上传
-│   ├── lm.js                # 模型管理接口
-│   └── adapters/
-│       ├── sseParser.js     # SSE 流解析
-│       └── realApiAdapter.js
-├── stores/
-│   ├── app.js               # App 列表与 CRUD（含本地持久化）
-│   ├── auth.js              # 登录 / 注册状态
-│   ├── session.js           # 会话状态
-│   ├── chat.js              # 聊天消息状态
-│   └── lm.js                # 模型配置状态
-├── views/
-│   ├── AgentSpaceView.vue   # 首页：App 广场 + 最近使用
-│   ├── AppIntroView.vue     # App 介绍页
-│   ├── AppEditView.vue      # App 配置编辑页
-│   └── AppRunView.vue       # 对话运行页（含文件面板）
-├── components/
-│   ├── app/                 # App 相关弹窗与面板
-│   │   ├── CreateAppModal.vue
-│   │   ├── DeleteAppModal.vue
-│   │   ├── AppToolsTab.vue          # SP 内置工具配置
-│   │   ├── SubAgentTab.vue          # 自定义工具 / 子 Agent
-│   │   ├── SkillsTab.vue            # 技能管理
-│   │   ├── AppAdvancedConfigModal.vue
-│   │   ├── ShareModal.vue
-│   │   ├── FileTree.vue             # 文件树组件
-│   │   ├── AppFilePanel.vue         # 运行页文件侧边栏
-│   │   ├── ToolConfigModal.vue
-│   │   ├── ToolCreateModal.vue
-│   │   ├── EnableToolModal.vue
-│   │   ├── ToolInfoModal.vue
-│   │   ├── AppToolsSection.vue
-│   │   └── RecentAppCard.vue
-│   ├── agent/
-│   │   ├── AgentCard.vue
-│   │   └── EditAgentModal.vue
-│   ├── lm/
-│   │   ├── LmSelector.vue
-│   │   └── LmFormModal.vue
-│   ├── setup/               # 新手引导向导
-│   │   ├── SetupWizard.vue
-│   │   └── steps/
-│   │       ├── StepAppName.vue
-│   │       ├── StepModelConfig.vue
-│   │       ├── StepSpConfig.vue
-│   │       ├── StepSystemPrompt.vue
-│   │       ├── StepCreateApp.vue
-│   │       └── StepWorkspaceIntro.vue
-│   ├── content/             # 消息内容渲染
-│   │   ├── TextContent.vue
-│   │   ├── ReasoningContent.vue
-│   │   ├── ToolCallContent.vue
-│   │   ├── ToolResultContent.vue
-│   │   ├── ImageContent.vue
-│   │   ├── AudioContent.vue
-│   │   ├── VideoContent.vue
-│   │   └── FileContent.vue
-│   ├── layout/
-│   │   └── Sidebar.vue
-│   └── common/
-│       ├── AuthModal.vue
-│       ├── MyModelsModal.vue        # 模型 + BYOK 配置
-│       ├── SettingsDrawer.vue
-│       ├── Toast.vue
-│       ├── DropdownMenu.vue
-│       ├── ConfirmDialog.vue
-│       ├── InputDialog.vue
-│       ├── ParamEditDialog.vue
-│       ├── UploadSelector.vue
-│       ├── FilePreviewList.vue
-│       ├── CreateToolModal.vue
-│       ├── ToolsModal.vue
-│       ├── UserProfileModal.vue
-│       └── ApiConfigModal.vue
-├── composables/
-│   ├── useTheme.js
-│   ├── useNotification.js
-│   ├── useSessionContext.js
-│   ├── useApiConfig.js
-│   └── useSystemPrompt.js
-├── constants/
-│   └── spTools.js           # SP 内置工具元数据
-├── types/
-│   └── message.js           # Specify 消息类型定义
-├── utils/
-│   ├── file.js
-│   ├── time.js
-│   ├── debug.js
-│   └── titleGenerator.js
-├── assets/styles/
-│   ├── variables.css        # 全局 CSS 变量（主题色等）
-│   ├── common.css
-│   └── reset.css
-├── App.vue
-└── main.js
-```
-
----
-
-## 路由
-
-| 路径 | 名称 | 说明 | 需要登录 |
-|------|------|------|----------|
-| `/` | Home | App 广场首页 | 否 |
-| `/app/:id/intro` | AppIntro | App 介绍页 | 是 |
-| `/app/:id/edit` | AppEdit | App 配置编辑 | 是 |
-| `/app/:id/run` | AppRun | 对话运行 | 是 |
-| `/share/:code` | AppShare | 通过分享码访问 | 否 |
-
----
+| Markdown | marked、markdown-it + highlight.js |
+| 其他 | crypto-js（密码加密）、viewerjs（图片预览） |
 
 ## 快速开始
 
@@ -141,80 +20,254 @@ src/
 # 安装依赖
 npm install
 
-# 开发模式（使用 Mock 数据，无需后端）
+# 开发模式（默认 http://0.0.0.0:5173）
 npm run dev
 
 # 生产构建
 npm run build
+
+# 预览构建产物
+npm run preview
 ```
 
-默认使用 `src/api/mock.js` 中的 Mock 数据运行，全部 39 个接口均已模拟，含 SSE 流式响应。
+开发环境下，请求通过 Vite 代理转发到后端。默认配置见 `vite.config.js`：
 
-### 切换到真实后端
+```js
+proxy: {
+  '/api': {
+    target: 'http://192.168.20.235:8080/specify',
+    changeOrigin: true,
+    rewrite: (path) => path.replace(/^\/api/, '')
+  }
+}
+```
 
-创建 `.env.local` 文件：
+按需修改 `target` 为你的后端地址。所有 API 请求以 `/api` 为前缀，由 `src/api/request.js` 统一封装，并自动附加 `X-Access-Token`。
+
+### 环境变量（可选）
 
 ```env
-VITE_USE_MOCK=false
-VITE_API_BASE=http://your-backend-url
+# 会话接口是否走 localStorage Mock（见 src/api/session.js）
+VITE_USE_MOCK=true
 ```
 
-或直接修改 `src/api/request.js` 中的 `baseURL`。
+> 开发者 App 数据当前保存在浏览器 `localStorage`（`specify_apps_v2`），与后端 App 接口逐步对接中。
 
 ---
 
-## 功能特性
+## 应用架构
 
-### App 管理
-- 创建 / 编辑 / 删除 App
-- 配置 System Prompt、高级参数（最大步数、压缩策略、超时等）
-- App 公开分享（生成分享码）
-- 新手引导向导（首次使用）
+前端按角色划分为三套门户，路由守卫在 `src/router/index.js` 中实现角色隔离：
 
-### 工具配置
-- **SP 内置工具**：SPread、SPglob、SPgrep、SPedit、SPwrite、SPmake、SPcreatedir、SPrm、SPupload、SPSkillManager，每项可独立启用并配置参数
-- **自定义工具 / 子 Agent**：创建、编辑、删除，配置独立 System Prompt 和子工具集
+| 门户 | 路径前缀 | 角色 | 职责 |
+|------|----------|------|------|
+| 平台管理 | `/admin` | `admin` | 模型、工具、模板、账号等平台配置 |
+| 开发者 | `/developer` | `developer` | 创建 / 编辑 App、工作空间 |
+| 终端用户 | `/user` | `user` | 运行 App、查看个人门户 |
 
-### 模型配置
-- 主模型 + 副模型（用于子 Agent）
-- 支持平台提供 或 BYOK（自带 API Key）
-- API Key 管理（增 / 改 / 删，含自定义 API 地址）
+已登录用户访问 `/` 时，会按角色自动跳转：`admin` → `/admin`，其他 → `/developer/workspace`。
 
-### 对话运行
-- SSE 流式对话，逐字输出
-- 工具调用展示（调用中 / 完成 / 结果）
-- 安全审批流：`form` + `suspended` 事件触发批准/拒绝面板
-- 停止生成 / 重置对话
-- Token 用量统计
+### 路由一览
 
-### 文件空间
-- 四个根目录：`workspace`、`temp`、`memory`、`assets`
-- 上传文件（多选，拖拽）
-- 上传文件夹（递归建目录 + 逐文件上传，拖拽或选择器）
-- 创建文件夹（嵌套路径）
-- 展开 / 折叠嵌套目录
-- 下载文件
-- 删除文件 / 文件夹（含递归删除子内容）
-- 文件名过长自动省略，悬停显示完整名称
+#### 公开路由
 
-### 其他
-- 深色 / 浅色主题切换
-- 用户登录 / 注册
-- Toast 通知系统
+| 路径 | 名称 | 说明 |
+|------|------|------|
+| `/` | Home | 首页（登录入口） |
+| `/share/:code` | AppShare | 通过分享码访问 App |
+
+#### 开发者路由 `/developer`
+
+| 路径 | 名称 | 说明 |
+|------|------|------|
+| `/developer/workspace` | AgentSpace | 工作空间：我的 App、推荐、最近使用 |
+| `/developer/app/create` | AppCreate | 创建 App |
+| `/developer/app/:id/intro` | AppIntro | 创建成功引导（文件空间说明） |
+| `/developer/app/:id/edit` | AppEdit | App 配置编辑 |
+
+#### 用户路由 `/user`
+
+| 路径 | 名称 | 说明 |
+|------|------|------|
+| `/user/home` | UserHome | 用户门户（占位页） |
+| `/user/app/:id/run` | AppRun | 对话运行（含文件面板） |
+
+#### 管理后台 `/admin`
+
+| 路径 | 说明 |
+|------|------|
+| `/admin/platforms` | 平台（模型分组）管理 |
+| `/admin/models` | 模型列表 |
+| `/admin/basetools` | BaseTool 管理 |
+| `/admin/agent-tools` | Agent 工具管理 |
+| `/admin/agent-tools/create` | 新增 Agent 工具 |
+| `/admin/agent-tools/:id/edit` | 编辑 Agent 工具 |
+| `/admin/mcp-tools` | MCP 工具管理 |
+| `/admin/templates` | 表单模板管理 |
+| `/admin/accounts` | 管理员账号 |
+| `/admin/roles` | 角色管理 |
+
+#### 兼容重定向
+
+旧路径仍可用，避免外链失效：
+
+```
+/workspace        → /developer/workspace
+/app/create       → /developer/app/create
+/app/:id/edit     → /developer/app/:id/edit
+/app/:id/run      → /user/app/:id/run
+/agent-space      → /developer/workspace
+/login            → /
+```
 
 ---
 
-## Mock 数据说明
+## 功能模块
 
-`src/api/mock.js` 模拟了全部后端接口，数据通过 `localStorage` 持久化。主要模拟接口：
+### 平台管理（Admin）
 
-- 用户认证：注册、登录、获取用户信息
-- App CRUD：创建、读取、更新、删除、分享
-- 模型配置：获取模型列表、保存偏好、API Key 管理
-- 文件系统：getFiles、uploadFile、downloadFile、deleteFile、mkdir
-- 对话：chatSSE（SSE 流）、chatApprove、chatCancel、chatReset、getSession
+- **模型与平台**：模型列表、模型分组（平台）CRUD
+- **工具管理**：BaseTool、Agent 工具、MCP 工具
+- **Agent 子工具环检测**：编辑 Agent 工具时，前端检测 Agent → Agent 循环引用并禁用勾选（`src/utils/agentSubToolCycle.js`）
+- **模板管理**：工具配置 Schema 编辑器
+- **账号与角色**：管理员账号、角色权限
 
-SSE 响应通过异步生成器实现，事件类型：`notification`、`ai_chunk`、`ai_message`、`tool_result`、`form`、`suspended`、`completed`、`error`。
+### 开发者（Developer）
+
+- **App 生命周期**：创建 → 引导页 → 编辑 → 分享
+- **System Prompt**：编写系统提示词，引导 AI 使用文件空间
+- **工具编排**
+  - SP 内置工具（SPread、SPglob、SPgrep 等），可独立启用并配置参数
+  - 平台特殊工具、自定义子 Agent
+  - MCP 服务接入与配置
+- **高级参数**：最大步数、压缩策略、超时、安全策略等
+- **文件空间**：`shared/` 资料库 + 用户目录（`workspace`、`temp`、`memory`、`assets`）
+
+### 对话运行（AppRunView）
+
+- SSE 流式对话
+- 调试 / 正式两种运行模式
+- 工具调用展示、Token 统计
+- 文件树：上传、下载、建目录、删除
+- 运行前模型 / 计费配置（`RunConfigModal`）
+
+### 通用能力
+
+- 登录 / 注册（`AuthModal`）
+- 深色 / 浅色主题（`useTheme`）
+- Toast、确认框、输入框等通知组件（`useNotification`）
+
+---
+
+## 项目结构
+
+```
+web/
+├── 接口文档/                  # 后端接口说明（平台、工具、文件系统等）
+├── src/
+│   ├── api/
+│   │   ├── admin.js           # 管理后台接口
+│   │   ├── chat.js            # 聊天 / SSE 流
+│   │   ├── session.js         # 会话接口（支持 VITE_USE_MOCK）
+│   │   ├── request.js         # Axios 封装、Token、JeecgBoot 响应适配
+│   │   └── adapters/
+│   │       ├── sseParser.js   # SSE 事件解析
+│   │       └── realApiAdapter.js
+│   ├── stores/
+│   │   ├── auth.js            # 登录态（localStorage 持久化）
+│   │   ├── app.js             # App CRUD（localStorage，含旧数据迁移）
+│   │   └── lm.js              # 模型偏好与 BYOK Key
+│   ├── router/index.js        # 路由与角色守卫
+│   ├── layouts/
+│   │   ├── AdminLayout.vue
+│   │   ├── DeveloperLayout.vue
+│   │   └── UserLayout.vue
+│   ├── views/
+│   │   ├── HomepageView.vue   # 公开首页
+│   │   ├── AgentSpaceView.vue # 开发者工作空间
+│   │   ├── CreateAppView.vue
+│   │   ├── AppIntroView.vue   # 创建成功引导
+│   │   ├── AppEditView.vue    # App 配置编辑
+│   │   ├── AppRunView.vue     # 对话运行
+│   │   └── admin/             # 管理后台页面
+│   │       ├── PlatformManagement.vue   # 平台（模型分组）管理
+│   │       ├── ModelList.vue            # 模型列表
+│   │       ├── BaseToolManagement.vue   # BaseTool 管理
+│   │       ├── AgentToolManagement.vue  # Agent 工具列表
+│   │       ├── AgentToolEdit.vue        # Agent 工具新增/编辑（含子工具环检测）
+│   │       ├── McpToolManagement.vue  # MCP 工具管理
+│   │       ├── TemplateManagement.vue   # 表单模板管理
+│   │       ├── AdminAccountManagement.vue  # 管理员账号
+│   │       ├── RoleManagement.vue       # 角色管理
+│   │       └── components/
+│   │           ├── ConfigSchemaEditor.vue # 配置 Schema 可视化编辑器
+│   │           ├── PublicFileTree.vue   # 公共文件树（Agent 工具文件访问目录）
+│   │           └── PublicFileTreeNode.vue
+│   ├── components/
+│   │   ├── app/               # App 弹窗、文件树、工具配置
+│   │   ├── agent/             # AgentCard 等
+│   │   ├── lm/                # LmSelector
+│   │   └── common/            # 通用 UI 组件
+│   ├── composables/           # useTheme、useNotification 等
+│   ├── constants/spTools.js   # SP 内置工具元数据
+│   ├── types/message.js       # 消息类型定义
+│   ├── utils/
+│   │   ├── agentSubToolCycle.js  # Agent 子工具环检测
+│   │   ├── modelGroupDisplay.js  # 模型分组展示
+│   │   ├── file.js / time.js / crypto.js
+│   │   └── ...
+│   └── assets/styles/         # 全局样式与 CSS 变量
+├── vite.config.js
+└── package.json
+```
+
+---
+
+## 数据与接口
+
+### 本地持久化
+
+| Key | Store | 说明 |
+|-----|-------|------|
+| `specify_token` / `specify_user` | `auth` | 登录 Token 与用户信息 |
+| `specify_apps_v2` | `app` | 开发者创建的 App 列表 |
+| `specify_model_prefs` / `specify_api_keys` | `lm` | 模型偏好与 BYOK Key |
+
+### 后端接口文档
+
+详细接口定义见 `接口文档/` 目录：
+
+- `平台接口文档.md`
+- `模型列表接口文档.md`
+- `agent工具.md`
+- `MCP工具.md`
+- `表单模板.md`
+- `文件系统接口.md`
+- `删除接口.md`
+
+管理后台 API 封装在 `src/api/admin.js`，聊天相关在 `src/api/chat.js`。
+
+---
+
+## 开发说明
+
+### 路径别名
+
+`@` → `src/`（在 `vite.config.js` 中配置）
+
+### 消息流
+
+聊天请求经 `realApiAdapter` 转换为后端格式，SSE 响应由 `sseParser` 解析为前端消息对象（`types/message.js`）。
+
+### Agent 工具环检测
+
+在 `AgentToolEdit.vue` 编辑已有工具时：
+
+1. 拉取所有 Agent 的子工具关系，构建引用图
+2. 对候选子工具做 BFS，判断是否间接引用当前工具
+3. UI 层禁用勾选并提示，防止 `A → B → A` 循环引用
+
+仅检测 `platform_agent_tools` 类型的 Agent → Agent 引用，新建工具时暂无 `id`，不做检测。
 
 ---
 
