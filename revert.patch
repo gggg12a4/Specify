@@ -1,0 +1,23 @@
+--- src/views/admin/AgentToolEdit.vue
++++ src/views/admin/AgentToolEdit.vue
+@@ -43,7 +43,7 @@
+           <div class="section-title">config（由模版动态渲染）</div>
+ 
+           <!-- 只有在编辑状态且包含数据时才渲染，或者新增状态由 category 切换后生成数据 -->
+-          <template v-for="field in dynamicConfigFields" :key="field.name">
++          <template v-for="field in agentCategoryFields" :key="field.name">
+             <div v-if="field.name !== 'file_access' && field.name !== 'fileAccess' && field.name !== 'accessible_paths'" class="form-field">
+               <label>
+                 {{ field.label || field.name }}
+@@ -400,7 +400,10 @@
+   referencedBy: ""
+ });
+ 
+-const agentCategoryFields = ref([]);
++const agentCategoryFields = computed(() => {
++  if (!agentToolForm.category) return [];
++  return getTemplateFields(agentToolForm.category, 'createVisible');
++});
+ const agentConfigValues = reactive({});
+ const agentSubTools = ref([]);
+ const agentMgOverride = ref(false);

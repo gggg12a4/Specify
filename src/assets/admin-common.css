@@ -1,0 +1,437 @@
+/* src/assets/admin-common.css */
+.admin-page {
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-soft: rgba(59, 130, 246, 0.12);
+  --color-bg: #f9fafb;
+  --color-surface: #ffffff;
+  --color-border: #e5e7eb;
+  --color-text: #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #9ca3af;
+  --color-error: #ef4444;
+  --color-success: #10b981;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+  padding: 24px;
+  background: var(--color-bg);
+  min-height: 100vh;
+  color: var(--color-text);
+  box-sizing: border-box;
+}
+
+/* Modals */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: fadeIn 0.2s ease-out;
+}
+.modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg, 16px);
+  width: 560px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+.modal-header {
+  padding: 24px 32px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(8px);
+}
+.modal-body {
+  padding: 24px 32px;
+  overflow-y: auto;
+  flex: 1;
+}
+.modal-footer {
+  padding: 16px 32px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: var(--color-bg);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Form */
+.form-field {
+  margin-bottom: 20px;
+}
+.form-field label {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.form-field input,
+.form-field select,
+.form-field textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  color: var(--color-text);
+  background-color: var(--color-surface, #fff);
+}
+
+.form-field select {
+  padding: 10px 32px 10px 14px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.form-field select option {
+  background-color: var(--color-surface, #fff);
+  color: var(--color-text);
+}
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft, rgba(59,130,246,0.15));
+}
+.form-field input:disabled,
+.form-field select:disabled,
+.form-field textarea:disabled {
+  background-color: #f3f4f6;
+}
+.form-field textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+.form-row .form-field {
+  flex: 1;
+}
+
+.admin-page .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.admin-page .header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-page .header-title h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.admin-page .count-badge {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+}
+
+/* 页头筛选下拉（平台管理、模型列表等共用） */
+.admin-page .filter-select {
+  padding: 6px 32px 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 6px);
+  font-size: var(--text-sm, 13px);
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.admin-page .filter-select:hover {
+  border-color: #d1d5db;
+}
+
+.admin-page .filter-select:focus {
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+
+.admin-page .filter-select option {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* Empty State */
+.admin-page .empty-state {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--color-text-secondary);
+  border: 1px dashed var(--color-border);
+  min-height: auto;
+  box-shadow: none;
+  display: block;
+}
+
+/* Table Wrap */
+.admin-page .table-wrap {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  padding: 0;
+  border: none;
+}
+
+.admin-page table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admin-page th {
+  background: var(--color-bg);
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.admin-page td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.admin-page tr:last-child td {
+  border-bottom: none;
+}
+
+/* Custom Scrollbar to prevent table layout shifts */
+.admin-page .table-wrap::-webkit-scrollbar {
+  height: 6px;
+}
+.admin-page .table-wrap::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+.admin-page .table-wrap::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Common Button Styles mapped from ModelList.vue */
+.admin-page .btn-text {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md, 8px);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  height: 28px;
+  box-sizing: border-box;
+}
+
+.admin-page .btn-text:hover {
+  background: var(--color-bg-secondary, #f3f4f6);
+  color: var(--color-text);
+}
+
+.admin-page .btn-text-danger {
+  background: var(--color-error, #ef4444);
+  color: #fff;
+  border: none;
+}
+
+.admin-page .btn-text-danger:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
+.admin-page .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.admin-page .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-page .btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.admin-page .btn-primary:not(:disabled):hover {
+  background: var(--color-primary-hover);
+}
+
+.admin-page .btn-danger {
+  background: var(--color-error);
+  color: #fff;
+  border-radius: var(--radius-md, 8px);
+}
+
+.admin-page .btn-danger:not(:disabled):hover {
+  background: #dc2626;
+}
+
+.admin-page .btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.admin-page .btn-ghost:not(:disabled):hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-bg-secondary);
+}
+
+.admin-page .btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* 表格操作列：编辑 / 删除按钮间距 */
+.admin-page .actions-container,
+.admin-page .field-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.admin-page td.actions > .btn + .btn {
+  margin-left: 10px;
+}
+
+.admin-page td.actions .btn {
+  box-sizing: border-box;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* instance_level 列表标签色：0 平台 → 3 用完即弃，持久性递减 */
+.admin-page .tag-level-0 {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+.admin-page .tag-level-1 {
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+}
+
+.admin-page .tag-level-2 {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+
+.admin-page .tag-level-3 {
+  background: rgba(107, 114, 128, 0.12);
+  color: #4b5563;
+}
+
+/* instance_level 单选（基础工具 / 表单模板 / Agent / MCP 共用） */
+.instance-level-field .radio-group {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.instance-level-field .radio-group label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.instance-level-field .radio-group input[type="radio"] {
+  width: auto;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+}
+
+.instance-level-field .hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 6px;
+  line-height: 1.4;
+}

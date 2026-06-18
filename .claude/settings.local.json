@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p src/views/admin)",
+      "Bash(touch src/views/admin/AgentToolManagement.vue)",
+      "Bash(dir srcviewsadmin *)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:5174)",
+      "Bash(grep *)",
+      "Bash(git checkout *)",
+      "Bash(curl *)",
+      "WebFetch(domain:192.168.30.176)",
+      "Bash(jq *)",
+      "Bash(dir \"D:\\\\Specify\\\\Boss-file\\\\web\\\\src\" /s /b)",
+      "Bash(npm list *)",
+      "Bash(npm install *)",
+      "Bash(sed -i '/opacity: 0\\\\.5;/d' src/views/admin/*.vue)",
+      "Bash(sed -i '/cursor: not-allowed;/d' src/views/admin/*.vue)",
+      "Bash(sed -i '/^\\\\}$/d' src/views/admin/*.vue)",
+      "Bash(git reset *)",
+      "Bash(npx eslint *)",
+      "Bash(node parse_tables.cjs)"
+    ]
+  }
+}
