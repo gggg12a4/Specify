@@ -117,8 +117,9 @@
     <ToolInfoModal v-if="infoTool" :tool="infoTool" @close="infoTool = null" />
     <ToolConfigModal
       v-if="configTool"
-      :tool="configTool"
-      :config="form.tools[configTool.key]?.config || {}"
+      :tool="configTool.tool"
+      :config="form.tools[configTool.tool.key]?.config || {}"
+      :disabled-rules="configTool.disabledRules"
       @save="handleToolConfigSave"
       @close="configTool = null"
     />
@@ -220,7 +221,7 @@ function handleSave(silent = false) {
 }
 
 function handleToolConfigSave(config) {
-  const key = configTool.value.key
+  const key = configTool.value.tool.key
   form.tools = { ...form.tools, [key]: { ...form.tools[key], config } }
   configTool.value = null
   markDirty()

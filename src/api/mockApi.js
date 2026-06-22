@@ -236,6 +236,56 @@ export async function saveRunConfig(appId, payload) {
   return ok(readJson(key, payload))
 }
 
+export async function getPlatformToolsConstraints(platformId) {
+  // 模拟从后端数据库实时查出的平台底层能力约束
+  const allTools = [
+    'SPread', 'SPglob', 'SPgrep', 'SPedit', 'SPwrite',
+    'SPmake', 'SPcreatedir', 'SPupload', 'SPrm', 'SPSkillManager'
+  ]
+
+  let allowedTools = [...allTools]
+  let disabledConfigs = {} // 记录需要置灰的工具配置项
+
+  if (platformId === 'deepseek') {
+    allowedTools = [...allTools]
+    disabledConfigs['SPread'] = {
+      image: "当前 DeepSeek 模型为纯文本模型，不支持图片读取能力。",
+      video: "当前 DeepSeek 模型为纯文本模型，不支持视频读取能力。",
+      audio: "当前 DeepSeek 模型不支持音频读取能力。",
+      image_url: "当前 DeepSeek 模型不支持网络图片读取。",
+      video_url: "当前 DeepSeek 模型不支持网络视频读取。",
+      audio_url: "当前 DeepSeek 模型不支持网络音频读取。"
+    }
+  } else if (platformId === 'claude') {
+    allowedTools = [...allTools, 'image_understanding', 'document_parsing']
+    disabledConfigs['SPread'] = {
+      video: "Claude 目前暂不支持直接解析视频文件。",
+      audio: "Claude 目前暂不支持直接解析音频文件。",
+      video_url: "Claude 目前暂不支持解析网络视频。",
+      audio_url: "Claude 目前暂不支持解析网络音频。"
+    }
+  } else if (platformId === 'gemini') {
+    allowedTools = [...allTools, 'draw', 'image_understanding', 'document_parsing', 'video_understanding', 'audio_understanding']
+  } else if (platformId === 'gpt') {
+    allowedTools = [...allTools, 'draw', 'image_understanding', 'document_parsing', 'tts']
+    disabledConfigs['SPread'] = {
+      video: "GPT 目前不支持直接读取视频文件。",
+      audio: "GPT 不支持直接读取音频文件。"
+    }
+  } else if (platformId === 'qwen') {
+    allowedTools = [...allTools, 'image_understanding']
+    disabledConfigs['SPread'] = {
+      video: "Qwen 目前不支持读取视频文件。",
+      audio: "Qwen 不支持读取音频文件。"
+    }
+  }
+
+  return ok({
+    allowed_tools: allowedTools,
+    disabled_configs: disabledConfigs
+  })
+}
+
 /** 默认导出，便于 import mockApi from '@/api/mockApi' */
 export default {
   login,
@@ -254,4 +304,5 @@ export default {
   updateShareSettings,
   getRunConfig,
   saveRunConfig,
+  getPlatformToolsConstraints,
 }
