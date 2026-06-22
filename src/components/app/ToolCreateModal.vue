@@ -63,11 +63,12 @@
               <div v-if="otherCustomTools.length" class="tools-group tools-group-sep">
                 <div class="tools-group-label">你创建的工具</div>
                 <div class="tools-list">
-                  <div v-for="t in otherCustomTools" :key="t.id" class="check-item">
-                    <label class="check-inner">
-                      <input type="checkbox" :value="t.id" v-model="form.tools" />
+                  <div v-for="t in otherCustomTools" :key="t.id" class="check-item" :class="{ 'is-circular': isCircularDependency(t.id) }">
+                    <label class="check-inner" :title="isCircularDependency(t.id) ? '无法挂载。因为该工具内部已经（直接或间接）依赖了当前工具，挂载将导致死循环。' : ''">
+                      <input type="checkbox" :value="t.id" v-model="form.tools" :disabled="isCircularDependency(t.id)" />
                       <span class="check-name">{{ t.name }}</span>
                       <span class="check-desc">{{ t.description }}</span>
+                      <span v-if="isCircularDependency(t.id)" class="circular-badge">🚫 循环引用</span>
                     </label>
                   </div>
                 </div>
@@ -149,6 +150,40 @@ const availableRecommendedTools = computed(() => {
 const otherCustomTools = computed(() =>
   props.existingCustomTools.filter(t => t.id !== props.initial?.id)
 )
+
+// 深度优先搜索（DFS）检测循环依赖
+function isCircularDependency(targetId, visited = new Set()) {
+  // 如果是创建模式，因为当前工具还没有 ID 且还没被其他工具依赖，所以不可能形成循环
+  if (props.mode === 'create') return false;
+
+  const currentEditingId = props.initial?.id;
+  if (!currentEditingId) return false;
+
+  // 如果顺藤摸瓜找到了当前正在编辑的 ID，说明闭环了！
+  if (targetId === currentEditingId) return true;
+
+  // 避免重复检测同一个节点，防止死循环
+  if (visited.has(targetId)) return false;
+  visited.add(targetId);
+
+  const targetAgent = props.existingCustomTools.find(t => t.id === targetId);
+  if (!targetAgent || !targetAgent.sub_tools || targetAgent.sub_tools.length === 0) {
+    return false;
+  }
+
+  // 递归检查它依赖的那些工具
+  for (const childRef of targetAgent.sub_tools) {
+    // sub_tools 里可能是包含 custom_tool_id 的对象
+    const childId = childRef.custom_tool_id || childRef.name || childRef;
+    // 如果子工具还是一个自建工具，则继续向下挖掘
+    const childAgent = props.existingCustomTools.find(t => t.id === childId);
+    if (childAgent) {
+      if (isCircularDependency(childId, visited)) return true;
+    }
+  }
+
+  return false;
+}
 
 // 被引用的工具名列表
 const referencedBy = computed(() => {
@@ -296,7 +331,25 @@ function handleCancel() {
   padding: 7px 10px; border: 1px solid var(--color-border); border-radius: 7px;
   transition: all 0.15s; background: var(--color-bg);
 }
-.check-item:hover { border-color: var(--color-primary); background: var(--color-primary-muted); }
+.check-item:hover:not(.is-circular) { border-color: var(--color-primary); background: var(--color-primary-muted); }
+
+.check-item.is-circular {
+  background: var(--color-bg-secondary);
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.check-item.is-circular .check-inner {
+  cursor: not-allowed;
+}
+
+.circular-badge {
+  display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0;
+  font-size: 10px; font-weight: 600; color: var(--color-error);
+  padding: 2px 6px; border-radius: 4px;
+  background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2);
+  white-space: nowrap; margin-left: auto;
+}
 
 .check-inner {
   display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer;
