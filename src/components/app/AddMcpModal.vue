@@ -23,34 +23,24 @@
             </div>
 
             <div class="field">
-              <label class="field-label">认证方式</label>
-              <div class="radio-group">
-                <label class="radio-item" :class="{ active: form.authType === 'bearer' }">
-                  <input type="radio" value="bearer" v-model="form.authType" />
-                  Bearer Token
-                </label>
-                <label class="radio-item" :class="{ active: form.authType === 'header' }">
-                  <input type="radio" value="header" v-model="form.authType" />
-                  自定义 Header
-                </label>
+              <div class="field-label-row">
+                <label class="field-label">自定义 Header</label>
+                <button class="btn-text" @click="addHeader">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  添加
+                </button>
+              </div>
+
+              <div class="headers-list">
+                <div v-for="(h, i) in form.headers" :key="i" class="header-row">
+                  <input v-model="h.key" class="field-input header-key" placeholder="Header 名 (如 X-Api-Key)" />
+                  <input v-model="h.value" class="field-input header-value" placeholder="Header 值" type="password" />
+                  <button class="icon-btn-danger" title="删除" @click="removeHeader(i)" :disabled="form.headers.length === 1 && !h.key && !h.value">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
               </div>
             </div>
-
-            <div v-if="form.authType === 'bearer'" class="field">
-              <label class="field-label">Token</label>
-              <input v-model="form.token" class="field-input" placeholder="Bearer token 值" type="password" />
-            </div>
-
-            <template v-if="form.authType === 'header'">
-              <div class="field">
-                <label class="field-label">Header 名</label>
-                <input v-model="form.headerName" class="field-input" placeholder="X-Api-Key" />
-              </div>
-              <div class="field">
-                <label class="field-label">Header 值</label>
-                <input v-model="form.headerValue" class="field-input" placeholder="Header 值" type="password" />
-              </div>
-            </template>
 
             <!-- 连接状态 -->
             <div class="conn-status" :class="connStatusClass">
@@ -106,7 +96,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:visible', 'created'])
 
-const form = ref({ url: '', authType: 'bearer', token: '', headerName: '', headerValue: '' })
+const form = ref({ url: '', headers: [{ key: '', value: '' }] })
 const errors = ref({ url: '' })
 const connState = ref('idle')
 const connError = ref('')
@@ -121,7 +111,7 @@ watch(() => props.visible, (v) => {
   if (v) resetForm()
 })
 
-watch(() => [form.value.url, form.value.authType, form.value.token, form.value.headerName, form.value.headerValue], () => {
+watch(() => [form.value.url, form.value.headers], () => {
   if (connState.value !== 'idle') {
     connState.value = 'idle'
     foundTools.value = []
@@ -129,11 +119,22 @@ watch(() => [form.value.url, form.value.authType, form.value.token, form.value.h
 }, { deep: true })
 
 function resetForm() {
-  form.value = { url: '', authType: 'bearer', token: '', headerName: '', headerValue: '' }
+  form.value = { url: '', headers: [{ key: '', value: '' }] }
   errors.value = { url: '' }
   connState.value = 'idle'
   connError.value = ''
   foundTools.value = []
+}
+
+function addHeader() {
+  form.value.headers.push({ key: '', value: '' })
+}
+
+function removeHeader(index) {
+  form.value.headers.splice(index, 1)
+  if (form.value.headers.length === 0) {
+    form.value.headers.push({ key: '', value: '' })
+  }
 }
 
 function validate() {
@@ -151,7 +152,7 @@ async function testConn() {
   connError.value = ''
   foundTools.value = []
   try {
-    const res = await mockApi.testMcp(props.appId, { url: form.value.url, authType: form.value.authType, token: form.value.token, headerName: form.value.headerName, headerValue: form.value.headerValue })
+    const res = await mockApi.testMcp(props.appId, { url: form.value.url, authType: 'header', headers: form.value.headers.filter(h => h.key.trim()) })
     if (res.code === 0) {
       connState.value = 'success'
       foundTools.value = res.data.tools || []
@@ -171,10 +172,8 @@ async function handleAdd() {
   if (!validate()) return
   const res = await mockApi.createMcp(props.appId, {
     url: form.value.url.trim(),
-    authType: form.value.authType,
-    token: form.value.token,
-    headerName: form.value.headerName,
-    headerValue: form.value.headerValue,
+    authType: 'header',
+    headers: form.value.headers.filter(h => h.key.trim()),
     tool_count: foundTools.value.length,
     enabled: true,
   })
@@ -235,16 +234,24 @@ async function handleAdd() {
 .field-input.error { border-color: #ef4444; }
 .field-error { font-size: 11px; color: #ef4444; }
 
-.radio-group { display: flex; gap: 8px; }
-.radio-item {
-  display: flex; align-items: center; gap: 6px;
-  padding: 7px 12px; border-radius: var(--radius-md);
-  border: 1.5px solid var(--color-border);
-  cursor: pointer; font-size: 13px; color: var(--color-text-secondary);
-  transition: all 0.15s; user-select: none;
+.field-label-row { display: flex; align-items: center; justify-content: space-between; }
+.btn-text {
+  background: none; border: none; font-size: 12px; color: var(--color-primary); cursor: pointer;
+  display: flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; font-weight: 500;
 }
-.radio-item.active { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-muted); }
-.radio-item input { accent-color: var(--color-primary); }
+.btn-text:hover { background: var(--color-primary-soft); }
+
+.headers-list { display: flex; flex-direction: column; gap: 8px; }
+.header-row { display: flex; gap: 8px; align-items: center; }
+.header-key { flex: 1; min-width: 0; }
+.header-value { flex: 1; min-width: 0; }
+.icon-btn-danger {
+  width: 28px; height: 28px; border: none; background: none; color: var(--color-text-muted);
+  border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all 0.15s;
+}
+.icon-btn-danger:hover:not(:disabled) { color: #ef4444; background: rgba(239,68,68,0.1); }
+.icon-btn-danger:disabled { opacity: 0.3; cursor: not-allowed; }
 
 .conn-status {
   display: flex; align-items: center; gap: 7px;
