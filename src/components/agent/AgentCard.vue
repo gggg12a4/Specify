@@ -1,13 +1,16 @@
 <template>
-  <div class="app-card">
+  <div class="app-card" :class="{ 'is-template': agent.isTemplate }">
     <div class="card-body">
       <!-- 顶部：名称 -->
       <div class="card-top">
-        <h3 class="app-name">{{ agent.name }}</h3>
+        <h3 class="app-name">
+          {{ agent.name }}
+          <span v-if="agent.isTemplate" class="template-badge">💡 官方模板</span>
+        </h3>
       </div>
 
       <!-- 平台标识 -->
-      <div v-if="platformLabel" class="platform-tag">{{ platformLabel }}</div>
+      <div v-if="platformLabel && !agent.isTemplate" class="platform-tag">{{ platformLabel }}</div>
 
       <!-- 描述 -->
       <p class="app-desc">{{ agent.description || '暂无描述' }}</p>
@@ -18,16 +21,24 @@
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
           </svg>
-          {{ toolCount }} 个工具
+          {{ toolCount }} 个预置工具
         </span>
       </div>
 
       <!-- 操作按钮 -->
       <div class="card-actions">
-        <button class="act-btn" @click="$emit('edit', agent.id)">编辑</button>
-        <button class="act-btn" style="display:none" @click="$emit('advanced', agent)">高级配置</button>
-        <button class="act-btn act-run" @click="$emit('run', agent.id)">运行</button>
-        <button class="act-btn act-delete" @click="$emit('delete', agent)">删除</button>
+        <template v-if="agent.isTemplate">
+          <button class="act-btn act-run" style="flex: 1;" @click="$emit('use-template', agent)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            一键使用该模板
+          </button>
+        </template>
+        <template v-else>
+          <button class="act-btn" @click.stop="$emit('edit', agent.id)">编辑</button>
+          <button class="act-btn" style="display:none" @click.stop="$emit('advanced', agent)">高级配置</button>
+          <button class="act-btn act-run" @click.stop="$emit('run', agent.id)">运行</button>
+          <button class="act-btn act-delete" @click.stop="$emit('delete', agent)">删除</button>
+        </template>
       </div>
     </div>
   </div>
@@ -41,7 +52,7 @@ import { PLATFORM_LABELS } from '@/constants/spTools'
 const props = defineProps({
   agent: { type: Object, required: true }
 })
-const emit = defineEmits(['edit', 'run', 'delete', 'advanced'])
+const emit = defineEmits(['edit', 'run', 'delete', 'advanced', 'use-template'])
 
 const appStore = useAppStore()
 const toolCount = computed(() => appStore.getEnabledToolCount(props.agent))
@@ -61,6 +72,13 @@ const platformLabel = computed(() => PLATFORM_LABELS[props.agent.platform] || ''
 .app-card:hover {
   border-color: var(--color-text-muted);
   box-shadow: var(--shadow-md);
+}
+.app-card.is-template {
+  background: linear-gradient(to bottom right, var(--color-surface), rgba(254, 243, 199, 0.15));
+  border-color: rgba(252, 211, 77, 0.5); /* amber-300 soft */
+}
+.app-card.is-template:hover {
+  border-color: #f59e0b; /* amber-500 */
 }
 
 .card-body {
@@ -85,9 +103,24 @@ const platformLabel = computed(() => PLATFORM_LABELS[props.agent.platform] || ''
   line-height: 1.3;
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.template-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: #d97706; /* amber-600 */
+  background: #fef3c7; /* amber-100 */
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
 }
 
 .app-desc {

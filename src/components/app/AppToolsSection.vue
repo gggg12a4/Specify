@@ -1,9 +1,9 @@
 <template>
   <div class="tools-section">
 
-    <!-- ── 推荐工具（SP 工具，按平台过滤） ── -->
+    <!-- ── 平台工具（包含内置 SP 工具和平台特殊工具） ── -->
     <div class="group">
-      <div class="group-label">推荐工具</div>
+      <div class="group-label">平台工具</div>
 
       <div v-for="tool in visibleSpTools" :key="tool.key"
         class="tool-row" :class="{ active: tools[tool.key]?.enabled }">
@@ -29,14 +29,8 @@
           ⚠️ 需要同时启用 SPread、SPglob 才能正常工作
         </div>
       </div>
-    </div>
 
-    <!-- ── 平台特殊工具（仅显示当前平台支持的） ── -->
-    <template v-if="visibleSpecialTools.length">
-      <div class="divider"></div>
-      <div class="group">
-        <div class="group-label">平台工具</div>
-
+      <template v-if="visibleSpecialTools.length">
         <div v-for="tool in visibleSpecialTools" :key="tool.key"
           class="tool-row" :class="{ active: specialTools[tool.key]?.enabled }">
           <label class="tool-check">
@@ -61,8 +55,8 @@
             当前: {{ specialTools[tool.key].sub_model }}
           </div>
         </div>
-      </div>
-    </template>
+      </template>
+    </div>
 
     <div class="divider"></div>
 
@@ -136,13 +130,6 @@
       :current-sub-model="specialTools[subModelTool.key]?.sub_model || null"
       @confirm="handleSubModelConfirm"
     />
-
-    <EnableToolModal
-      v-model:visible="showEnableModal"
-      :tool="enableTarget"
-      @confirm="handleEnableConfirm"
-      @cancel="handleEnableCancel"
-    />
   </div>
 </template>
 
@@ -151,7 +138,6 @@ import { ref, computed } from 'vue'
 import { SP_TOOLS, SPECIAL_TOOLS, PLATFORM_TOOLS } from '@/constants/spTools'
 import ToolCreateModal from './ToolCreateModal.vue'
 import ToolSubModelModal from './ToolSubModelModal.vue'
-import EnableToolModal from './EnableToolModal.vue'
 
 const props = defineProps({
   tools: { type: Object, required: true },
@@ -164,10 +150,8 @@ const emit = defineEmits(['update:tools', 'update:customTools', 'update:specialT
 const showCreate = ref(false)
 const showEdit = ref(false)
 const showSubModel = ref(false)
-const showEnableModal = ref(false)
 const editTarget = ref(null)
 const subModelTool = ref(null)
-const enableTarget = ref(null)
 
 const visibleSpTools = computed(() =>
   SP_TOOLS.filter(t => PLATFORM_TOOLS[props.platform]?.includes(t.key))
@@ -208,28 +192,7 @@ function handleSubModelConfirm(subModelId) {
 }
 
 function toggleCustomTool(ct, checked) {
-  if (!checked) {
-    updateCustomTool(ct.id, { enabled: false })
-    return
-  }
-  // Already has an LM configured → enable directly
-  if (ct.lm_id) {
-    updateCustomTool(ct.id, { enabled: true })
-    return
-  }
-  // Need to select an LM first
-  enableTarget.value = ct
-  showEnableModal.value = true
-}
-
-function handleEnableConfirm(lmId) {
-  if (!enableTarget.value) return
-  updateCustomTool(enableTarget.value.id, { enabled: true, lm_id: lmId })
-  enableTarget.value = null
-}
-
-function handleEnableCancel() {
-  enableTarget.value = null
+  updateCustomTool(ct.id, { enabled: checked })
 }
 
 function updateCustomTool(id, updates) {

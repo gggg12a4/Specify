@@ -47,11 +47,20 @@ export function useApiConfig() {
   }
 
   /**
-   * 检查配置池是否有密钥
+   * 按平台检查配置池是否有可用的密钥
+   */
+  function hasKeyForPlatform(platform) {
+    const keys = getKeys()
+    if (!keys || keys.length === 0) return false
+    return keys.some(k => k.platform === platform && k.apiKey)
+  }
+
+  /**
+   * 检查配置池是否有任何密钥
    */
   function hasKeys() {
     const keys = getKeys()
-    return keys && keys.length > 0 && keys.some(k => k.apiKey && k.baseUrl)
+    return keys && keys.length > 0 && keys.some(k => k.apiKey)
   }
 
   /**
@@ -75,6 +84,22 @@ export function useApiConfig() {
   }
 
   /**
+   * 按 ID 查找特定配置
+   */
+  function getConfig(id) {
+    const keys = getKeys()
+    return keys.find(k => k.id === id) || null
+  }
+
+  /**
+   * 获取某平台下的默认密钥（通常返回第一个找到的）
+   */
+  function getDefaultKeyForPlatform(platform) {
+    const keys = getKeys()
+    return keys.find(k => k.platform === platform && k.apiKey) || null
+  }
+
+  /**
    * 添加新密钥
    */
   function addKey(keyData) {
@@ -82,6 +107,7 @@ export function useApiConfig() {
     const newKey = {
       id: Date.now().toString(36) + Math.random().toString(36).substring(2, 7),
       alias: keyData.alias || '未命名密钥',
+      platform: keyData.platform || 'claude', // 必须有归属平台
       baseUrl: keyData.baseUrl || '',
       apiKey: keyData.apiKey || ''
     }
@@ -130,9 +156,12 @@ export function useApiConfig() {
     getKeys,
     saveKeys,
     hasKeys,
+    hasKeyForPlatform,
+    getDefaultKeyForPlatform,
     addKey,
     updateKey,
     deleteKey,
     clearConfig
   }
 }
+

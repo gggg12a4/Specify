@@ -107,19 +107,22 @@ export function createSession(sessionData = {}) {
   }
 
   // 真实 API: POST /api/sessions
-  const { getConfig } = useApiConfig()
-  const config = getConfig()
+  const { getKeys } = useApiConfig()
+  const keys = getKeys() || []
+  // For backwards compatibility in this file, try to find a key or just pass nulls if none.
+  // The actual app logic usually picks the key before calling this, or the backend handles it.
+  const firstKey = keys.length > 0 ? keys[0] : {}
 
   const requestBody = {
     system_prompt: sessionData.system_prompt || null,
-    model: config.qwen?.model || null,
-    api_key: config.qwen?.apiKey || null,
-    api_base: config.qwen?.baseUrl || null,
-    sp_api_key: config.sp?.apiKey || null,
-    sp_base_url: config.sp?.baseUrl || null,
-    sp_app: config.sp?.app || null,
-    sp_user: config.sp?.user || null,
-    tools: sessionData.tools || config.tools || []
+    model: firstKey.model || null,
+    api_key: firstKey.apiKey || null,
+    api_base: firstKey.baseUrl || null,
+    sp_api_key: null,
+    sp_base_url: null,
+    sp_app: null,
+    sp_user: null,
+    tools: sessionData.tools || []
   }
 
   return request({

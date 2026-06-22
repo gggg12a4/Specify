@@ -248,7 +248,6 @@
     :platform="app?.platform || 'claude'"
     :app-id="app?.id || ''"
     :can-close="runConfigured"
-    :is-owner="isOwner"
     @confirm="onRunConfigConfirm"
   />
 </template>
@@ -264,13 +263,14 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import InputDialog from '@/components/common/InputDialog.vue'
 import RunConfigModal from '@/components/common/RunConfigModal.vue'
 import { createPreviewURL, revokePreviewURL, detectContentType, fileToBase64 } from '@/utils/file'
-import * as mockApi from '@/api/mockApi'
+import { useApiConfig } from '@/composables/useApiConfig'
 import * as chatApi from '@/api/chat'
 import * as sessionApi from '@/api/session'
 
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
+const { hasKeyForPlatform } = useApiConfig()
 
 const app = computed(() => appStore.getApp(route.params.id))
 
@@ -386,27 +386,21 @@ onMounted(async () => {
 
   if (!app.value) return
 
-  try {
-    inputTokens.value = 0
-    outputTokens.value = 0
-
-    const cfgRes = await mockApi.getRunConfig(app.value.id)
-    const stalePlatformOwner = isOwner.value && cfgRes.data?.billing_mode === 'platform'
-    if (cfgRes.code === 0 && cfgRes.data?.configured && !stalePlatformOwner) {
-      runConfigured.value = true
-      runConfigMode.value = cfgRes.data.billing_mode || 'self_key'
-    } else {
-      showRunConfig.value = true
-    }
-  } catch (e) {
-    console.error(e)
+  // double check logic for JIT API Validation
+  if (!hasKeyForPlatform(app.value.platform)) {
+    runConfigured.value = false
     showRunConfig.value = true
+  } else {
+    runConfigured.value = true
   }
 })
 
 function onRunConfigConfirm(cfg) {
   runConfigured.value = true
-  runConfigMode.value = cfg.billing_mode
+
+  if (inputText.value.trim() || uploadedFiles.value.length) {
+    send()
+  }
 }
 
 watch(messages, () => {

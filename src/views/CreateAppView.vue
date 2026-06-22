@@ -20,7 +20,7 @@
             v-model="form.name"
             class="field-input"
             :class="{ error: errors.name }"
-            placeholder="给你的 App 起个名字"
+            placeholder="全英文或下划线，例如：my_agent"
             maxlength="50"
             @keydown.enter="handleSubmit"
           />
@@ -43,7 +43,14 @@
 
       <div class="platform-section">
         <h2 class="section-title">选择平台</h2>
-        <p class="section-hint">选择一个 AI 平台，决定你的 App 可以使用哪些能力和工具。</p>
+        <p class="section-hint">
+          <template v-if="isFromTemplate">
+            该模板基于特定能力构建，平台已被锁定为 {{ currentPlatform?.label }}。
+          </template>
+          <template v-else>
+            选择一个 AI 平台，决定你的 App 可以使用哪些能力和工具。
+          </template>
+        </p>
 
         <div class="platform-layout">
           <!-- 左侧列表 -->
@@ -53,7 +60,9 @@
               :key="p.key"
               class="platform-item"
               :class="{ active: selectedPlatform === p.key }"
+              :disabled="isFromTemplate && selectedPlatform !== p.key"
               @click="selectedPlatform = p.key"
+              :style="{ opacity: isFromTemplate && selectedPlatform !== p.key ? '0.4' : '1', cursor: isFromTemplate && selectedPlatform !== p.key ? 'not-allowed' : 'pointer' }"
             >
               <span class="p-indicator">{{ selectedPlatform === p.key ? '▶' : '' }}</span>
               <span class="p-name">{{ p.label }}</span>
@@ -97,15 +106,18 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 
 const router = useRouter()
+const route = useRoute()
 const appStore = useAppStore()
 
 const nameRef = ref(null)
 const submitting = ref(false)
 const selectedPlatform = ref('claude')
+const isFromTemplate = ref(false)
+const templateData = ref(null)
 
 const form = ref({ name: '', description: '' })
 const errors = ref({ name: '' })
@@ -159,6 +171,14 @@ function validate() {
     errors.value.name = 'App 名称不能为空'
     return false
   }
+
+  // 校验规则：仅支持全英文+下划线
+  const namePattern = /^[a-zA-Z_]+$/;
+  if (!namePattern.test(form.value.name.trim())) {
+    errors.value.name = 'App 名称仅支持全英文和下划线'
+    return false
+  }
+
   return true
 }
 
@@ -168,17 +188,58 @@ async function handleSubmit() {
     return
   }
   submitting.value = true
-  const app = appStore.addApp({
+
+  let appData = {
     name: form.value.name.trim(),
     description: form.value.description.trim(),
     platform: selectedPlatform.value,
-  })
+  }
+
+  // 如果是从模板克隆，合并模板的数据（系统提示词、工具配置等）
+  if (isFromTemplate.value && templateData.value) {
+    const tplData = JSON.parse(JSON.stringify(templateData.value))
+    delete tplData.id
+    delete tplData.isTemplate
+    appData = { ...tplData, ...appData } // 让刚填写的 name/desc/platform 覆盖模板原本的名字
+  }
+
+  const app = appStore.addApp(appData)
+
+  // 创建后清空模板缓存
+  if (isFromTemplate.value) {
+    localStorage.removeItem('specify_template_clone')
+  }
+
   submitting.value = false
-  router.push({ name: 'AppIntro', params: { id: app.id } })
+  // 无论是否是从模板创建，都直接跳到 AppEdit (由上一次的对话讨论可知不需要进Intro)
+  router.push({ name: 'AppEdit', params: { id: app.id } })
 }
 
 onMounted(() => {
+  if (route.query.fromTemplate === 'true') {
+    isFromTemplate.value = true
+    const savedTpl = localStorage.getItem('specify_template_clone')
+    if (savedTpl) {
+      try {
+        templateData.value = JSON.parse(savedTpl)
+        form.value.name = templateData.value.name || ''
+        form.value.description = templateData.value.description || ''
+        if (templateData.value.platform) {
+          selectedPlatform.value = templateData.value.platform
+        }
+      } catch (e) {
+        console.error('Failed to parse template clone data')
+      }
+    }
+  }
+
   nameRef.value?.focus()
+  if (isFromTemplate.value) {
+    // 如果是克隆模式，选中文本方便直接修改
+    setTimeout(() => {
+      nameRef.value?.select()
+    }, 50)
+  }
 })
 </script>
 

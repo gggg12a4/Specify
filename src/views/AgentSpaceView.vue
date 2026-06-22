@@ -20,6 +20,11 @@
         </div>
 
         <div v-else class="app-grid">
+          <!-- 空数据引导提示 (仅在没数据时显示) -->
+          <div v-if="appStore.apps.length === 0" class="empty-guide-message">
+            看起来你还没有创建任何应用，试试从模板开始，或者从零开始构建吧！
+          </div>
+
           <!-- 固定的从零创建卡片 -->
           <button class="create-app-card" @click="handleCreateApp">
             <div class="create-icon">
@@ -31,12 +36,17 @@
             <span class="create-text">从零开始创建</span>
           </button>
 
-          <!-- App 列表 -->
+          <!-- App 列表 (如果有数据) -->
           <AgentCard v-for="app in pagedApps" :key="app.id" :agent="app"
             @edit="(id) => router.push({ name: 'AppEdit', params: { id } })"
             @run="handleRunApp"
-            @advanced="openAdvanced"
             @delete="handleDeleteApp" />
+
+          <!-- 官方模板展示 (没数据时显示) -->
+          <template v-if="appStore.apps.length === 0">
+            <AgentCard v-for="tpl in officialTemplates" :key="tpl.id" :agent="tpl"
+              @use-template="handleTemplateClick" />
+          </template>
         </div>
 
         <!-- 分页器 -->
@@ -49,19 +59,14 @@
       </section>
     </main>
 
-    <!-- 创建 App 弹窗 -->
-    <CreateAppModal v-model:visible="showCreateApp" @created="handleAppCreated" />
-
     <!-- 强制添加 API Key 弹窗 (JIT Interception) -->
-    <ApiConfigModal
+    <RunConfigModal
+      v-if="pendingApp"
       v-model:visible="showApiConfigModal"
-      :addMode="true"
-      @saved="onApiKeyAdded"
+      :app-id="pendingApp.id"
+      :platform="pendingApp.platform"
+      @confirm="onApiKeyAdded"
     />
-
-    <!-- 高级配置 -->
-    <AppAdvancedConfigModal v-if="advancedApp" :app="advancedApp"
-      @save="(d) => { appStore.updateApp(advancedApp.id, d); advancedApp = null; }" @close="advancedApp = null" />
 
     <!-- 删除 App 确认弹窗 -->
     <DeleteAppModal v-if="deleteTarget" :app="deleteTarget" @confirm="confirmDeleteApp" @cancel="deleteTarget = null" />
@@ -78,29 +83,66 @@
  * 展示三块内容：我创建的 App、平台推荐 App、最近使用的 App。
  * 未登录时可浏览推荐区，创建/使用 App 需先登录。
  */
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
 import { useApiConfig } from '@/composables/useApiConfig'
+import { showInfo } from '@/composables/useNotification'
 import { PLATFORM_LABELS } from '@/constants/spTools'
 import AgentCard from '@/components/agent/AgentCard.vue'
-import AppAdvancedConfigModal from '@/components/app/AppAdvancedConfigModal.vue'
-import CreateAppModal from '@/components/app/CreateAppModal.vue'
 import DeleteAppModal from '@/components/app/DeleteAppModal.vue'
 import AuthModal from '@/components/common/AuthModal.vue'
-import ApiConfigModal from '@/components/common/ApiConfigModal.vue'
+import RunConfigModal from '@/components/common/RunConfigModal.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const appStore = useAppStore()
-const { hasKeys } = useApiConfig()
+const { hasKeyForPlatform } = useApiConfig()
 
 const PAGE_SIZE = 11       // 我创建的 App 每页条数 (留一个位置给创建卡片)
 
+// ── 官方模板数据 ──
+const officialTemplates = [
+  {
+    id: 'tpl_doc',
+    name: 'document_analyzer',
+    description: '上传长文档，快速提取核心观点、总结段落大意，并支持针对文档内容进行问答。',
+    isTemplate: true,
+    system_prompt: '你是一个专业的文档分析助手。你的主要任务是帮助用户快速理解长文档。请始终保持客观、准确，并能够从给定的文本中提取关键信息。',
+    platform: 'claude',
+    tools: {
+      SPread: { enabled: true, config: { max_line_length: 2000, file: true, max_file_size: 20 } },
+      SPglob: { enabled: true, config: {} }
+    }
+  },
+  {
+    id: 'tpl_web',
+    name: 'web_summarizer',
+    description: '输入任意网页链接，自动抓取网页正文内容并生成精炼的结构化总结。',
+    isTemplate: true,
+    system_prompt: '你是一个网页摘要专家。请在阅读网页内容后，提取出最重要的信息，并以结构化的方式（如要点、大纲）呈现给用户。',
+    platform: 'qwen',
+    tools: {
+      SPread: { enabled: true, config: { file_url: true } }
+    }
+  },
+  {
+    id: 'tpl_code',
+    name: 'code_reviewer',
+    description: '专业的 Code Review 智能体，帮你检查代码规范、发现潜在 Bug 并提供优化建议。',
+    isTemplate: true,
+    system_prompt: '你是一个资深的软件工程师。请对用户提供的代码进行严格审查。指出潜在的性能问题、安全漏洞、不符合最佳实践的地方，并给出改进后的代码示例。',
+    platform: 'claude',
+    tools: {
+      SPread: { enabled: true, config: { max_line_length: 2000 } },
+      SPedit: { enabled: true, config: {} },
+      SPglob: { enabled: true, config: {} }
+    }
+  }
+]
+
 // ── 弹窗 / 面板状态 ──
-const showCreateApp = ref(false)
-const advancedApp = ref(null)
 const deleteTarget = ref(null)
 const showAuthModal = ref(false)
 const showApiConfigModal = ref(false)
@@ -108,6 +150,7 @@ const currentPage = ref(1)
 
 // JIT 拦截状态
 const pendingRunAppId = ref(null)
+const pendingApp = computed(() => pendingRunAppId.value ? appStore.getApp(pendingRunAppId.value) : null)
 
 // 我创建的 App 分页
 const pagedApps = computed(() => {
@@ -116,33 +159,70 @@ const pagedApps = computed(() => {
 })
 const totalPages = computed(() => Math.ceil(appStore.apps.length / PAGE_SIZE))
 
-function handleOuterClick() { }
+// ── 动态微引导 (Dynamic Banner) Logic ──
+const banners = computed(() => {
+  const name = authStore.currentUser?.nickname || authStore.currentUser?.phone || '开发者'
+  return [
+    { icon: '👋', text: `下午好，${name}。开始构建你的专属智能体吧。` },
+    { icon: '💡', text: 'Tip: 在开发页的指令中输入 @ 可以快速引用文件库。' },
+    { icon: '✨', text: 'Tip: 遇到问题？尝试查看官方提供的模板。' },
+    { icon: '🚀', text: 'Tip: 给应用起一个清晰的名字，能让你的工作区更井井有条。' }
+  ]
+})
+
+const currentBannerIndex = ref(0)
+const currentBanner = computed(() => banners.value[currentBannerIndex.value])
+let bannerTimer = null
+
+onMounted(() => {
+  const hour = new Date().getHours()
+  let greeting = '你好'
+  if (hour < 12) greeting = '上午好'
+  else if (hour < 18) greeting = '下午好'
+  else greeting = '晚上好'
+
+  const name = authStore.currentUser?.nickname || authStore.currentUser?.phone || '开发者'
+  banners.value[0].text = `${greeting}，${name}。开始构建你的专属智能体吧。`
+
+  bannerTimer = setInterval(() => {
+    currentBannerIndex.value = (currentBannerIndex.value + 1) % banners.value.length
+  }, 10000)
+})
+
+onUnmounted(() => {
+  if (bannerTimer) clearInterval(bannerTimer)
+})
+
+function handleOuterClick() {}
 
 function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-/** 创建 App：未登录先弹登录框，已登录跳转创建页 */
-function handleCreateApp() {
-  if (!authStore.isAuthenticated) {
-    showAuthModal.value = true
-    return
+  /** 创建 App：未登录先弹登录框，已登录跳转创建页 */
+  function handleCreateApp() {
+    if (!authStore.isAuthenticated) {
+      showAuthModal.value = true
+      return
+    }
+    router.push({ name: 'AppCreate' })
   }
-  router.push({ name: 'AppCreate' })
-}
 
 /** 拦截运行操作 (JIT Interception) */
 function handleRunApp(appId) {
-  if (!hasKeys()) {
+  const app = appStore.getApp(appId)
+  if (!app) return
+
+  // 检查是否配置了该平台模型
+  if (!hasKeyForPlatform(app.platform)) {
     pendingRunAppId.value = appId
-    showApiConfigModal.value = true
+    showApiConfigModal.value = true // 这里弹出RunConfigModal
   } else {
     executeRunApp(appId)
   }
 }
 
-/** 成功添加 API Key 后的回调 */
-function onApiKeyAdded() {
+function onApiKeyAdded(payload) {
   if (pendingRunAppId.value) {
     const appId = pendingRunAppId.value
     pendingRunAppId.value = null
@@ -154,9 +234,12 @@ function executeRunApp(appId) {
   router.push({ name: 'AppDevRun', params: { id: appId }, query: { mode: 'debug' } })
 }
 
-/** 创建完成后进入引导页，介绍文件空间用法 */
-function handleAppCreated(app) {
-  router.push({ name: 'AppIntro', params: { id: app.id } })
+/** 一键克隆模板并跳转：跳转到完整的 CreateAppView 页面 */
+function handleTemplateClick(tpl) {
+  // 把模板存进 localStorage 或者通过 state 传递，因为 URL query 可能太长
+  // 简单起见，这里先把整个 tpl 存起来传给 router state，或者直接通过 query 传 id
+  localStorage.setItem('specify_template_clone', JSON.stringify(tpl))
+  router.push({ name: 'AppCreate', query: { fromTemplate: 'true' } })
 }
 
 function openAdvanced(app) {
@@ -288,6 +371,17 @@ function onLoggedIn() {
   border-radius: 20px;
 }
 
+.empty-guide-message {
+  grid-column: 1 / -1; /* 跨越整个网格宽度 */
+  background: rgba(99, 102, 241, 0.06);
+  border: 1px solid var(--color-primary-soft);
+  color: var(--color-primary);
+  padding: 14px 20px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
 .app-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -403,5 +497,49 @@ function onLoggedIn() {
 .modal-enter-from,
 .modal-leave-to {
   opacity: 0;
+}
+
+/* Dynamic Banner (从顶层移入) */
+.dynamic-banner-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.dynamic-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-bg-secondary);
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
+}
+
+.banner-icon {
+  font-size: 14px;
+}
+
+.banner-text {
+  font-weight: 500;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 </style>

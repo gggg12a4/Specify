@@ -9,10 +9,10 @@
         </router-link>
       </div>
 
-      <!-- Dynamic Banner (动态微引导) -->
-      <div class="header-center" v-if="authStore.isAuthenticated">
+      <!-- 中间作为动态 banner 容器 -->
+      <div class="header-center">
         <Transition name="fade" mode="out-in">
-          <div class="dynamic-banner" :key="currentBannerIndex">
+          <div v-if="authStore.isAuthenticated && isWorkspace" class="dynamic-banner" :key="currentBannerIndex">
             <span class="banner-icon">{{ currentBanner.icon }}</span>
             <span class="banner-text">{{ currentBanner.text }}</span>
           </div>
@@ -81,16 +81,25 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import ApiConfigModal from '@/components/common/ApiConfigModal.vue'
 import { showInfo } from '@/composables/useNotification'
 
+const route = useRoute()
 const authStore = useAuthStore()
 const showMyModels = ref(false)
 const showLogoutConfirm = ref(false)
 const showDropdown = ref(false)
 
-// --- 动态微引导 (Dynamic Banner) Logic ---
+const userInitial = computed(() => {
+  const name = authStore.currentUser?.nickname || authStore.currentUser?.phone || 'U'
+  return String(name).charAt(0).toUpperCase()
+})
+
+// ── 动态微引导 (Dynamic Banner) Logic ──
+const isWorkspace = computed(() => route.path === '/developer/workspace')
+
 const banners = computed(() => {
   const name = authStore.currentUser?.nickname || authStore.currentUser?.phone || '开发者'
   return [
@@ -106,7 +115,6 @@ const currentBanner = computed(() => banners.value[currentBannerIndex.value])
 let bannerTimer = null
 
 onMounted(() => {
-  // 根据时间调整问候语
   const hour = new Date().getHours()
   let greeting = '你好'
   if (hour < 12) greeting = '上午好'
@@ -116,7 +124,6 @@ onMounted(() => {
   const name = authStore.currentUser?.nickname || authStore.currentUser?.phone || '开发者'
   banners.value[0].text = `${greeting}，${name}。开始构建你的专属智能体吧。`
 
-  // Rotate banner every 10 seconds
   bannerTimer = setInterval(() => {
     currentBannerIndex.value = (currentBannerIndex.value + 1) % banners.value.length
   }, 10000)
@@ -124,12 +131,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (bannerTimer) clearInterval(bannerTimer)
-})
-// ----------------------------------------
-
-const userInitial = computed(() => {
-  const name = authStore.currentUser?.nickname || authStore.currentUser?.phone || 'U'
-  return String(name).charAt(0).toUpperCase()
 })
 
 function toggleDropdown() {
@@ -187,46 +188,8 @@ function handleLogout() {
 .brand-name { font-size: 16px; font-weight: 600; color: var(--color-text); display: flex; align-items: center; gap: 6px; }
 .role-badge { font-size: 10px; background: var(--color-primary-soft); color: var(--color-primary); padding: 2px 6px; border-radius: 4px; font-weight: 700; }
 
-/* Dynamic Banner */
 .header-center {
   flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0 20px;
-  overflow: hidden;
-}
-
-.dynamic-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  background: var(--color-bg-secondary);
-  padding: 4px 16px;
-  border-radius: 20px;
-  border: 1px solid var(--color-border);
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-.banner-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.4s ease, transform 0.4s ease;
-}
-.fade-enter-from {
-  opacity: 0;
-  transform: translateY(4px);
-}
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
 }
 
 .header-right { display: flex; align-items: center; gap: 12px; }
@@ -344,4 +307,47 @@ function handleLogout() {
 /* Modal styles for logout */
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
 .dialog { background: var(--color-surface); border-radius: 16px; width: 100%; max-width: 320px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+
+/* Dynamic Banner */
+.header-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dynamic-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-bg-secondary);
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
+}
+
+.banner-icon {
+  font-size: 14px;
+}
+
+.banner-text {
+  font-weight: 500;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
 </style>

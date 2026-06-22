@@ -65,11 +65,6 @@ const routes = [
         component: () => import('@/views/CreateAppView.vue')
       },
       {
-        path: 'app/:id/intro',
-        name: 'AppIntro',
-        component: () => import('@/views/AppIntroView.vue')
-      },
-      {
         path: 'app/:id/edit',
         name: 'AppEdit',
         component: () => import('@/views/AppEditView.vue')
