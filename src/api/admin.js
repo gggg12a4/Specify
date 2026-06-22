@@ -1,3 +1,7 @@
+/**
+ * 平台管理后台 API（真实后端 / JeecgBoot）。
+ * 开发者门户、终端用户门户请使用 @/api/mockApi.js。
+ */
 import request from './request'
 import { encryptPassword } from '@/utils/crypto'
 

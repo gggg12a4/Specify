@@ -75,12 +75,6 @@
             </div>
 
             <span v-if="errorMsg" class="error-msg">{{ errorMsg }}</span>
-
-            <label class="share-check">
-              <input type="checkbox" v-model="form.is_public" />
-              <span class="share-label">分享给其他开发者使用</span>
-              <span class="share-hint">（平台可能将此工具推荐给其他开发者）</span>
-            </label>
           </div>
 
           <div class="dialog-footer">
@@ -140,7 +134,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:visible', 'confirm', 'cancel'])
 
-const form = reactive({ name: '', description: '', system_prompt: '', tools: [], toolConfigs: {}, is_public: false })
+const form = reactive({ name: '', description: '', system_prompt: '', tools: [], toolConfigs: {} })
 const errorMsg = ref('')
 const configTool = ref(null)
 const pendingConfig = reactive({})
@@ -201,10 +195,9 @@ watch(() => props.visible, v => {
       form.system_prompt = props.initial.system_prompt || ''
       form.tools         = subToolsToFlat(props.initial.sub_tools || props.initial.tools || [])
       form.toolConfigs   = { ...(props.initial.tool_configs || {}) }
-      form.is_public     = !!props.initial.is_public
     } else {
       form.name = ''; form.description = ''; form.system_prompt = ''
-      form.tools = []; form.toolConfigs = {}; form.is_public = false
+      form.tools = []; form.toolConfigs = {}
     }
   }
 })
@@ -233,7 +226,6 @@ function handleConfirm() {
     system_prompt: form.system_prompt.trim(),
     sub_tools:     flatToSubTools(form.tools),
     tool_configs:  { ...form.toolConfigs },
-    is_public:     form.is_public,
   })
   emit('update:visible', false)
 }
@@ -332,11 +324,6 @@ function handleCancel() {
 .cfg-btn.configured { color: var(--color-primary); }
 
 .error-msg { font-size: 12px; color: var(--color-error); }
-
-.share-check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.share-check input { accent-color: var(--color-primary); width: 14px; height: 14px; flex-shrink: 0; }
-.share-label { font-size: 13px; color: var(--color-text); }
-.share-hint { font-size: 12px; color: var(--color-text-muted); }
 
 .dialog-footer {
   display: flex; justify-content: flex-end; gap: 8px;

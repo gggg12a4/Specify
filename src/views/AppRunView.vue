@@ -266,7 +266,6 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import InputDialog from '@/components/common/InputDialog.vue'
 import RunConfigModal from '@/components/common/RunConfigModal.vue'
 import { createPreviewURL, revokePreviewURL, detectContentType, fileToBase64 } from '@/utils/file'
-import * as adminApi from '@/api/admin'
 import * as chatApi from '@/api/chat'
 import * as sessionApi from '@/api/session'
 

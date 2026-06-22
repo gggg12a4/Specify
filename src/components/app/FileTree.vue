@@ -209,7 +209,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import * as adminApi from '@/api/admin'
+import * as mockApi from '@/api/mockApi'
 
 const props = defineProps({
   appId: { type: String, default: '' },

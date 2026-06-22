@@ -88,7 +88,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import * as adminApi from '@/api/admin'
+import * as mockApi from '@/api/mockApi'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },

@@ -233,19 +233,21 @@ web/
 | `specify_apps_v2` | `app` | 开发者创建的 App 列表 |
 | `specify_model_prefs` / `specify_api_keys` | `lm` | 模型偏好与 BYOK Key |
 
-### 后端接口文档
+### 后端接口
 
-详细接口定义见 `接口文档/` 目录：
+| 模块 | 文件 | 说明 |
+|------|------|------|
+| 平台管理 | `src/api/admin.js` | 真实后端（JeecgBoot），仅 admin 门户使用 |
+| 开发者 / 用户 | `src/api/mockApi.js` | Mock API（localStorage），developer / user 门户使用 |
 
-- `平台接口文档.md`
-- `模型列表接口文档.md`
-- `agent工具.md`
-- `MCP工具.md`
-- `表单模板.md`
-- `文件系统接口.md`
-- `删除接口.md`
+登录入口也按角色分离：
 
-管理后台 API 封装在 `src/api/admin.js`，聊天相关在 `src/api/chat.js`。
+- **开发者 / 终端用户**：首页「登录 / 注册」→ `AuthModal` → `mockApi.login` / `register`
+- **平台管理员**：首页「管理入口」→ 独立表单 → `admin.js` 的 `login` + 验证码
+
+角色与路由对应：`admin` → `/admin`，`developer` → `/developer`，`user` → `/user`。
+
+详细接口定义见 `接口文档/` 目录。
 
 ---
 

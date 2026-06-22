@@ -1,10 +1,9 @@
 <template>
   <div class="app-card">
     <div class="card-body">
-      <!-- 顶部：名称 + 公开角标 -->
+      <!-- 顶部：名称 -->
       <div class="card-top">
         <h3 class="app-name">{{ agent.name }}</h3>
-        <span v-if="agent.is_public" class="badge-public">公开</span>
       </div>
 
       <!-- 平台标识 -->
@@ -28,7 +27,6 @@
         <button class="act-btn" @click="$emit('edit', agent.id)">编辑</button>
         <button class="act-btn" style="display:none" @click="$emit('advanced', agent)">高级配置</button>
         <button class="act-btn act-run" @click="$emit('run', agent.id)">运行</button>
-        <button class="act-btn act-share" @click="$emit('share', agent)">分享</button>
         <button class="act-btn act-delete" @click="$emit('delete', agent)">删除</button>
       </div>
     </div>
@@ -43,7 +41,7 @@ import { PLATFORM_LABELS } from '@/constants/spTools'
 const props = defineProps({
   agent: { type: Object, required: true }
 })
-const emit = defineEmits(['edit', 'run', 'share', 'delete', 'advanced'])
+const emit = defineEmits(['edit', 'run', 'delete', 'advanced'])
 
 const appStore = useAppStore()
 const toolCount = computed(() => appStore.getEnabledToolCount(props.agent))
@@ -88,18 +86,6 @@ const platformLabel = computed(() => PLATFORM_LABELS[props.agent.platform] || ''
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.badge-public {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 20px;
-  background: rgba(34,197,94,0.12);
-  color: #16a34a;
-  letter-spacing: 0.3px;
-  flex-shrink: 0;
-  align-self: flex-start;
 }
 
 .app-desc {
@@ -169,12 +155,6 @@ const platformLabel = computed(() => PLATFORM_LABELS[props.agent.platform] || ''
   background: var(--color-primary-hover);
   border-color: var(--color-primary-hover);
   color: #fff;
-}
-
-.act-share:hover {
-  color: var(--color-primary);
-  border-color: var(--color-primary);
-  background: var(--color-primary-soft);
 }
 
 .act-delete:hover {

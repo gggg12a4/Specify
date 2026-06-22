@@ -38,7 +38,8 @@
         <div v-else class="app-grid">
           <AgentCard v-for="app in pagedApps" :key="app.id" :agent="app"
             @edit="(id) => router.push({ name: 'AppEdit', params: { id } })"
-            @run="(id) => router.push({ name: 'AppRun', params: { id } })" @share="openShare" @advanced="openAdvanced"
+            @run="(id) => router.push({ name: 'AppDevRun', params: { id }, query: { mode: 'debug' } })"
+            @advanced="openAdvanced"
             @delete="handleDeleteApp" />
         </div>
 
@@ -50,67 +51,6 @@
           <button class="page-btn" :disabled="currentPage === totalPages" @click="currentPage++">›</button>
         </div>
       </section>
-
-      <!-- 推荐 App -->
-      <section class="section">
-        <div class="section-head">
-          <h2 class="section-title">推荐 App</h2>
-        </div>
-
-        <div v-if="!visibleRecommended.length" class="empty-state empty-state-sm">
-          <p class="empty-title">暂无推荐</p>
-        </div>
-
-        <div v-else class="app-grid">
-          <div v-for="rapp in visibleRecommended" :key="rapp.id" class="rec-card">
-            <div class="rec-card-body">
-              <div class="rec-top">
-                <h3 class="rec-name">{{ rapp.name }}</h3>
-                <span v-if="rapp.platform" class="rec-platform">{{ PLATFORM_LABELS[rapp.platform] || rapp.platform }}</span>
-              </div>
-              <p class="rec-desc">{{ rapp.description }}</p>
-              <div class="rec-from">来自: {{ rapp.creator_nickname }}</div>
-            </div>
-            <button class="act-btn act-use" @click="handleUseApp(rapp.id)">使用</button>
-          </div>
-        </div>
-
-        <div v-if="hasMoreRecommended" class="load-more-wrap">
-          <button class="btn-ghost btn-load-more" @click="loadMoreRecommended">查看更多</button>
-        </div>
-      </section>
-
-      <!-- 最近使用 -->
-      <section class="section">
-        <div class="section-head">
-          <h2 class="section-title">最近使用</h2>
-        </div>
-
-        <!-- 未登录提示 -->
-        <div v-if="!authStore.isAuthenticated" class="empty-state empty-state-sm">
-          <p class="empty-title">登录后可查看最近使用的 App</p>
-        </div>
-        <!-- 已登录空状态 -->
-        <div v-else-if="!appStore.recentApps.length" class="empty-state empty-state-sm">
-          <div class="empty-illus" style="font-size:32px;opacity:0.3;margin-bottom:10px">📭</div>
-          <p class="empty-title">还没有使用过其他人的 App，去推荐区看看吧</p>
-        </div>
-
-        <div v-else class="app-grid">
-          <div v-for="rapp in appStore.recentApps" :key="rapp.id" class="rec-card">
-            <div class="rec-card-body">
-              <div class="rec-top">
-                <h3 class="rec-name">{{ rapp.name }}</h3>
-              </div>
-              <div class="rec-from">来自: {{ rapp.creator_nickname }}</div>
-            </div>
-            <button class="act-btn act-use"
-              @click="router.push({ name: 'AppRun', params: { id: rapp.id }, query: { mode: 'formal' } })">
-              打开
-            </button>
-          </div>
-        </div>
-      </section>
     </main>
 
     <!-- 创建 App 弹窗 -->
@@ -119,9 +59,6 @@
     <!-- 高级配置 -->
     <AppAdvancedConfigModal v-if="advancedApp" :app="advancedApp"
       @save="(d) => { appStore.updateApp(advancedApp.id, d); advancedApp = null; }" @close="advancedApp = null" />
-
-    <!-- 分享弹窗 -->
-    <ShareModal v-model:visible="showShare" :app="shareApp" />
 
     <!-- 删除 App 确认弹窗 -->
     <DeleteAppModal v-if="deleteTarget" :app="deleteTarget" @confirm="confirmDeleteApp" @cancel="deleteTarget = null" />
@@ -145,28 +82,22 @@ import { useAppStore } from '@/stores/app'
 import { PLATFORM_LABELS } from '@/constants/spTools'
 import AgentCard from '@/components/agent/AgentCard.vue'
 import AppAdvancedConfigModal from '@/components/app/AppAdvancedConfigModal.vue'
-import ShareModal from '@/components/app/ShareModal.vue'
 import CreateAppModal from '@/components/app/CreateAppModal.vue'
 import DeleteAppModal from '@/components/app/DeleteAppModal.vue'
 import AuthModal from '@/components/common/AuthModal.vue'
-import * as adminApi from '@/api/admin'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const appStore = useAppStore()
 
 const PAGE_SIZE = 12       // 我创建的 App 每页条数
-const REC_PAGE_SIZE = 6    // 推荐 App 每次「加载更多」增量
 
 // ── 弹窗 / 面板状态 ──
 const showCreateApp = ref(false)
 const advancedApp = ref(null)
-const showShare = ref(false)
-const shareApp = ref(null)
 const deleteTarget = ref(null)
 const showAuthModal = ref(false)
 const currentPage = ref(1)
-const visibleRecCount = ref(REC_PAGE_SIZE)
 
 // 我创建的 App 分页
 const pagedApps = computed(() => {
@@ -174,14 +105,6 @@ const pagedApps = computed(() => {
   return appStore.apps.slice(start, start + PAGE_SIZE)
 })
 const totalPages = computed(() => Math.ceil(appStore.apps.length / PAGE_SIZE))
-
-// 推荐 App 加载更多
-const visibleRecommended = computed(() => appStore.recommendedApps.slice(0, visibleRecCount.value))
-const hasMoreRecommended = computed(() => visibleRecCount.value < appStore.recommendedApps.length)
-
-function loadMoreRecommended() {
-  visibleRecCount.value += REC_PAGE_SIZE
-}
 
 function handleOuterClick() { }
 
@@ -203,22 +126,8 @@ function handleAppCreated(app) {
   router.push({ name: 'AppIntro', params: { id: app.id } })
 }
 
-/** 使用他人 App：正式模式运行（mode=formal） */
-function handleUseApp(id) {
-  if (!authStore.isAuthenticated) {
-    showAuthModal.value = true
-    return
-  }
-  router.push({ name: 'AppRun', params: { id }, query: { mode: 'formal' } })
-}
-
 function openAdvanced(app) {
   advancedApp.value = app
-}
-
-function openShare(app) {
-  shareApp.value = app
-  showShare.value = true
 }
 
 function handleDeleteApp(app) {
@@ -234,26 +143,8 @@ function confirmDeleteApp() {
 
 function onLoggedIn() {
   showAuthModal.value = false
-  loadPageData()
 }
 
-onMounted(loadPageData)
-
-async function loadPageData() {
-  // 推荐 App
-  const recRes = await mockApi.getRecommendedApps(0, 6)
-  if (recRes.code === 0) {
-    appStore.setRecommendedApps(recRes.data.items)
-    _recHasMore.value = recRes.data.has_more
-  }
-  // 最近使用（需登录）
-  if (authStore.isAuthenticated) {
-    const recentRes = await mockApi.getRecentApps()
-    if (recentRes.code === 0) appStore.setRecentApps(recentRes.data)
-  }
-}
-
-const _recHasMore = ref(false)
 </script>
 
 <style scoped>
@@ -395,105 +286,7 @@ const _recHasMore = ref(false)
   line-height: 1.6;
 }
 
-/* Rec card */
-.rec-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 18px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  transition: all 0.18s;
-}
-
-.rec-card:hover {
-  border-color: var(--color-text-muted);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
-}
-
-.rec-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1;
-}
-
-.rec-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.rec-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0;
-}
-
-.rec-platform {
-  font-size: 11px;
-  padding: 2px 7px;
-  border-radius: 10px;
-  background: var(--color-hover);
-  color: var(--color-text-muted);
-  white-space: nowrap;
-}
-
-.rec-desc {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  margin: 0;
-  line-height: 1.55;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.rec-from {
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
-
-.act-btn {
-  padding: 7px 0;
-  font-size: 12px;
-  font-weight: 500;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-  width: 100%;
-}
-
-.act-use {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #fff;
-}
-
-.act-use:hover {
-  background: var(--color-primary-hover);
-}
-
-/* 加载更多 */
-.load-more-wrap {
-  display: flex;
-  justify-content: center;
-  padding-top: 8px;
-}
-
-.btn-load-more {
-  min-width: 120px;
-}
-
-/* 分页器 */
+/* Empty state */
 .pagination {
   display: flex;
   align-items: center;

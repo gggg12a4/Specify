@@ -50,9 +50,6 @@ function defaultApp(data = {}) {
     // 开发者自定义子 Agent / 工具
     custom_tools: data.custom_tools || [],
     mcp_services: data.mcp_services || [],
-    // 分享与计费
-    share_billing_mode: data.share_billing_mode || 'user_pay',
-    mcp_credential_modes: data.mcp_credential_modes || {},
     // 高级运行参数（原 advanced 嵌套字段，现扁平到顶层）
     tool_timeout: data.tool_timeout ?? 30,
     max_steps: data.max_steps ?? 20,
@@ -66,8 +63,6 @@ function defaultApp(data = {}) {
     allowed_urls: data.allowed_urls ?? [],
     workspace_base_url: data.workspace_base_url ?? '',
     workspace_api_key: data.workspace_api_key ?? '',
-    is_public: data.is_public ?? false,
-    share_code: data.share_code ?? '',
     created_at: data.created_at || new Date().toISOString()
   }
 }
@@ -75,18 +70,6 @@ function defaultApp(data = {}) {
 export const useAppStore = defineStore('appStore', () => {
   /** 当前用户创建的 App 列表 */
   const apps = ref([])
-
-  /** 平台推荐 App，由 AgentSpaceView 接口加载后覆盖 */
-  const recommendedApps = ref([
-    { id: 'rec_1', name: '面试助手', description: '帮你准备技术面试', creator_nickname: '官方', is_public: true },
-    { id: 'rec_2', name: '英语老师', description: '全英文沉浸式对话', creator_nickname: 'TomEnglish', is_public: true },
-  ])
-
-  /** 最近使用过的他人 App，需登录后从接口加载 */
-  const recentApps = ref([
-    { id: 'shared_1', name: '面试助手', creator_nickname: '张三', last_used_at: '2026-04-20T10:00:00Z' },
-    { id: 'shared_2', name: '英语老师', creator_nickname: '李四', last_used_at: '2026-04-18T08:00:00Z' },
-  ])
 
   const hasApps = computed(() => apps.value.length > 0)
 
@@ -143,7 +126,6 @@ export const useAppStore = defineStore('appStore', () => {
       allowed_urls: adv.allowed_urls,
       workspace_base_url: a.workspace?.base_url || '',
       workspace_api_key: a.workspace?.api_key || '',
-      is_public: a.share ?? false,
       created_at: a.created_at
     })
   }
@@ -198,18 +180,8 @@ export const useAppStore = defineStore('appStore', () => {
     return spCount + specialCount + customCount + mcpCount
   }
 
-  function setRecommendedApps(items) {
-    recommendedApps.value = items
-  }
-
-  function setRecentApps(items) {
-    recentApps.value = items
-  }
-
   return {
     apps,
-    recommendedApps,
-    recentApps,
     hasApps,
     initApps,
     addApp,
@@ -217,7 +189,5 @@ export const useAppStore = defineStore('appStore', () => {
     deleteApp,
     getApp,
     getEnabledToolCount,
-    setRecommendedApps,
-    setRecentApps,
   }
 })

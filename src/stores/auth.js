@@ -1,9 +1,10 @@
 /**
  * 用户认证状态（Pinia）。
  *
- * 登录态持久化到 localStorage，供路由守卫和请求拦截器读取。
- * 角色分三类：admin（平台后台）、developer（创建 App）、user（运行 App），
- * 其中 developer / user 在前端逻辑上等价，均非 admin。
+ * 角色与 API 层对应关系：
+ * - admin     → @/api/admin.js（真实后端登录，见 HomepageView 管理入口）
+ * - developer → @/api/mockApi.js（开发者门户，创建/编辑 App）
+ * - user      → @/api/mockApi.js（终端用户门户，运行 App）
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
@@ -17,10 +18,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!token.value && currentUser.value !== null)
 
-  const isAdmin = computed(() => currentUser.value?.role === 'admin')
-  /** 非 admin 即视为开发者门户用户（developer / user 角色共用） */
-  const isDeveloper = computed(() => !!currentUser.value && currentUser.value.role !== 'admin')
-  const isUser = computed(() => !!currentUser.value && currentUser.value.role !== 'admin')
+  const userRole = computed(() => currentUser.value?.role || null)
+
+  const isAdmin = computed(() => userRole.value === 'admin')
+  const isDeveloper = computed(() => userRole.value === 'developer')
+  const isUser = computed(() => userRole.value === 'user')
+
+  /** 非 admin 的门户用户（developer 或 user） */
+  const isPortalUser = computed(() => isDeveloper.value || isUser.value)
 
   /** 头像占位首字：英文取大写，中文等直接取首字符 */
   const userInitial = computed(() => {
@@ -83,10 +88,12 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     token,
     currentUser,
+    userRole,
     isAuthenticated,
     isAdmin,
     isDeveloper,
     isUser,
+    isPortalUser,
     userInitial,
     initAuth,
     login,

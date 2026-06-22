@@ -98,7 +98,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import * as adminApi from '@/api/admin'
+import * as mockApi from '@/api/mockApi'
 
 const PLATFORM_MODELS = {
   claude:   [{ id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', desc: '平衡能力与速度' }, { id: 'claude-opus-4-7', name: 'Claude Opus 4.7', desc: '最强推理，速度较慢' }, { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5', desc: '最快最便宜' }],

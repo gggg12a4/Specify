@@ -12,7 +12,6 @@
       <div class="nav-links">
         <a class="nav-link" href="#features">功能</a>
         <a class="nav-link" href="#steps">上手流程</a>
-        <a class="nav-link" href="#showcase">agent 市场</a>
       </div>
       <template v-if="authStore.isAuthenticated">
         <span class="nav-user">{{ authStore.currentUser?.nickname || authStore.currentUser?.phone }}</span>
@@ -48,7 +47,6 @@
             <span>创建 agent</span>
             <span>→</span>
           </a>
-          <a class="btn-hero btn-hero-secondary" href="#showcase">浏览 agent 市场</a>
         </div>
 
         <!-- product mockup -->
@@ -122,9 +120,8 @@
         <div class="audience-grid">
           <div class="aud-card">
             <div class="aud-icon-wrap v1">🎯</div>
-            <h3 class="aud-h3">直接用现成的 agent</h3>
-            <p class="aud-body">面试备战、英语练习、代码审查、数据分析……社区里已有人帮你做好了。挑一个，马上开始，不需要配置任何东西。</p>
-            <a class="link-arrow" href="#showcase">浏览 agent 市场 <span>→</span></a>
+            <h3 class="aud-h3">适合任何角色</h3>
+            <p class="aud-body">无论你是产品经理、运营人员、还是独立开发者。只要你有想法，这里就是让想法落地的最佳工具台。</p>
           </div>
           <div class="aud-card">
             <div class="aud-icon-wrap v2">🔧</div>
@@ -171,11 +168,6 @@
             <h3 class="feat-h3">多模型支持</h3>
             <p class="feat-body">支持 Claude、Gemini、OpenAI 三大平台，可使用平台提供的模型，也可自带密钥（BYOK）使用自己的 API。</p>
           </div>
-          <div class="feat-card">
-            <div class="feat-icon fi-6">🔗</div>
-            <h3 class="feat-h3">一键分享发布</h3>
-            <p class="feat-body">调试满意后，生成一个链接发给任何人，无需部署，无需服务器，对方直接使用你搭好的 Agent。</p>
-          </div>
         </div>
 
         <div class="evo-card">
@@ -220,33 +212,8 @@
           </div>
           <div class="step-card">
             <span class="step-num">Step 03</span>
-            <h3 class="step-h3">运行、调试、一键分享</h3>
-            <p class="step-body">在调试模式里测到满意，生成一个链接，发给任何人，他们不需要注册，直接就能用你搭好的 Agent。</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-
-    <!-- ══ SHOWCASE ══ -->
-    <section class="section showcase-section" id="showcase">
-      <div class="section-inner">
-        <div class="centered">
-          <span class="sec-label">推荐 agent</span>
-          <h2 class="sec-h2">已经有人<br /><strong>帮你做好了</strong></h2>
-          <p class="sec-body">浏览社区里的现成 agent，直接使用，或者作为你构建 Agent 的起点。</p>
-        </div>
-        <div class="agents-grid">
-          <div v-for="agent in showcaseAgents" :key="agent.name" class="agent-card">
-            <div class="agent-row">
-              <div>
-                <div class="agent-name">{{ agent.name }}</div>
-                <div class="agent-by">来自: {{ agent.by }}</div>
-              </div>
-              <div v-if="agent.badge" class="agent-badge">{{ agent.badge }}</div>
-            </div>
-            <p class="agent-desc">{{ agent.desc }}</p>
-            <a class="agent-link" href="#" @click.prevent="handleUseAgent(agent.id)">立即使用 <span>→</span></a>
+            <h3 class="step-h3">运行、调试与固化</h3>
+            <p class="step-body">在调试模式里测到满意，固化配置，投入你的真实业务流程之中发挥价值。</p>
           </div>
         </div>
       </div>
@@ -260,9 +227,8 @@
         <p class="cta-body">不需要技术背景，不需要提前配置任何东西。写下你的想法，Specify 把它变成现实。</p>
         <div class="cta-btns">
           <a class="btn-cta-primary" href="#" @click.prevent="handleCreateAgent">创建我的第一个 agent →</a>
-          <a class="btn-cta-ghost" href="#showcase">浏览现成 agent</a>
         </div>
-        <p class="cta-note">免费使用 · 随时分享给他人</p>
+        <p class="cta-note">快速上手 · 构建私有工具</p>
       </div>
     </section>
 
@@ -362,12 +328,19 @@ function openRegister() {
   showAuthModal.value = true
 }
 
+function portalPath() {
+  const role = authStore.userRole
+  if (role === 'admin') return '/admin'
+  if (role === 'user') return '/user/home'
+  return '/developer/workspace'
+}
+
 function onLoggedIn() {
-  window.open('/workspace', '_blank')
+  window.open(portalPath(), '_blank')
 }
 
 function goToWorkspace() {
-  window.open('/workspace', '_blank')
+  window.open(portalPath(), '_blank')
 }
 
 function openAdminLogin() {
@@ -424,22 +397,9 @@ async function doAdminLogin() {
 
 function handleCreateAgent() {
   if (!authStore.isAuthenticated) { openLogin(); return }
-  window.open('/workspace', '_blank')
+  window.open(portalPath(), '_blank')
 }
 
-function handleUseAgent(id) {
-  if (!authStore.isAuthenticated) { openLogin(); return }
-  router.push({ name: 'AppRun', params: { id } })
-}
-
-const showcaseAgents = [
-  { id: 'demo', name: '面试助手',  by: '官方',       badge: '官方', desc: '模拟面试官提问并给出专业反馈，帮你充分备战技术面试。' },
-  { id: 'demo', name: '英语老师',  by: 'TomEnglish', badge: null,   desc: '全英文沉浸式对话练习，帮你提升口语和写作能力。' },
-  { id: 'demo', name: '代码审查器', by: '官方',       badge: '官方', desc: '自动审查代码质量，找出潜在 bug 和优化建议。' },
-  { id: 'demo', name: '写作助理',  by: '文字匠',      badge: null,   desc: '帮你打磨文章结构、措辞和逻辑，让表达更清晰有力。' },
-  { id: 'demo', name: '数据分析师', by: '官方',       badge: '官方', desc: '上传 CSV 或表格文件，自动分析数据趋势并生成报告。' },
-  { id: 'demo', name: 'SQL 助手',  by: 'DBMaster',   badge: null,   desc: '自然语言生成 SQL 语句，支持 MySQL、PostgreSQL 等。' },
-]
 </script>
 
 <style scoped>
@@ -1261,93 +1221,6 @@ const showcaseAgents = [
   line-height: 1.75;
 }
 
-/* ─── SHOWCASE ─── */
-.showcase-section {
-  background: var(--canvas);
-}
-
-.agents-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-top: 56px;
-}
-
-.agent-card {
-  background: var(--canvas);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 24px;
-  box-shadow: var(--shadow-sm);
-  transition: transform .2s, box-shadow .2s;
-}
-
-.agent-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
-}
-
-.agent-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
-}
-
-.agent-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.agent-name {
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.018em;
-  color: var(--ink);
-  margin-bottom: 2px;
-}
-
-.agent-by {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.agent-badge {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--purple);
-  background: var(--purple-bg);
-  border: 1px solid var(--border-2);
-  border-radius: 100px;
-  padding: 3px 9px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.agent-desc {
-  font-size: 14px;
-  font-weight: 300;
-  color: var(--body);
-  line-height: 1.65;
-  margin-bottom: 20px;
-  min-height: 44px;
-}
-
-.agent-link {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--purple);
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: gap .15s;
-}
-
-.agent-link:hover {
-  gap: 8px;
-}
-
 /* ─── CTA ─── */
 .cta-section {
   background: linear-gradient(140deg, #0f0a2e 0%, #1a1060 40%, #0d1a4a 100%);
@@ -1509,7 +1382,6 @@ const showcaseAgents = [
   .feat-grid { grid-template-columns: 1fr 1fr; }
   .evo-card { grid-template-columns: 1fr; gap: 32px; }
   .steps-grid { grid-template-columns: 1fr; }
-  .agents-grid { grid-template-columns: 1fr 1fr; }
   .nav-links { display: none; }
   .section { padding: 72px 24px; }
   .hero { padding: 72px 24px 64px; }
@@ -1517,7 +1389,6 @@ const showcaseAgents = [
 
 @media (max-width: 600px) {
   .feat-grid { grid-template-columns: 1fr; }
-  .agents-grid { grid-template-columns: 1fr; }
   .hero-ctas { flex-direction: column; align-items: center; }
   .cta-btns { flex-direction: column; align-items: center; }
   .nav { padding: 0 20px; }

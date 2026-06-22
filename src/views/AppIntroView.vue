@@ -153,7 +153,6 @@
         <ol class="next-list">
           <li>前往开发页面，编写系统提示词，启用需要的工具</li>
           <li>如有 App 资料，可在开发页面上传到 shared/</li>
-          <li>调试满意后，通过分享功能生成链接给其他人使用</li>
         </ol>
         <router-link :to="{ name: 'AppEdit', params: { id: appId } }" class="cta-btn">
           前往开发页面 →

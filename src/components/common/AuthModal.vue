@@ -68,6 +68,7 @@
 <script setup>
 import { ref, reactive, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import * as mockApi from '@/api/mockApi'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -82,7 +83,7 @@ const loginError = ref('')
 const regError = ref('')
 
 const loginForm = reactive({ phone: '', password: '' })
-const regForm = reactive({ phone: '', password: '', confirm: '', role: 'developer' })
+const regForm = reactive({ phone: '', password: '', confirm: '' })
 
 watch(() => props.visible, (v) => {
   if (v) {
@@ -92,7 +93,6 @@ watch(() => props.visible, (v) => {
     regForm.phone = ''
     regForm.password = ''
     regForm.confirm = ''
-    regForm.role = 'developer'
     loginError.value = ''
     regError.value = ''
   }
@@ -123,7 +123,7 @@ async function handleRegister() {
   if (regForm.password !== regForm.confirm) { regError.value = '两次密码不一致'; return }
   submitting.value = true
   try {
-    const res = await mockApi.register(regForm.phone, regForm.password, regForm.confirm, regForm.role)
+    const res = await mockApi.register(regForm.phone, regForm.password, regForm.confirm, 'developer')
     if (res.code !== 0) { regError.value = res.message; return }
     authStore.login(res.data)
     emit('update:visible', false)
@@ -273,33 +273,6 @@ async function handleRegister() {
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.role-selector {
-  display: flex;
-  gap: 10px;
-}
-.role-option {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-.role-option input {
-  display: none;
-}
-.role-option.selected {
-  border-color: var(--color-primary);
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
-  font-weight: 500;
 }
 
 .modal-enter-active,

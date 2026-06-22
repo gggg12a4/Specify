@@ -73,6 +73,12 @@ const routes = [
         path: 'app/:id/edit',
         name: 'AppEdit',
         component: () => import('@/views/AppEditView.vue')
+      },
+      {
+        path: 'app/:id/run',
+        name: 'AppDevRun',
+        component: () => import('@/views/AppRunView.vue'),
+        meta: { requiresAuth: true, role: 'developer' }
       }
     ]
   },
@@ -116,6 +122,12 @@ const router = createRouter({
   routes
 })
 
+function portalHomePath(role) {
+  if (role === 'admin') return '/admin'
+  if (role === 'user') return '/user/home'
+  return '/developer/workspace'
+}
+
 router.beforeEach((to) => {
   const authStore = useAuthStore()
 
@@ -124,25 +136,19 @@ router.beforeEach((to) => {
     return { path: '/' }
   }
 
-  // 2. 角色隔离：admin 只能进 /admin，其他角色不能进 /admin
+  // 2. 角色隔离：admin / developer / user 各进各的门户
   if (to.meta.requiresAuth && authStore.isAuthenticated) {
-    const userRole = authStore.currentUser?.role || 'developer'
+    const userRole = authStore.userRole || 'developer'
     const requiredRole = to.meta.role
 
-    if (requiredRole === 'admin' && userRole !== 'admin') {
-      return { path: '/developer/workspace' }
-    }
-
-    if (requiredRole !== 'admin' && userRole === 'admin') {
-      return { path: '/admin' }
+    if (requiredRole && userRole !== requiredRole) {
+      return { path: portalHomePath(userRole) }
     }
   }
 
   // 3. 已登录用户访问首页时，自动跳转到对应门户
   if (to.path === '/' && authStore.isAuthenticated) {
-    const userRole = authStore.currentUser?.role || 'developer'
-    if (userRole === 'admin') return { path: '/admin' }
-    return { path: '/developer/workspace' }
+    return { path: portalHomePath(authStore.userRole || 'developer') }
   }
 
   return true
