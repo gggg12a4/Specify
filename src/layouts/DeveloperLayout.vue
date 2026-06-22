@@ -9,6 +9,16 @@
         </router-link>
       </div>
 
+      <!-- Dynamic Banner (动态微引导) -->
+      <div class="header-center" v-if="authStore.isAuthenticated">
+        <Transition name="fade" mode="out-in">
+          <div class="dynamic-banner" :key="currentBannerIndex">
+            <span class="banner-icon">{{ currentBanner.icon }}</span>
+            <span class="banner-text">{{ currentBanner.text }}</span>
+          </div>
+        </Transition>
+      </div>
+
       <div class="header-right">
         <template v-if="authStore.isAuthenticated">
           <div class="user-avatar-wrap" @click.stop="toggleDropdown">
@@ -70,7 +80,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import ApiConfigModal from '@/components/common/ApiConfigModal.vue'
 import Toast from '@/components/common/Toast.vue'
@@ -79,6 +89,43 @@ const authStore = useAuthStore()
 const showMyModels = ref(false)
 const showLogoutConfirm = ref(false)
 const showDropdown = ref(false)
+
+// --- 动态微引导 (Dynamic Banner) Logic ---
+const banners = computed(() => {
+  const name = authStore.currentUser?.nickname || authStore.currentUser?.phone || '开发者'
+  return [
+    { icon: '👋', text: `下午好，${name}。开始构建你的专属智能体吧。` },
+    { icon: '💡', text: 'Tip: 在开发页的指令中输入 @ 可以快速引用文件库。' },
+    { icon: '✨', text: 'Tip: 遇到问题？尝试查看官方提供的模板。' },
+    { icon: '🚀', text: 'Tip: 给应用起一个清晰的名字，能让你的工作区更井井有条。' }
+  ]
+})
+
+const currentBannerIndex = ref(0)
+const currentBanner = computed(() => banners.value[currentBannerIndex.value])
+let bannerTimer = null
+
+onMounted(() => {
+  // 根据时间调整问候语
+  const hour = new Date().getHours()
+  let greeting = '你好'
+  if (hour < 12) greeting = '上午好'
+  else if (hour < 18) greeting = '下午好'
+  else greeting = '晚上好'
+
+  const name = authStore.currentUser?.nickname || authStore.currentUser?.phone || '开发者'
+  banners.value[0].text = `${greeting}，${name}。开始构建你的专属智能体吧。`
+
+  // Rotate banner every 10 seconds
+  bannerTimer = setInterval(() => {
+    currentBannerIndex.value = (currentBannerIndex.value + 1) % banners.value.length
+  }, 10000)
+})
+
+onUnmounted(() => {
+  if (bannerTimer) clearInterval(bannerTimer)
+})
+// ----------------------------------------
 
 const userInitial = computed(() => {
   const name = authStore.currentUser?.nickname || authStore.currentUser?.phone || 'U'
@@ -139,6 +186,48 @@ function handleLogout() {
 .brand-mark { width: 28px; height: 28px; background: var(--color-text); color: var(--color-surface); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; font-family: monospace; }
 .brand-name { font-size: 16px; font-weight: 600; color: var(--color-text); display: flex; align-items: center; gap: 6px; }
 .role-badge { font-size: 10px; background: var(--color-primary-soft); color: var(--color-primary); padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+
+/* Dynamic Banner */
+.header-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 20px;
+  overflow: hidden;
+}
+
+.dynamic-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  padding: 4px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.banner-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
 
 .header-right { display: flex; align-items: center; gap: 12px; }
 .user-name { font-size: 14px; font-weight: 500; color: var(--color-text); }
