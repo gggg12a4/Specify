@@ -7,14 +7,17 @@
 
       <TransitionGroup name="list-anim" tag="div" class="tools-list-container">
         <div v-for="tool in visibleSpTools" :key="tool.key"
-          class="tool-row" :class="{ active: tools[tool.key]?.enabled }">
+          class="tool-row" :class="{ active: tools[tool.key]?.enabled, 'is-error': isToolError(tool.key) }">
           <label class="tool-check">
             <input type="checkbox"
               :checked="tools[tool.key]?.enabled"
               @change="toggleSPTool(tool.key, $event.target.checked)" />
-            <div class="tool-info">
-              <span class="tool-name">{{ tool.name }}</span>
-              <span class="tool-desc">{{ tool.desc }}</span>
+            <div class="tool-info-wrapper">
+              <div class="tool-info">
+                <span class="tool-name">{{ tool.name }}</span>
+                <span class="tool-desc">{{ tool.desc }}</span>
+                <span v-if="isToolError(tool.key)" class="error-badge" :title="getToolErrorMsg(tool.key)">⚠️ 异常</span>
+              </div>
             </div>
           </label>
           <div class="tool-btns">
@@ -35,14 +38,17 @@
       <template v-if="visibleSpecialTools.length">
         <TransitionGroup name="list-anim" tag="div" class="tools-list-container">
           <div v-for="tool in visibleSpecialTools" :key="tool.key"
-            class="tool-row" :class="{ active: specialTools[tool.key]?.enabled }">
+            class="tool-row" :class="{ active: specialTools[tool.key]?.enabled, 'is-error': isToolError(tool.key) }">
             <label class="tool-check">
               <input type="checkbox"
                 :checked="specialTools[tool.key]?.enabled"
                 @change="toggleSpecialTool(tool.key, $event.target.checked)" />
-              <div class="tool-info">
-                <span class="tool-name">{{ tool.name }}</span>
-                <span class="tool-desc">{{ tool.desc }}</span>
+              <div class="tool-info-wrapper">
+                <div class="tool-info">
+                  <span class="tool-name">{{ tool.name }}</span>
+                  <span class="tool-desc">{{ tool.desc }}</span>
+                  <span v-if="isToolError(tool.key)" class="error-badge" :title="getToolErrorMsg(tool.key)">⚠️ 异常</span>
+                </div>
               </div>
             </label>
             <div class="tool-btns">
@@ -80,18 +86,30 @@
 
       <TransitionGroup name="list-anim" tag="div" class="tools-list-container" v-else>
         <div v-for="ct in sortedCustomTools" :key="ct.id"
-          class="tool-row" :class="{ active: ct.enabled }">
+          class="tool-row" :class="{ active: ct.enabled, 'is-error': isToolError(ct.id) }">
           <label class="tool-check">
             <input type="checkbox" :checked="ct.enabled" @change="toggleCustomTool(ct, $event.target.checked)" />
-            <div class="tool-info">
-              <span class="tool-name">{{ ct.name || '(未命名)' }}</span>
-              <span class="tool-desc">
-                <span v-if="ct.sub_tools?.length" class="nested-badge" title="此工具内部调用了其他工具">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 12h8"/><path d="M12 2v20"/><path d="M22 12h-8"/></svg>
-                  嵌套
+            <div class="tool-info-wrapper">
+              <div class="tool-info">
+                <span class="tool-name">{{ ct.name || '(未命名)' }}</span>
+                <span class="tool-desc">
+                  <span v-if="ct.sub_tools?.length" class="nested-badge" title="此工具内部调用了其他工具">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 12h8"/><path d="M12 2v20"/><path d="M22 12h-8"/></svg>
+                    嵌套
+                  </span>
+                  {{ ct.description || '暂无描述' }}
                 </span>
-                {{ ct.description || '暂无描述' }}
-              </span>
+                <span v-if="isToolError(ct.id)" class="error-badge" :title="getToolErrorMsg(ct.id)">⚠️ 异常</span>
+              </div>
+
+              <div v-if="ct.sub_tools?.length" class="nested-deps">
+                └─ 内部依赖:
+                <span v-for="sub in ct.sub_tools" :key="sub.name || sub.custom_tool_id"
+                      class="dep-item"
+                      :class="{'dep-error': isToolError(sub.name || sub.custom_tool_id)}">
+                  [{{ getToolDisplayName(sub) }}]
+                </span>
+              </div>
             </div>
           </label>
           <div class="tool-btns">
@@ -154,6 +172,10 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:tools', 'update:customTools', 'update:specialTools', 'show-info', 'show-config'])
 
+defineExpose({
+  checkEnabledToolsErrors
+})
+
 const showCreate = ref(false)
 const showEdit = ref(false)
 const showSubModel = ref(false)
@@ -162,6 +184,30 @@ const subModelTool = ref(null)
 
 const allowedTools = ref([])
 const disabledConfigs = ref({})
+
+// Mock layer error states - realistically these would come from an API endpoint
+const mockErrorTools = {
+  'SPgrep': '本地搜索引擎环境未启动，连接超时',
+  'mcp_internal_db': 'MCP 内部数据库服务网络拒绝访问'
+}
+
+function isToolError(key) {
+  return !!mockErrorTools[key]
+}
+
+function getToolErrorMsg(key) {
+  return mockErrorTools[key] || ''
+}
+
+function getToolDisplayName(sub) {
+  if (sub.name) {
+    const builtin = [...SP_TOOLS, ...SPECIAL_TOOLS].find(t => t.key === sub.name)
+    if (builtin) return builtin.name
+    return sub.name
+  }
+  const ct = props.customTools.find(t => t.id === sub.custom_tool_id)
+  return ct?.name || sub.custom_tool_id || '未知工具'
+}
 
 watch(() => props.platform, async (newPlatform) => {
   if (!newPlatform) return
@@ -297,6 +343,47 @@ function handleEditTool(data) {
   )
   emit('update:customTools', list)
 }
+
+function checkEnabledToolsErrors() {
+  const errors = []
+
+  // Check SP tools
+  Object.keys(props.tools).forEach(key => {
+    if (props.tools[key]?.enabled && isToolError(key)) {
+      const t = SP_TOOLS.find(x => x.key === key)
+      errors.push(`【官方工具】${t?.name || key}: ${getToolErrorMsg(key)}`)
+    }
+  })
+
+  // Check Special tools
+  Object.keys(props.specialTools).forEach(key => {
+    if (props.specialTools[key]?.enabled && isToolError(key)) {
+      const t = SPECIAL_TOOLS.find(x => x.key === key)
+      errors.push(`【平台工具】${t?.name || key}: ${getToolErrorMsg(key)}`)
+    }
+  })
+
+  // Check Custom tools
+  props.customTools.forEach(ct => {
+    if (ct.enabled) {
+      if (isToolError(ct.id)) {
+        errors.push(`【自建Agent】${ct.name || ct.id}: ${getToolErrorMsg(ct.id)}`)
+      }
+
+      // Also check dependencies
+      if (ct.sub_tools && ct.sub_tools.length) {
+        ct.sub_tools.forEach(sub => {
+          const subKey = sub.name || sub.custom_tool_id
+          if (isToolError(subKey)) {
+            errors.push(`【自建Agent】${ct.name || ct.id} 的依赖项 [${getToolDisplayName(sub)}] 存在异常`)
+          }
+        })
+      }
+    }
+  })
+
+  return errors
+}
 </script>
 
 <style scoped>
@@ -368,16 +455,27 @@ function handleEditTool(data) {
 .tool-row:hover { background: var(--color-bg-secondary); }
 .tool-row.active { background: var(--color-primary-muted); border-color: var(--color-primary-soft); }
 
+.tool-row.is-error {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.03);
+}
+
 .tool-check {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: flex-start; gap: 12px;
   cursor: pointer; flex: 1; min-width: 0;
+  flex-wrap: wrap;
 }
 .tool-check input[type="checkbox"] {
   width: 16px; height: 16px; flex-shrink: 0;
   accent-color: var(--color-primary); cursor: pointer;
+  margin-top: 3px;
 }
 
-.tool-info { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.tool-info-wrapper {
+  display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 4px;
+}
+
+.tool-info { display: flex; align-items: baseline; gap: 10px; min-width: 0; width: 100%; }
 .tool-name {
   font-size: 13px; font-weight: 600; color: var(--color-text);
   font-family: var(--font-mono); white-space: nowrap;
@@ -386,6 +484,29 @@ function handleEditTool(data) {
   display: flex; align-items: center; gap: 6px;
   font-size: 13px; color: var(--color-text-secondary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.error-badge {
+  display: inline-flex; align-items: center; gap: 2px;
+  font-size: 10px; font-weight: 600; color: var(--color-error, #ef4444);
+  padding: 1px 5px; border-radius: 4px;
+  background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2);
+  flex-shrink: 0; cursor: help; margin-left: auto;
+}
+
+.nested-deps {
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  width: 100%; margin-top: 2px;
+  font-size: 11px; color: var(--color-text-muted); font-family: var(--font-mono);
+}
+
+.dep-item {
+  color: var(--color-text-secondary);
+}
+
+.dep-item.dep-error {
+  color: var(--color-error, #ef4444);
+  font-weight: 600;
 }
 
 .nested-badge {

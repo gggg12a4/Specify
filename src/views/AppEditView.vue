@@ -65,6 +65,7 @@
         <div class="field-group">
           <label class="field-label">工具</label>
           <AppToolsSection
+            ref="toolsSectionRef"
             :tools="form.tools"
             :custom-tools="form.custom_tools"
             :special-tools="form.special_tools"
@@ -158,6 +159,8 @@ const router = useRouter()
 const appStore = useAppStore()
 const app = computed(() => appStore.getApp(route.params.id))
 const platformLabel = computed(() => PLATFORM_LABELS[app.value?.platform] || '')
+
+const toolsSectionRef = ref(null)
 
 const form = reactive({
   system_prompt: '',
@@ -270,6 +273,21 @@ function handleBack() {
 }
 
 async function handleDebug() {
+  if (toolsSectionRef.value) {
+    const errors = toolsSectionRef.value.checkEnabledToolsErrors()
+    if (errors && errors.length > 0) {
+      const msg = `发现以下启用的工具存在异常：\n\n${errors.map(e => `• ${e}`).join('\n')}\n\n是否继续调试？（异常功能将不可用）`
+      const isConfirmed = await showConfirm({
+        title: '⚠️ 运行时异常拦截',
+        message: msg,
+        confirmText: '继续调试',
+        cancelText: '取消',
+        danger: true
+      })
+      if (!isConfirmed) return // 用户取消，阻断进入调试
+    }
+  }
+
   if (isDirty.value) {
     // 方案 A: 发现有未保存修改，先静默执行保存
     await handleSave(true)
