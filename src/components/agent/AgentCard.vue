@@ -50,6 +50,8 @@ const platformLabel = computed(() => PLATFORM_LABELS[props.agent.platform] || ''
 
 <style scoped>
 .app-card {
+  height: 100%;
+  box-sizing: border-box;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -59,13 +61,13 @@ const platformLabel = computed(() => PLATFORM_LABELS[props.agent.platform] || ''
 .app-card:hover {
   border-color: var(--color-text-muted);
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
 }
 
 .card-body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  height: 100%;
 }
 
 .card-top {

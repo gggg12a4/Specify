@@ -242,6 +242,13 @@
     @confirm="handleRenameConfirm"
   />
 
+  <!-- 强制添加 API Key 弹窗 (JIT Interception) -->
+  <ApiConfigModal
+    v-model:visible="showApiConfigModal"
+    :addMode="true"
+    @saved="onApiKeyAdded"
+  />
+
   <!-- 运行配置弹窗 -->
   <RunConfigModal
     v-model:visible="showRunConfig"
@@ -259,12 +266,14 @@
 import { ref, computed, nextTick, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
+import { useApiConfig } from '@/composables/useApiConfig'
 import FileTree from '@/components/app/FileTree.vue'
 import UploadSelector from '@/components/common/UploadSelector.vue'
 import FilePreviewList from '@/components/common/FilePreviewList.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import InputDialog from '@/components/common/InputDialog.vue'
 import RunConfigModal from '@/components/common/RunConfigModal.vue'
+import ApiConfigModal from '@/components/common/ApiConfigModal.vue'
 import { createPreviewURL, revokePreviewURL, detectContentType, fileToBase64 } from '@/utils/file'
 import * as chatApi from '@/api/chat'
 import * as sessionApi from '@/api/session'
@@ -272,6 +281,8 @@ import * as sessionApi from '@/api/session'
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
+const { hasKeys } = useApiConfig()
+
 const app = computed(() => appStore.getApp(route.params.id))
 
 const isDebugMode = computed(() => route.query.mode !== 'formal')
@@ -290,6 +301,7 @@ const textareaRef2 = ref(null)
 const renameDialog = ref({ visible: false, sessionId: null, current: '' })
 const showResetConfirm = ref(false)
 const showRunConfig = ref(false)
+const showApiConfigModal = ref(false)
 const runConfigured = ref(false)
 const hasExistingKey = ref(false)
 const runConfigMode = ref('') // 'dev_pay' or 'self_key'
@@ -384,33 +396,36 @@ function loadSessions() {
 
 onMounted(async () => {
   loadSessions()
-  if (app.value) {
-    // We should use an app-specific endpoint for run config if available.
-    // For now, these were likely mock APIs. Wait, let's see if adminApi has them.
-    // Actually we need to check if getSession, getRunConfig exist in adminApi or we need to implement them or mock them locally.
-    // The build error was: "getSession" is not exported by "src/api/admin.js"
-    // And "getRunConfig", "chatSSE", "chatApprove", "chatCancel", "chatReset".
 
-    // Mock implementations since these don't exist in the real backend yet or have different names.
-    // For the sake of fixing the build, we will stub these out or use sessionApi.
+  // JIT Interception check on mount
+  if (!hasKeys()) {
+    showApiConfigModal.value = true
+  }
+
+  if (app.value) {
     try {
-      // Stub for getting token stats or config
       inputTokens.value = 0
       outputTokens.value = 0
 
+      // Mock run config logic
       const cfgRes = { code: 0, data: { configured: true, billing_mode: 'platform' } }
       if (cfgRes.code === 0 && cfgRes.data.configured) {
         runConfigured.value = true
         hasExistingKey.value = !!cfgRes.data.api_key
         runConfigMode.value = cfgRes.data.billing_mode
       } else {
-        showRunConfig.value = true
+        // showRunConfig.value = true
       }
     } catch (e) {
       console.error(e)
     }
   }
 })
+
+function onApiKeyAdded() {
+  // Key was added via JIT interception, we can proceed or just let the user stay on the screen
+  hasExistingKey.value = true
+}
 
 function onRunConfigConfirm(cfg) {
   runConfigured.value = true
@@ -467,6 +482,13 @@ function handleRemoveFile(id) {
 // ── 发送 ──────────────────────────────────────────────────────────
 async function send() {
   if (!canSend.value) return
+
+  // JIT Interception at send time
+  if (!hasKeys()) {
+    showApiConfigModal.value = true
+    return
+  }
+
   const text = inputText.value.trim()
   inputText.value = ''
   ;[textareaRef.value, textareaRef2.value].forEach(el => { if (el) el.style.height = 'auto' })

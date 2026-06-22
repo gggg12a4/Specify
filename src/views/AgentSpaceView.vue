@@ -6,39 +6,35 @@
       <section class="section">
         <div class="section-head">
           <h2 class="section-title">
-            我创建的 App
-            <span v-if="authStore.isAuthenticated && appStore.apps.length" class="count">{{ appStore.apps.length
-              }}</span>
+            我的创作
+            <span v-if="authStore.isAuthenticated && appStore.apps.length" class="count">{{ appStore.apps.length }}</span>
           </h2>
-          <button class="btn-primary btn-sm" @click="handleCreateApp">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            创建 App
-          </button>
         </div>
 
         <!-- 未登录空状态 -->
         <div v-if="!authStore.isAuthenticated" class="empty-state">
-          <p class="empty-title">还没有创建过 App，点击右上角创建你的第一个 App</p>
-        </div>
-        <!-- 已登录空状态 -->
-        <div v-else-if="!appStore.apps.length" class="empty-state">
-          <div class="empty-illus">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"
-              stroke-linecap="round">
-              <rect x="3" y="3" width="18" height="18" rx="4" />
-              <path d="M8 12h8M12 8v8" />
-            </svg>
-          </div>
-          <p class="empty-title">还没有创建过 App，点击右上角创建你的第一个 App</p>
+          <p class="empty-title">登录后即可开始构建你的专属智能体</p>
+          <button class="btn-primary mt-4" @click="showAuthModal = true">
+            登录 / 注册
+          </button>
         </div>
 
         <div v-else class="app-grid">
+          <!-- 固定的从零创建卡片 -->
+          <button class="create-app-card" @click="handleCreateApp">
+            <div class="create-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </div>
+            <span class="create-text">从零开始创建</span>
+          </button>
+
+          <!-- App 列表 -->
           <AgentCard v-for="app in pagedApps" :key="app.id" :agent="app"
             @edit="(id) => router.push({ name: 'AppEdit', params: { id } })"
-            @run="(id) => router.push({ name: 'AppDevRun', params: { id }, query: { mode: 'debug' } })"
+            @run="handleRunApp"
             @advanced="openAdvanced"
             @delete="handleDeleteApp" />
         </div>
@@ -55,6 +51,13 @@
 
     <!-- 创建 App 弹窗 -->
     <CreateAppModal v-model:visible="showCreateApp" @created="handleAppCreated" />
+
+    <!-- 强制添加 API Key 弹窗 (JIT Interception) -->
+    <ApiConfigModal
+      v-model:visible="showApiConfigModal"
+      :addMode="true"
+      @saved="onApiKeyAdded"
+    />
 
     <!-- 高级配置 -->
     <AppAdvancedConfigModal v-if="advancedApp" :app="advancedApp"
@@ -79,25 +82,32 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
+import { useApiConfig } from '@/composables/useApiConfig'
 import { PLATFORM_LABELS } from '@/constants/spTools'
 import AgentCard from '@/components/agent/AgentCard.vue'
 import AppAdvancedConfigModal from '@/components/app/AppAdvancedConfigModal.vue'
 import CreateAppModal from '@/components/app/CreateAppModal.vue'
 import DeleteAppModal from '@/components/app/DeleteAppModal.vue'
 import AuthModal from '@/components/common/AuthModal.vue'
+import ApiConfigModal from '@/components/common/ApiConfigModal.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const appStore = useAppStore()
+const { hasKeys } = useApiConfig()
 
-const PAGE_SIZE = 12       // 我创建的 App 每页条数
+const PAGE_SIZE = 11       // 我创建的 App 每页条数 (留一个位置给创建卡片)
 
 // ── 弹窗 / 面板状态 ──
 const showCreateApp = ref(false)
 const advancedApp = ref(null)
 const deleteTarget = ref(null)
 const showAuthModal = ref(false)
+const showApiConfigModal = ref(false)
 const currentPage = ref(1)
+
+// JIT 拦截状态
+const pendingRunAppId = ref(null)
 
 // 我创建的 App 分页
 const pagedApps = computed(() => {
@@ -119,6 +129,29 @@ function handleCreateApp() {
     return
   }
   router.push({ name: 'AppCreate' })
+}
+
+/** 拦截运行操作 (JIT Interception) */
+function handleRunApp(appId) {
+  if (!hasKeys()) {
+    pendingRunAppId.value = appId
+    showApiConfigModal.value = true
+  } else {
+    executeRunApp(appId)
+  }
+}
+
+/** 成功添加 API Key 后的回调 */
+function onApiKeyAdded() {
+  if (pendingRunAppId.value) {
+    const appId = pendingRunAppId.value
+    pendingRunAppId.value = null
+    executeRunApp(appId)
+  }
+}
+
+function executeRunApp(appId) {
+  router.push({ name: 'AppDevRun', params: { id: appId }, query: { mode: 'debug' } })
 }
 
 /** 创建完成后进入引导页，介绍文件空间用法 */
@@ -205,6 +238,10 @@ function onLoggedIn() {
   background: rgba(239, 68, 68, 0.06);
 }
 
+.mt-4 {
+  margin-top: 16px;
+}
+
 /* ── Content ── */
 .sp-content {
   flex: 1;
@@ -255,6 +292,47 @@ function onLoggedIn() {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
+  align-items: stretch;
+}
+
+/* 创建应用卡片：与同行 app-card 等高（由网格行拉伸） */
+.create-app-card {
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  background: transparent;
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--color-text-secondary);
+}
+
+.create-app-card:hover {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.create-icon {
+  width: 48px;
+  height: 48px;
+  background: var(--color-surface);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.create-text {
+  font-size: 14px;
+  font-weight: 500;
 }
 
 /* Empty state */
@@ -262,37 +340,29 @@ function onLoggedIn() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 48px 24px;
+  justify-content: center;
+  padding: 60px 24px;
   text-align: center;
-  border: 2px dashed var(--color-border);
-  border-radius: var(--radius-lg);
   background: var(--color-surface);
-}
-
-.empty-state-sm {
-  padding: 28px 24px;
-}
-
-.empty-illus {
-  color: var(--color-text-muted);
-  opacity: 0.4;
-  margin-bottom: 18px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border);
 }
 
 .empty-title {
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 500;
   color: var(--color-text-secondary);
   margin: 0;
   line-height: 1.6;
 }
 
-/* Empty state */
+/* Pagination */
 .pagination {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding-top: 8px;
+  padding-top: 24px;
 }
 
 .page-btn {
@@ -322,67 +392,6 @@ function onLoggedIn() {
 .page-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
-}
-
-/* ── Confirm dialog ── */
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  padding: 20px;
-}
-
-.confirm-dialog {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
-  width: 100%;
-  max-width: 360px;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.confirm-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.confirm-body {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-}
-
-.confirm-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding-top: 4px;
-}
-
-.btn-danger-sm {
-  padding: 7px 18px;
-  font-size: 13px;
-  font-weight: 500;
-  background: var(--color-error);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-danger-sm:hover {
-  opacity: 0.88;
 }
 
 /* Modal transition */

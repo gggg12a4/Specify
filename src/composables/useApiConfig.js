@@ -1,153 +1,138 @@
-import { ref, reactive } from 'vue'
+import { ref } from 'vue'
 
-const API_CONFIG_KEY = 'specify_api_config'
+const API_CONFIG_KEY = 'specify_api_keys'
 
-// 默认配置（从环境变量读取）
-const defaultConfig = {
-  qwen: {
-    apiKey: import.meta.env.VITE_QWEN_API_KEY || '',
-    baseUrl: import.meta.env.VITE_QWEN_BASE_URL || '',
-    model: import.meta.env.VITE_QWEN_MODEL || ''
-  },
-  sp: {
-    apiKey: import.meta.env.VITE_SP_API_KEY || '',
-    baseUrl: import.meta.env.VITE_SP_BASE_URL || '',
-    app: import.meta.env.VITE_SP_APP || '',
-    user: import.meta.env.VITE_SP_USER || ''
-  }
+// 默认配置（从环境变量读取，如果有的话可以作为初始项）
+const defaultKey = {
+  id: 'default_qwen',
+  alias: '默认大模型',
+  baseUrl: import.meta.env.VITE_QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  apiKey: import.meta.env.VITE_QWEN_API_KEY || ''
 }
 
-// 全局配置状态
-const apiConfig = ref(null)
+// 全局配置状态 (API Key 池)
+const apiKeys = ref(null)
 
 /**
- * API 配置管理
+ * API 配置池管理
  */
 export function useApiConfig() {
   /**
-   * 从 localStorage 获取配置
+   * 从 localStorage 获取配置池
    */
-  function getStoredConfig() {
+  function getStoredKeys() {
     try {
       const stored = localStorage.getItem(API_CONFIG_KEY)
       if (stored) {
         return JSON.parse(stored)
       }
     } catch (e) {
-      console.warn('Failed to read API config from localStorage:', e)
+      console.warn('Failed to read API keys from localStorage:', e)
     }
     return null
   }
 
   /**
-   * 保存配置到 localStorage
+   * 保存配置池到 localStorage
    */
-  function saveConfig(config) {
+  function saveKeys(keysArray) {
     try {
-      localStorage.setItem(API_CONFIG_KEY, JSON.stringify(config))
-      apiConfig.value = config
+      localStorage.setItem(API_CONFIG_KEY, JSON.stringify(keysArray))
+      apiKeys.value = keysArray
       return true
     } catch (e) {
-      console.error('Failed to save API config to localStorage:', e)
+      console.error('Failed to save API keys to localStorage:', e)
       return false
     }
   }
 
   /**
-   * 检查配置是否完整
+   * 检查配置池是否有密钥
    */
-  function isConfigValid(config) {
-    if (!config) return false
-
-    // 检查 Qwen 配置
-    if (!config.qwen?.apiKey || !config.qwen?.baseUrl || !config.qwen?.model) {
-      return false
-    }
-
-    // 检查 SP 配置
-    if (!config.sp?.apiKey || !config.sp?.baseUrl || !config.sp?.app || !config.sp?.user) {
-      return false
-    }
-
-    return true
+  function hasKeys() {
+    const keys = getKeys()
+    return keys && keys.length > 0 && keys.some(k => k.apiKey && k.baseUrl)
   }
 
   /**
-   * 检查是否需要配置
-   * @returns {boolean} true 表示需要配置，false 表示已配置
+   * 获取当前配置池
    */
-  function needsConfiguration() {
-    // 只检查 localStorage，环境变量作为默认值但不自动跳过配置
-    const stored = getStoredConfig()
-    if (stored && isConfigValid(stored)) {
-      apiConfig.value = stored
-      return false
-    }
-
-    // 没有 localStorage 配置，需要用户手动配置
-    // 即使环境变量完整，也需要用户确认
-    return true
-  }
-
-  /**
-   * 获取当前配置
-   */
-  function getConfig() {
-    if (apiConfig.value) {
-      return apiConfig.value
+  function getKeys() {
+    if (apiKeys.value) {
+      return apiKeys.value
     }
 
     // 尝试从 localStorage 读取
-    const stored = getStoredConfig()
-    if (stored && isConfigValid(stored)) {
-      apiConfig.value = stored
+    const stored = getStoredKeys()
+    if (stored && Array.isArray(stored)) {
+      apiKeys.value = stored
       return stored
     }
 
-    // 返回环境变量配置
-    return defaultConfig
+    // 初始化空池
+    apiKeys.value = []
+    return []
   }
 
   /**
-   * 清除配置
+   * 添加新密钥
+   */
+  function addKey(keyData) {
+    const keys = getKeys()
+    const newKey = {
+      id: Date.now().toString(36) + Math.random().toString(36).substring(2, 7),
+      alias: keyData.alias || '未命名密钥',
+      baseUrl: keyData.baseUrl || '',
+      apiKey: keyData.apiKey || ''
+    }
+    keys.push(newKey)
+    saveKeys(keys)
+    return newKey
+  }
+
+  /**
+   * 更新现有密钥
+   */
+  function updateKey(id, updates) {
+    const keys = getKeys()
+    const index = keys.findIndex(k => k.id === id)
+    if (index !== -1) {
+      keys[index] = { ...keys[index], ...updates }
+      saveKeys(keys)
+      return true
+    }
+    return false
+  }
+
+  /**
+   * 删除密钥
+   */
+  function deleteKey(id) {
+    let keys = getKeys()
+    keys = keys.filter(k => k.id !== id)
+    saveKeys(keys)
+  }
+
+  /**
+   * 清除所有配置
    */
   function clearConfig() {
     try {
       localStorage.removeItem(API_CONFIG_KEY)
-      apiConfig.value = null
+      apiKeys.value = null
     } catch (e) {
       console.warn('Failed to clear API config:', e)
     }
   }
 
-  /**
-   * 获取选中的工具列表
-   * @returns {Array} 工具 ID 列表，如 ['SPglob', 'SPread', 'SPwrite']
-   */
-  function getSelectedTools() {
-    const config = getConfig()
-    return config.tools || []
-  }
-
-  /**
-   * 保存工具选择
-   * @param {Array} tools - 工具 ID 列表
-   */
-  function saveToolsSelection(tools) {
-    const config = getConfig()
-    config.tools = tools
-    saveConfig(config)
-  }
-
   return {
-    apiConfig,
-    getConfig,
-    saveConfig,
-    isConfigValid,
-    needsConfiguration,
-    clearConfig,
-    defaultConfig,
-    getSelectedTools,
-    saveToolsSelection
+    apiKeys,
+    getKeys,
+    saveKeys,
+    hasKeys,
+    addKey,
+    updateKey,
+    deleteKey,
+    clearConfig
   }
 }
