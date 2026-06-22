@@ -11,69 +11,55 @@
           </div>
 
           <div class="dialog-body">
-            <p class="intro">选择此次运行的算力来源和模型</p>
+            <p class="intro">{{ needsApiKey ? '填写 API Key 并选择模型' : '选择此次运行的模型' }}</p>
 
-            <!-- 算力来源 -->
-            <div class="section">
+            <div v-if="showBillingSection" class="section">
               <div class="section-label">算力来源</div>
               <div class="billing-cards">
-                <!-- 开发者付费模式（如果是访客，且开发者开启了代付，才显示或默认选中） -->
-                <label v-if="isOwner || (!isOwner && appShareBilling === 'dev_pay')" class="billing-card" :class="{ selected: billingMode === 'platform' }">
+                <label
+                  v-if="!isOwner && appShareBilling === 'dev_pay'"
+                  class="billing-card selected"
+                >
                   <input type="radio" value="platform" v-model="billingMode" class="radio-input" />
                   <div class="billing-info">
-                    <div class="billing-name">{{ isOwner ? '使用平台余额' : '由开发者付费' }}</div>
-                    <div class="billing-desc">{{ isOwner ? '消耗 Specify 平台额度，无需配置密钥' : '该应用的开发者承担了本次运行的算力费用' }}</div>
-                    <div v-if="isOwner" class="billing-balance">余额: <span class="balance-val">¥12.50</span></div>
+                    <div class="billing-name">由开发者付费</div>
+                    <div class="billing-desc">该应用的开发者承担了本次运行的算力费用</div>
                   </div>
                 </label>
-                <!-- 自备密钥模式 -->
-                <label v-if="isOwner || (!isOwner && appShareBilling === 'user_pay')" class="billing-card" :class="{ selected: billingMode === 'self_key' }">
+
+                <label
+                  v-if="needsApiKey"
+                  class="billing-card"
+                  :class="{ selected: billingMode === 'self_key' }"
+                >
                   <input type="radio" value="self_key" v-model="billingMode" class="radio-input" />
                   <div class="billing-info">
                     <div class="billing-name">使用自有密钥</div>
                     <div class="billing-desc">填写 {{ platformName }} API Key，直连官方接口</div>
-                    <template v-if="billingMode === 'self_key'">
-                      <div v-if="hasExistingKey && !editingKey" class="key-row">
-                        <span class="key-hint">已配置 API Key</span>
-                        <button class="btn-text" @click="editingKey = true">修改</button>
-                      </div>
-                      <input
-                        v-else
-                        v-model="apiKey"
-                        class="key-input"
-                        type="password"
-                        :placeholder="`粘贴 ${platformName} API Key`"
-                        autocomplete="off"
-                      />
-                    </template>
+                    <input
+                      v-if="billingMode === 'self_key'"
+                      v-model="apiKey"
+                      class="key-input"
+                      type="password"
+                      :placeholder="`粘贴 ${platformName} API Key`"
+                      autocomplete="off"
+                    />
                   </div>
                 </label>
               </div>
             </div>
 
-            <!-- MCP 服务凭证检查 (仅在使用 MCP 时显示) -->
-            <div v-if="mcpServices.length > 0" class="section">
-              <div class="section-label">MCP 服务凭据</div>
-              <div class="mcp-cards">
-                <div v-for="mcp in mcpServices" :key="mcp.id" class="mcp-credential-row">
-                  <span class="mcp-name">{{ mcp.name }}</span>
-                  <template v-if="isOwner || mcp.share_mode === 'share_credential'">
-                    <span class="mcp-status ok">凭据已配置 ({{ isOwner ? '拥有者' : '开发者共享' }})</span>
-                  </template>
-                  <template v-else>
-                    <input
-                      v-model="mcpCredentials[mcp.id]"
-                      class="key-input mcp-input"
-                      type="password"
-                      :placeholder="`请输入 ${mcp.name} 凭据`"
-                      autocomplete="off"
-                    />
-                  </template>
-                </div>
-              </div>
+            <div v-else-if="needsApiKey" class="section">
+              <div class="section-label">API Key</div>
+              <input
+                v-model="apiKey"
+                class="key-input standalone"
+                type="password"
+                :placeholder="`粘贴 ${platformName} API Key`"
+                autocomplete="off"
+              />
             </div>
 
-            <!-- 模型选择 -->
             <div class="section">
               <div class="section-label">模型</div>
               <div class="model-select-row">
@@ -112,77 +98,44 @@ const props = defineProps({
   visible: { type: Boolean, default: false },
   platform: { type: String, default: 'claude' },
   appId: { type: String, required: true },
-  hasExistingKey: { type: Boolean, default: false },
   canClose: { type: Boolean, default: true },
-  isOwner: { type: Boolean, default: true }, // Add ownership context
-  mcpServices: { type: Array, default: () => [] } // Added MCP services context
+  isOwner: { type: Boolean, default: true },
 })
 const emit = defineEmits(['update:visible', 'confirm'])
 
-const billingMode = ref('platform')
-const appShareBilling = ref('user_pay') // 'user_pay' or 'dev_pay'
+const billingMode = ref('self_key')
+const appShareBilling = ref('user_pay')
 const apiKey = ref('')
-const editingKey = ref(false)
 const selectedModel = ref('')
-const mcpCredentials = ref({}) // Store guest credentials per MCP service
 
 const platformName = computed(() => ({ claude: 'Claude', gemini: 'Gemini', gpt: 'GPT', deepseek: 'DeepSeek', qwen: 'Qwen' })[props.platform] || props.platform)
 const models = computed(() => PLATFORM_MODELS[props.platform] || [])
 const currentModelDesc = computed(() => models.value.find(m => m.id === selectedModel.value)?.desc || '')
+const needsApiKey = computed(() => props.isOwner || appShareBilling.value === 'user_pay')
+const showBillingSection = computed(() => !props.isOwner && appShareBilling.value === 'dev_pay')
 
 const canConfirm = computed(() => {
-  // Check API Key if needed
-  if (billingMode.value === 'self_key') {
-    if (!props.hasExistingKey && !apiKey.value.trim().length) return false
-  }
-
-  // Check required MCP credentials for guests
-  if (!props.isOwner && props.mcpServices.length > 0) {
-    for (const mcp of props.mcpServices) {
-      if (mcp.share_mode !== 'share_credential') {
-        if (!mcpCredentials.value[mcp.id] || !mcpCredentials.value[mcp.id].trim().length) {
-          return false
-        }
-      }
-    }
-  }
-
+  if (billingMode.value === 'self_key' && !apiKey.value.trim()) return false
   return true
 })
 
 watch(() => props.visible, async (v) => {
-  if (v) {
-    editingKey.value = false
-    apiKey.value = ''
-    const defaultModel = models.value[0]?.id || ''
-    // Load saved config & app share details
-    const res = await mockApi.getRunConfig(props.appId)
-    if (res.code === 0 && res.data.configured) {
-      billingMode.value = res.data.billing_mode || 'platform'
-      selectedModel.value = res.data.model || defaultModel
-      appShareBilling.value = res.data.app_share_billing || 'user_pay'
+  if (!v) return
+  apiKey.value = ''
+  const defaultModel = models.value[0]?.id || ''
+  const res = await mockApi.getRunConfig(props.appId)
+  appShareBilling.value = res.data?.app_share_billing || 'user_pay'
+  if (res.code === 0 && res.data?.configured) {
+    const savedMode = res.data.billing_mode || 'self_key'
+    billingMode.value = props.isOwner && savedMode === 'platform' ? 'self_key' : savedMode
+    selectedModel.value = res.data.model || defaultModel
+  } else {
+    if (!props.isOwner && appShareBilling.value === 'dev_pay') {
+      billingMode.value = 'platform'
     } else {
-      // Default behavior handling
-      if (!props.isOwner && res.data?.app_share_billing === 'dev_pay') {
-        billingMode.value = 'platform' // Guests use platform (dev pay) automatically
-        appShareBilling.value = 'dev_pay'
-      } else if (!props.isOwner) {
-        billingMode.value = 'self_key' // Guests must use self key if user pay
-        appShareBilling.value = 'user_pay'
-      } else {
-        billingMode.value = 'platform'
-      }
-      selectedModel.value = defaultModel
+      billingMode.value = 'self_key'
     }
-
-    // Initialize MCP credentials object
-    if (!props.isOwner) {
-      props.mcpServices.forEach(mcp => {
-        if (mcp.share_mode !== 'share_credential') {
-          mcpCredentials.value[mcp.id] = ''
-        }
-      })
-    }
+    selectedModel.value = defaultModel
   }
 })
 
@@ -191,7 +144,6 @@ async function confirm() {
     billing_mode: billingMode.value,
     model: selectedModel.value,
     ...(billingMode.value === 'self_key' && apiKey.value.trim() ? { api_key: apiKey.value.trim() } : {}),
-    ...(!props.isOwner && Object.keys(mcpCredentials.value).length > 0 ? { mcp_credentials: mcpCredentials.value } : {})
   }
   await mockApi.saveRunConfig(props.appId, payload)
   emit('confirm', payload)
@@ -248,14 +200,6 @@ async function confirm() {
 .billing-info { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .billing-name { font-size: 13px; font-weight: 500; color: var(--color-text); }
 .billing-desc { font-size: 12px; color: var(--color-text-muted); }
-.billing-balance { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; }
-.balance-val { font-weight: 600; color: #16a34a; }
-
-.key-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-.key-hint { font-size: 12px; color: var(--color-text-secondary); }
-.btn-text { background: none; border: none; cursor: pointer; font-size: 12px; color: var(--color-primary); padding: 0; transition: opacity 0.15s; }
-.btn-text:hover { opacity: 0.8; }
-
 .key-input {
   margin-top: 6px; width: 100%; padding: 7px 10px; font-size: 13px;
   background: var(--color-bg); border: 1.5px solid var(--color-border);
@@ -263,25 +207,20 @@ async function confirm() {
   font-family: inherit; transition: border-color 0.15s; box-sizing: border-box;
 }
 .key-input:focus { border-color: var(--color-primary); }
-
-.mcp-cards { display: flex; flex-direction: column; gap: 8px; }
-.mcp-credential-row {
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 10px 14px; border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
-}
-.mcp-name { font-size: 13px; font-weight: 600; color: var(--color-text); }
-.mcp-status.ok { font-size: 12px; color: var(--color-success, #16a34a); }
-.mcp-input { margin-top: 0; }
+.key-input.standalone { margin-top: 0; }
 
 .model-select-row { display: flex; flex-direction: column; gap: 6px; }
 .model-select {
-  padding: 8px 12px; font-size: 13px;
-  background: var(--color-bg); border: 1.5px solid var(--color-border);
+  padding: 8px 32px 8px 12px; font-size: 13px;
+  border: 1.5px solid var(--color-border);
   border-radius: var(--radius-md); color: var(--color-text); outline: none;
   cursor: pointer; width: 100%; font-family: inherit;
   transition: border-color 0.15s;
+  appearance: none;
+  background-color: var(--color-bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
 }
 .model-select:focus { border-color: var(--color-primary); }
 .model-desc { font-size: 12px; color: var(--color-text-muted); }

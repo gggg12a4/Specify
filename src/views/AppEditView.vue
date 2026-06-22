@@ -15,20 +15,27 @@
           <span v-if="isDirty" class="unsaved-dot" title="有未保存的修改"></span>
         </div>
       </div>
-      <div class="save-status" :class="{ 'is-saving': isSaving, 'is-saved': !isSaving && !isDirty }">
-        <template v-if="isSaving">
-          <span class="spinner"></span>
-          保存中...
-        </template>
-        <template v-else-if="!isDirty">
+      <div class="bar-right">
+        <button class="btn-save" :class="{ 'is-saving': isSaving }" @click="handleSave()" :disabled="!isDirty || isSaving">
+          <template v-if="isSaving">
+            <span class="spinner"></span>
+            保存中...
+          </template>
+          <template v-else>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            保存修改
+          </template>
+        </button>
+        <button class="btn-debug ml-2" @click="handleDebug">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="20 6 9 17 4 12"/>
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
           </svg>
-          已保存
-        </template>
-        <template v-else>
-          有未保存的修改
-        </template>
+          开始调试
+        </button>
       </div>
     </header>
 
@@ -133,7 +140,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { PLATFORM_LABELS } from '@/constants/spTools'
@@ -143,6 +150,7 @@ import ToolInfoModal from '@/components/app/ToolInfoModal.vue'
 import ToolConfigModal from '@/components/app/ToolConfigModal.vue'
 import AddMcpModal from '@/components/app/AddMcpModal.vue'
 import McpConfigModal from '@/components/app/McpConfigModal.vue'
+import { showSuccess, showConfirm } from '@/composables/useNotification'
 
 const route = useRoute()
 const router = useRouter()
@@ -166,8 +174,6 @@ const showAddMcp = ref(false)
 const showMcpConfig = ref(false)
 const mcpConfigTarget = ref(null)
 let pendingNav = null
-let saveTimeout = null
-let saveController = new AbortController()
 
 watch(app, (a) => {
   if (!a) return
@@ -181,53 +187,37 @@ watch(app, (a) => {
 
 watch(() => form, () => {
   if (!app.value) return // Don't trigger save on initial load if app is not ready
-  markDirty()
+  isDirty.value = true
 }, { deep: true })
 
 function markDirty() {
   isDirty.value = true
-
-  // Clear any existing timeout
-  if (saveTimeout) {
-    clearTimeout(saveTimeout)
-  }
-
-  // Set new 5-second debounce timeout for auto-save
-  saveTimeout = setTimeout(() => {
-    handleSave()
-  }, 5000)
 }
 
-function handleSave() {
-  if (!isDirty.value) return
+function handleSave(silent = false) {
+  if (!isDirty.value) return Promise.resolve()
 
-  // Clear any pending timeout just in case it was called directly
-  if (saveTimeout) {
-    clearTimeout(saveTimeout)
-    saveTimeout = null
-  }
+  return new Promise((resolve) => {
+    isSaving.value = true
 
-  isSaving.value = true
-
-  // Simulate network request using async
-  setTimeout(() => {
-    appStore.updateApp(app.value.id, {
-      system_prompt: form.system_prompt,
-      tools: form.tools,
-      custom_tools: form.custom_tools,
-      special_tools: form.special_tools,
-      mcp_services: form.mcp_services,
-    })
-    isDirty.value = false
-    isSaving.value = false
-  }, 300) // Small delay to show the saving animation
+    // Simulate network request using async
+    setTimeout(() => {
+      appStore.updateApp(app.value.id, {
+        system_prompt: form.system_prompt,
+        tools: form.tools,
+        custom_tools: form.custom_tools,
+        special_tools: form.special_tools,
+        mcp_services: form.mcp_services,
+      })
+      isDirty.value = false
+      isSaving.value = false
+      if (!silent) {
+        showSuccess('保存成功')
+      }
+      resolve()
+    }, 300) // Small delay to show the saving animation
+  })
 }
-
-onUnmounted(() => {
-  if (saveTimeout) {
-    clearTimeout(saveTimeout)
-  }
-})
 
 function handleToolConfigSave(config) {
   const key = configTool.value.key
@@ -275,19 +265,36 @@ function removeMcp(id) {
 
 // ── Navigation guards ────────────────────────────────────────────────────────
 function handleBack() {
-  if (isDirty.value) {
-    handleSave()
-  }
   router.push('/workspace')
+}
+
+async function handleDebug() {
+  if (isDirty.value) {
+    // 方案 A: 发现有未保存修改，先静默执行保存
+    await handleSave(true)
+  }
+  // 跳转到运行/调试页面 (AppDevRun 是带开发者视图侧边栏的运行页，或者是 AppRun，取决于你的路由设计。按照文档，从开发页面去运行应该是 AppRunView。如果是专门的调试模式，可能带 query 参数)
+  router.push({ name: 'AppDevRun', params: { id: app.value.id }, query: { mode: 'debug' } })
 }
 
 // remove cancelLeave and confirmLeave as they're no longer used
 
 
-onBeforeRouteLeave((to, from, next) => {
+onBeforeRouteLeave(async (to, from, next) => {
   if (isDirty.value) {
-    handleSave() // Auto-save immediately before leaving
-    next()
+    const isConfirmed = await showConfirm({
+      title: '未保存的修改',
+      message: '有未保存的修改，确定要离开吗？未保存的修改将丢失。',
+      confirmText: '离开',
+      cancelText: '取消',
+      danger: true
+    })
+
+    if (isConfirmed) {
+      next()
+    } else {
+      next(false)
+    }
   } else {
     next()
   }
@@ -380,23 +387,58 @@ onBeforeRouteLeave((to, from, next) => {
   flex-shrink: 0;
 }
 
-.save-status {
+.bar-right {
+  display: flex;
+  align-items: center;
+}
+
+.btn-save {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 18px;
-  color: var(--color-text-muted);
+  gap: 6px;
+  padding: 6px 14px;
   font-size: 13px;
   font-weight: 500;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
   transition: all 0.15s;
 }
 
-.save-status.is-saving {
-  color: var(--color-primary);
+.btn-debug {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--color-success, #10b981);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
-.save-status.is-saved {
-  color: var(--color-success, #22c55e);
+.btn-debug:hover {
+  background: #059669; /* slightly darker green */
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.ml-2 {
+  margin-left: 8px;
+}
+
+.btn-save:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  box-shadow: 0 4px 12px var(--color-primary-glow);
+}
+
+.btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .spinner {

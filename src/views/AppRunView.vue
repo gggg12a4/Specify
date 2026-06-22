@@ -242,22 +242,13 @@
     @confirm="handleRenameConfirm"
   />
 
-  <!-- 强制添加 API Key 弹窗 (JIT Interception) -->
-  <ApiConfigModal
-    v-model:visible="showApiConfigModal"
-    :addMode="true"
-    @saved="onApiKeyAdded"
-  />
-
   <!-- 运行配置弹窗 -->
   <RunConfigModal
     v-model:visible="showRunConfig"
     :platform="app?.platform || 'claude'"
     :app-id="app?.id || ''"
-    :has-existing-key="hasExistingKey"
     :can-close="runConfigured"
     :is-owner="isOwner"
-    :mcp-services="app?.mcp_services || []"
     @confirm="onRunConfigConfirm"
   />
 </template>
@@ -266,22 +257,20 @@
 import { ref, computed, nextTick, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
-import { useApiConfig } from '@/composables/useApiConfig'
 import FileTree from '@/components/app/FileTree.vue'
 import UploadSelector from '@/components/common/UploadSelector.vue'
 import FilePreviewList from '@/components/common/FilePreviewList.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import InputDialog from '@/components/common/InputDialog.vue'
 import RunConfigModal from '@/components/common/RunConfigModal.vue'
-import ApiConfigModal from '@/components/common/ApiConfigModal.vue'
 import { createPreviewURL, revokePreviewURL, detectContentType, fileToBase64 } from '@/utils/file'
+import * as mockApi from '@/api/mockApi'
 import * as chatApi from '@/api/chat'
 import * as sessionApi from '@/api/session'
 
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
-const { hasKeys } = useApiConfig()
 
 const app = computed(() => appStore.getApp(route.params.id))
 
@@ -301,10 +290,8 @@ const textareaRef2 = ref(null)
 const renameDialog = ref({ visible: false, sessionId: null, current: '' })
 const showResetConfirm = ref(false)
 const showRunConfig = ref(false)
-const showApiConfigModal = ref(false)
 const runConfigured = ref(false)
-const hasExistingKey = ref(false)
-const runConfigMode = ref('') // 'dev_pay' or 'self_key'
+const runConfigMode = ref('') // 'platform' | 'self_key'
 
 const inputTokens = ref(0)
 const outputTokens = ref(0)
@@ -397,39 +384,28 @@ function loadSessions() {
 onMounted(async () => {
   loadSessions()
 
-  // JIT Interception check on mount
-  if (!hasKeys()) {
-    showApiConfigModal.value = true
-  }
+  if (!app.value) return
 
-  if (app.value) {
-    try {
-      inputTokens.value = 0
-      outputTokens.value = 0
+  try {
+    inputTokens.value = 0
+    outputTokens.value = 0
 
-      // Mock run config logic
-      const cfgRes = { code: 0, data: { configured: true, billing_mode: 'platform' } }
-      if (cfgRes.code === 0 && cfgRes.data.configured) {
-        runConfigured.value = true
-        hasExistingKey.value = !!cfgRes.data.api_key
-        runConfigMode.value = cfgRes.data.billing_mode
-      } else {
-        // showRunConfig.value = true
-      }
-    } catch (e) {
-      console.error(e)
+    const cfgRes = await mockApi.getRunConfig(app.value.id)
+    const stalePlatformOwner = isOwner.value && cfgRes.data?.billing_mode === 'platform'
+    if (cfgRes.code === 0 && cfgRes.data?.configured && !stalePlatformOwner) {
+      runConfigured.value = true
+      runConfigMode.value = cfgRes.data.billing_mode || 'self_key'
+    } else {
+      showRunConfig.value = true
     }
+  } catch (e) {
+    console.error(e)
+    showRunConfig.value = true
   }
 })
 
-function onApiKeyAdded() {
-  // Key was added via JIT interception, we can proceed or just let the user stay on the screen
-  hasExistingKey.value = true
-}
-
 function onRunConfigConfirm(cfg) {
   runConfigured.value = true
-  hasExistingKey.value = !!(cfg.api_key)
   runConfigMode.value = cfg.billing_mode
 }
 
@@ -483,9 +459,8 @@ function handleRemoveFile(id) {
 async function send() {
   if (!canSend.value) return
 
-  // JIT Interception at send time
-  if (!hasKeys()) {
-    showApiConfigModal.value = true
+  if (!runConfigured.value) {
+    showRunConfig.value = true
     return
   }
 

@@ -142,7 +142,7 @@
 <script setup>
 import { ref, reactive, watch } from 'vue'
 import { useApiConfig } from '@/composables/useApiConfig'
-import Toast from '@/components/common/Toast.vue'
+import { showSuccess, showConfirm } from '@/composables/useNotification'
 
 const props = defineProps({
   visible: {
@@ -216,11 +216,17 @@ function cancelEdit() {
   }
 }
 
-function confirmDelete(id) {
-  if (confirm('确定要删除此密钥吗？')) {
+async function confirmDelete(id) {
+  const isConfirmed = await showConfirm({
+    title: '删除确认',
+    message: '确定要删除此密钥吗？',
+    danger: true
+  })
+
+  if (isConfirmed) {
     deleteKey(id)
     refreshKeys()
-    Toast.success('密钥已删除')
+    showSuccess('密钥已删除')
   }
 }
 
@@ -263,14 +269,14 @@ function handleSaveForm() {
       baseUrl: formData.baseUrl.trim(),
       apiKey: formData.apiKey.trim()
     })
-    Toast.success('更新成功')
+    showSuccess('更新成功')
   } else {
     addKey({
       alias: formData.alias.trim(),
       baseUrl: formData.baseUrl.trim(),
       apiKey: formData.apiKey.trim()
     })
-    Toast.success('添加成功')
+    showSuccess('添加成功')
   }
 
   refreshKeys()

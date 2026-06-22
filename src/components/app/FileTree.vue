@@ -304,6 +304,7 @@ function _flattenItems(items, basePath, depth) {
 function _loadTree(apiTree) {
   // Clear stale subdir expand state
   Object.keys(expandedPaths).forEach(k => delete expandedPaths[k])
+  if (!apiTree || !Array.isArray(apiTree)) return // 修复 apiTree 不可迭代的问题
   for (const treeDir of apiTree) {
     const d = dirs.find(d => d.key === treeDir.name)
     if (d) d.files = _flattenItems(treeDir.children || [], treeDir.name, 0)

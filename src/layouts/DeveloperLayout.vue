@@ -83,7 +83,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import ApiConfigModal from '@/components/common/ApiConfigModal.vue'
-import Toast from '@/components/common/Toast.vue'
+import { showInfo } from '@/composables/useNotification'
 
 const authStore = useAuthStore()
 const showMyModels = ref(false)
@@ -147,7 +147,7 @@ function openApiConfig() {
 
 function openAccountSettings() {
   // Placeholder for account settings
-  Toast.info('账号设置模块开发中...')
+  showInfo('账号设置模块开发中...')
   closeDropdown()
 }
 
