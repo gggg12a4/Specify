@@ -40,21 +40,33 @@
               <div class="tools-group">
                 <div class="tools-group-label">推荐工具</div>
                 <div class="tools-list">
-                  <div v-for="t in availableRecommendedTools" :key="t.key" class="check-item">
-                    <label class="check-inner">
-                      <input type="checkbox" :value="t.key" v-model="form.tools" />
-                      <span class="check-name">{{ t.name }}</span>
-                      <span class="check-desc">{{ t.desc }}</span>
-                    </label>
-                    <!-- 在 App 中已配置：锁定，不可修改 -->
-                    <span v-if="t.hasConfig && isInApp(t)" class="app-cfg-tag" title="使用 App 中的配置，不可在此修改">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                      App配置
-                    </span>
-                    <!-- 未在 App 中：可自定义配置 -->
-                    <button v-else-if="t.hasConfig" class="cfg-btn" :class="{ configured: !!form.toolConfigs[t.key] }" @click.stop="openConfig(t)" title="配置参数">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                    </button>
+                  <div v-for="t in availableRecommendedTools" :key="t.key" class="check-item" :class="{ 'is-error-platform': isToolError(t.key) }">
+                    <template v-if="isToolError(t.key)">
+                      <div class="check-inner disabled-error-inner">
+                        <span class="error-icon">❌</span>
+                        <span class="check-name">{{ t.name }}</span>
+                        <span class="check-desc">该平台工具已下架或失效</span>
+                      </div>
+                      <button class="btn-close-error" @click.stop="removeToolDep(t.key)" v-if="form.tools.includes(t.key)">
+                        关闭
+                      </button>
+                    </template>
+                    <template v-else>
+                      <label class="check-inner">
+                        <input type="checkbox" :value="t.key" v-model="form.tools" />
+                        <span class="check-name">{{ t.name }}</span>
+                        <span class="check-desc">{{ t.desc }}</span>
+                      </label>
+                      <!-- 在 App 中已配置：锁定，不可修改 -->
+                      <span v-if="t.hasConfig && isInApp(t)" class="app-cfg-tag" title="使用 App 中的配置，不可在此修改">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        App配置
+                      </span>
+                      <!-- 未在 App 中：可自定义配置 -->
+                      <button v-else-if="t.hasConfig" class="cfg-btn" :class="{ configured: !!form.toolConfigs[t.key] }" @click.stop="openConfig(t)" title="配置参数">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                      </button>
+                    </template>
                   </div>
                 </div>
               </div>
@@ -63,19 +75,18 @@
               <div v-if="otherCustomTools.length" class="tools-group tools-group-sep">
                 <div class="tools-group-label">你创建的工具</div>
                 <div class="tools-list">
-                  <div v-for="t in otherCustomTools" :key="t.id" class="check-item" :class="{ 'is-circular': isCircularDependency(t.id) }">
+                  <div v-for="t in otherCustomTools" :key="t.id" class="check-item" :class="{ 'is-circular': isCircularDependency(t.id), 'is-error-agent': isToolError(t.id) }">
                     <label class="check-inner" :title="isCircularDependency(t.id) ? '无法挂载。因为该工具内部已经（直接或间接）依赖了当前工具，挂载将导致死循环。' : ''">
                       <input type="checkbox" :value="t.id" v-model="form.tools" :disabled="isCircularDependency(t.id)" />
                       <span class="check-name">{{ t.name }}</span>
                       <span class="check-desc">{{ t.description }}</span>
                       <span v-if="isCircularDependency(t.id)" class="circular-badge">🚫 循环引用</span>
+                      <span v-if="isToolError(t.id)" class="agent-error-badge" title="建议修改该创建的工具，或移除引用">⚠️</span>
                     </label>
                   </div>
                 </div>
               </div>
             </div>
-
-            <span v-if="errorMsg" class="error-msg">{{ errorMsg }}</span>
           </div>
 
           <div class="dialog-footer">
@@ -122,7 +133,8 @@
 
 <script setup>
 import { reactive, ref, watch, computed } from 'vue'
-import { SP_TOOLS, SPECIAL_TOOLS } from '@/constants/spTools'
+import { SP_TOOLS, SPECIAL_TOOLS, isToolError, getToolErrorMsg } from '@/constants/spTools'
+import { showError } from '@/composables/useNotification'
 
 const props = defineProps({
   visible:             { type: Boolean, default: false },
@@ -136,7 +148,6 @@ const props = defineProps({
 const emit = defineEmits(['update:visible', 'confirm', 'cancel'])
 
 const form = reactive({ name: '', description: '', system_prompt: '', tools: [], toolConfigs: {} })
-const errorMsg = ref('')
 const configTool = ref(null)
 const pendingConfig = reactive({})
 
@@ -220,9 +231,13 @@ function saveConfig() {
   configTool.value = null
 }
 
+function removeToolDep(key) {
+  form.tools = form.tools.filter(t => t !== key)
+  markDirty()
+}
+
 watch(() => props.visible, v => {
   if (v) {
-    errorMsg.value = ''
     configTool.value = null
     if (props.initial) {
       form.name          = props.initial.name || ''
@@ -252,9 +267,9 @@ function flatToSubTools(ids = []) {
 }
 
 function handleConfirm() {
-  if (!form.name.trim())         { errorMsg.value = '工具名称不能为空'; return }
-  if (!form.description.trim())  { errorMsg.value = '工具描述不能为空'; return }
-  if (!form.system_prompt.trim()){ errorMsg.value = '系统提示词不能为空'; return }
+  if (!form.name.trim())         { showError('工具名称不能为空'); return }
+  if (!form.description.trim())  { showError('工具描述不能为空'); return }
+  if (!form.system_prompt.trim()){ showError('系统提示词不能为空'); return }
   emit('confirm', {
     name:          form.name.trim(),
     description:   form.description.trim(),
@@ -268,6 +283,10 @@ function handleConfirm() {
 function handleCancel() {
   emit('cancel')
   emit('update:visible', false)
+}
+
+function markDirty() {
+  // Can be expanded if needed, currently used just to trigger reactivity or tracking
 }
 </script>
 
@@ -358,6 +377,40 @@ function handleCancel() {
 .check-name { font-size: 12px; font-weight: 600; color: var(--color-text); font-family: var(--font-mono); white-space: nowrap; }
 .check-desc { font-size: 12px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* 平台工具异常状态 */
+.is-error-platform {
+  background: rgba(239, 68, 68, 0.05);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+.disabled-error-inner {
+  cursor: not-allowed !important;
+  opacity: 0.8;
+}
+.error-icon { font-size: 12px; margin-right: 2px; }
+.btn-close-error {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  background: var(--color-error);
+  color: white;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.btn-close-error:hover { opacity: 0.85; }
+
+/* 子 Agent 异常状态 */
+.is-error-agent {
+  border-color: rgba(245, 158, 11, 0.3);
+}
+.agent-error-badge {
+  margin-left: auto;
+  font-size: 14px;
+  cursor: help;
+}
+
 /* App 配置锁定标签 */
 .app-cfg-tag {
   display: flex; align-items: center; gap: 3px; flex-shrink: 0;
@@ -375,8 +428,6 @@ function handleCancel() {
 }
 .cfg-btn:hover { color: var(--color-primary); background: var(--color-primary-soft); }
 .cfg-btn.configured { color: var(--color-primary); }
-
-.error-msg { font-size: 12px; color: var(--color-error); }
 
 .dialog-footer {
   display: flex; justify-content: flex-end; gap: 8px;

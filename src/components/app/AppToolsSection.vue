@@ -9,24 +9,33 @@
         <div v-for="tool in visibleSpTools" :key="tool.key"
           class="tool-row" :class="{ active: tools[tool.key]?.enabled, 'is-error': isToolError(tool.key) }">
           <label class="tool-check">
-            <input type="checkbox"
+            <div v-if="isToolError(tool.key)" class="checkbox-error-icon" title="平台工具已失效，不可启用">
+              ⚠️
+            </div>
+            <input v-else type="checkbox"
               :checked="tools[tool.key]?.enabled"
               @change="toggleSPTool(tool.key, $event.target.checked)" />
             <div class="tool-info-wrapper">
               <div class="tool-info">
                 <span class="tool-name">{{ tool.name }}</span>
-                <span class="tool-desc">{{ tool.desc }}</span>
-                <span v-if="isToolError(tool.key)" class="error-badge" :title="getToolErrorMsg(tool.key)">⚠️ 异常</span>
+                <span v-if="isToolError(tool.key)" class="tool-desc error-text">平台工具已下架或失效，暂不可用</span>
+                <span v-else class="tool-desc">{{ tool.desc }}</span>
               </div>
             </div>
           </label>
           <div class="tool-btns">
-            <button class="icon-btn" title="查看说明" @click="$emit('show-info', tool)">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <!-- 平台工具失效时，隐藏配置和详情图标，如果当前正处于启用状态，则给一个快速关闭的按钮 -->
+            <button v-if="tools[tool.key]?.enabled && isToolError(tool.key)" class="btn-close-error" @click="toggleSPTool(tool.key, false)">
+              关闭
             </button>
-            <button v-if="tool.hasConfig" class="icon-btn" title="配置参数" @click="$emit('show-config', { tool, disabledRules: disabledConfigs[tool.key] })">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            </button>
+            <template v-else-if="!isToolError(tool.key)">
+              <button class="icon-btn" title="查看说明" @click="$emit('show-info', tool)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </button>
+              <button v-if="tool.hasConfig" class="icon-btn" title="配置参数" @click="$emit('show-config', { tool, disabledRules: disabledConfigs[tool.key] })">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </button>
+            </template>
           </div>
           <!-- SPSkillManager 依赖警告 -->
           <div v-if="tool.key === 'SPSkillManager' && tools['SPSkillManager']?.enabled && skillManagerWarn" class="dep-warn">
@@ -40,24 +49,33 @@
           <div v-for="tool in visibleSpecialTools" :key="tool.key"
             class="tool-row" :class="{ active: specialTools[tool.key]?.enabled, 'is-error': isToolError(tool.key) }">
             <label class="tool-check">
-              <input type="checkbox"
+              <div v-if="isToolError(tool.key)" class="checkbox-error-icon" title="平台工具已失效，不可启用">
+                ⚠️
+              </div>
+              <input v-else type="checkbox"
                 :checked="specialTools[tool.key]?.enabled"
                 @change="toggleSpecialTool(tool.key, $event.target.checked)" />
               <div class="tool-info-wrapper">
                 <div class="tool-info">
                   <span class="tool-name">{{ tool.name }}</span>
-                  <span class="tool-desc">{{ tool.desc }}</span>
-                  <span v-if="isToolError(tool.key)" class="error-badge" :title="getToolErrorMsg(tool.key)">⚠️ 异常</span>
+                  <span v-if="isToolError(tool.key)" class="tool-desc error-text">平台工具已下架或失效，暂不可用</span>
+                  <span v-else class="tool-desc">{{ tool.desc }}</span>
                 </div>
               </div>
             </label>
             <div class="tool-btns">
-              <button v-if="tool.hasSubModel" class="icon-btn" title="配置子模型" @click="openSubModel(tool)">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              <!-- 失效状态下只显示关闭按钮 -->
+              <button v-if="specialTools[tool.key]?.enabled && isToolError(tool.key)" class="btn-close-error" @click="toggleSpecialTool(tool.key, false)">
+                关闭
               </button>
-              <button class="icon-btn" title="查看说明" @click="$emit('show-info', tool)">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              </button>
+              <template v-else-if="!isToolError(tool.key)">
+                <button v-if="tool.hasSubModel" class="icon-btn" title="配置子模型" @click="openSubModel(tool)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </button>
+                <button class="icon-btn" title="查看说明" @click="$emit('show-info', tool)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </button>
+              </template>
             </div>
             <!-- 当前子模型显示 -->
             <div v-if="tool.hasSubModel && specialTools[tool.key]?.enabled && specialTools[tool.key]?.sub_model" class="submodel-hint">
@@ -86,9 +104,14 @@
 
       <TransitionGroup name="list-anim" tag="div" class="tools-list-container" v-else>
         <div v-for="ct in sortedCustomTools" :key="ct.id"
-          class="tool-row" :class="{ active: ct.enabled, 'is-error': isToolError(ct.id) }">
+          class="tool-row" :class="{ active: ct.enabled, 'is-error': isActiveError(ct) }">
           <label class="tool-check">
-            <input type="checkbox" :checked="ct.enabled" @change="toggleCustomTool(ct, $event.target.checked)" />
+            <!-- 替换原生 checkbox 为三态展示 (如果启用并异常展示 ⚠️，否则展示原生 checkbox) -->
+            <div v-if="isActiveError(ct)" class="checkbox-error-icon" title="该工具本身或其依赖项存在异常，需修复后才能正常运行">
+              ⚠️
+            </div>
+            <input v-else type="checkbox" :checked="ct.enabled" @change="toggleCustomTool(ct, $event.target.checked)" />
+
             <div class="tool-info-wrapper">
               <div class="tool-info">
                 <span class="tool-name">{{ ct.name || '(未命名)' }}</span>
@@ -99,21 +122,25 @@
                   </span>
                   {{ ct.description || '暂无描述' }}
                 </span>
-                <span v-if="isToolError(ct.id)" class="error-badge" :title="getToolErrorMsg(ct.id)">⚠️ 异常</span>
               </div>
 
-              <div v-if="ct.sub_tools?.length" class="nested-deps">
-                └─ 内部依赖:
+              <div v-if="ct.sub_tools?.length" class="nested-chips">
                 <span v-for="sub in ct.sub_tools" :key="sub.name || sub.custom_tool_id"
-                      class="dep-item"
-                      :class="{'dep-error': isToolError(sub.name || sub.custom_tool_id)}">
-                  [{{ getToolDisplayName(sub) }}]
+                      class="chip-item">
+                  <template v-if="isPlatformTool(sub) && isToolError(sub.name || sub.custom_tool_id)">❌ </template>
+                  <template v-else-if="!isPlatformTool(sub) && isToolError(sub.name || sub.custom_tool_id)">⚠️ </template>
+                  {{ getToolDisplayName(sub) }}
                 </span>
+                <span v-if="!ct.enabled && isToolOrDepError(ct)" class="chip-item-hint">（未启用，暂不影响）</span>
               </div>
             </div>
           </label>
           <div class="tool-btns">
-            <button class="icon-btn" title="编辑" @click="openEdit(ct)">
+            <!-- 不管启用与否，只要有依赖错或者自己错，就显示纯文字修复；否则显示铅笔（编辑） -->
+            <button v-if="isToolOrDepError(ct)" class="text-btn-error" @click="openEdit(ct)">
+              修复
+            </button>
+            <button v-else class="icon-btn" title="编辑" @click="openEdit(ct)">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
             <button class="icon-btn icon-btn-danger" title="删除" @click="removeCustomTool(ct.id)">
@@ -159,10 +186,12 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { SP_TOOLS, SPECIAL_TOOLS, PLATFORM_TOOLS } from '@/constants/spTools'
+import { SP_TOOLS, SPECIAL_TOOLS, PLATFORM_TOOLS, isToolError, getToolErrorMsg } from '@/constants/spTools'
 import ToolCreateModal from './ToolCreateModal.vue'
 import ToolSubModelModal from './ToolSubModelModal.vue'
 import mockApi from '@/api/mockApi'
+
+import { showSuccess, showError, showConfirm } from '@/composables/useNotification'
 
 const props = defineProps({
   tools: { type: Object, required: true },
@@ -185,20 +214,6 @@ const subModelTool = ref(null)
 const allowedTools = ref([])
 const disabledConfigs = ref({})
 
-// Mock layer error states - realistically these would come from an API endpoint
-const mockErrorTools = {
-  'SPgrep': '本地搜索引擎环境未启动，连接超时',
-  'mcp_internal_db': 'MCP 内部数据库服务网络拒绝访问'
-}
-
-function isToolError(key) {
-  return !!mockErrorTools[key]
-}
-
-function getToolErrorMsg(key) {
-  return mockErrorTools[key] || ''
-}
-
 function getToolDisplayName(sub) {
   if (sub.name) {
     const builtin = [...SP_TOOLS, ...SPECIAL_TOOLS].find(t => t.key === sub.name)
@@ -207,6 +222,11 @@ function getToolDisplayName(sub) {
   }
   const ct = props.customTools.find(t => t.id === sub.custom_tool_id)
   return ct?.name || sub.custom_tool_id || '未知工具'
+}
+
+function isPlatformTool(sub) {
+  const key = sub.name || sub.custom_tool_id
+  return [...SP_TOOLS, ...SPECIAL_TOOLS].some(t => t.key === key)
 }
 
 watch(() => props.platform, async (newPlatform) => {
@@ -307,6 +327,14 @@ function handleSubModelConfirm(subModelId) {
 }
 
 function toggleCustomTool(ct, checked) {
+  if (checked && isToolOrDepError(ct)) {
+    showError('请先修复异常，再启用该工具。')
+    // 强制重置状态以防止选中
+    const updated = [...props.customTools]
+    emit('update:customTools', updated)
+    return
+  }
+
   setTimeout(() => {
     updateCustomTool(ct.id, { enabled: checked })
   }, 100)
@@ -318,8 +346,23 @@ function updateCustomTool(id, updates) {
 }
 
 function removeCustomTool(id) {
-  if (!confirm('确认删除此工具？')) return
-  emit('update:customTools', props.customTools.filter(t => t.id !== id))
+  if (!confirm('确认删除此工具？该工具被引用的地方将一并取消引用。')) return
+
+  // Cascade delete logic: Find all other custom tools that depend on this one, and remove the dependency
+  const updatedList = props.customTools.filter(t => t.id !== id).map(t => {
+    if (t.sub_tools && t.sub_tools.length) {
+      const filteredSubs = t.sub_tools.filter(sub => {
+        const subId = sub.custom_tool_id || sub.name
+        return subId !== id
+      })
+      if (filteredSubs.length !== t.sub_tools.length) {
+        return { ...t, sub_tools: filteredSubs }
+      }
+    }
+    return t
+  })
+
+  emit('update:customTools', updatedList)
 }
 
 function openEdit(ct) {
@@ -344,10 +387,23 @@ function handleEditTool(data) {
   emit('update:customTools', list)
 }
 
+function isToolOrDepError(ct) {
+  if (isToolError(ct.id)) return true
+  if (ct.sub_tools && ct.sub_tools.length) {
+    return ct.sub_tools.some(sub => isToolError(sub.name || sub.custom_tool_id))
+  }
+  return false
+}
+
+// “启用链”上的异常判定。仅当 Agent 被“启用”，且（自身或依赖）存在异常时，才显示为强烈的整体错误状态
+function isActiveError(ct) {
+  return ct.enabled && isToolOrDepError(ct)
+}
+
 function checkEnabledToolsErrors() {
   const errors = []
 
-  // Check SP tools
+  // Check SP tools (only report if enabled)
   Object.keys(props.tools).forEach(key => {
     if (props.tools[key]?.enabled && isToolError(key)) {
       const t = SP_TOOLS.find(x => x.key === key)
@@ -355,7 +411,7 @@ function checkEnabledToolsErrors() {
     }
   })
 
-  // Check Special tools
+  // Check Special tools (only report if enabled)
   Object.keys(props.specialTools).forEach(key => {
     if (props.specialTools[key]?.enabled && isToolError(key)) {
       const t = SPECIAL_TOOLS.find(x => x.key === key)
@@ -471,6 +527,18 @@ function checkEnabledToolsErrors() {
   margin-top: 3px;
 }
 
+.checkbox-error-icon {
+  width: 16px; height: 16px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; margin-top: 3px; cursor: not-allowed;
+}
+
+.chip-item-hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-left: 4px;
+}
+
 .tool-info-wrapper {
   display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 4px;
 }
@@ -494,19 +562,18 @@ function checkEnabledToolsErrors() {
   flex-shrink: 0; cursor: help; margin-left: auto;
 }
 
-.nested-deps {
-  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
-  width: 100%; margin-top: 2px;
-  font-size: 11px; color: var(--color-text-muted); font-family: var(--font-mono);
+.nested-chips {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  width: 100%; margin-top: 4px;
 }
 
-.dep-item {
-  color: var(--color-text-secondary);
-}
-
-.dep-item.dep-error {
-  color: var(--color-error, #ef4444);
-  font-weight: 600;
+.chip-item {
+  display: inline-flex; align-items: center;
+  font-size: 11px; color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  background: var(--color-bg-secondary);
+  padding: 2px 8px; border-radius: 12px;
+  border: 1px solid var(--color-border);
 }
 
 .nested-badge {
@@ -531,6 +598,41 @@ function checkEnabledToolsErrors() {
   font-size: 11px; color: #ca8a04;
   padding: 4px 8px; border-radius: 6px;
   background: rgba(234,179,8,0.08);
+}
+
+.text-btn-error {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-error, #ef4444);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.text-btn-error:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.btn-close-error {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  background: var(--color-error);
+  color: white;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.btn-close-error:hover { opacity: 0.85; }
+
+.error-text {
+  color: var(--color-error, #ef4444) !important;
+  font-weight: 500;
 }
 
 .submodel-hint {

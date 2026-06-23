@@ -253,3 +253,20 @@ export const TOOL_SUB_MODELS = {
 export const PLATFORM_LABELS = {
   claude: 'Claude', gemini: 'Gemini', gpt: 'GPT', deepseek: 'DeepSeek', qwen: 'Qwen',
 }
+
+// ----------------------------------------------------------------------------
+// Mock Error definitions for front-end demonstration of the failure handling features
+// ----------------------------------------------------------------------------
+export const MOCK_ERROR_TOOLS = {
+  'SPread': '文件系统访问异常，服务暂时不可用',
+  'SPgrep': '本地搜索引擎环境未启动，连接超时',
+  'mcp_internal_db': 'MCP 内部数据库服务网络拒绝访问'
+}
+
+export function isToolError(key) {
+  return !!MOCK_ERROR_TOOLS[key]
+}
+
+export function getToolErrorMsg(key) {
+  return MOCK_ERROR_TOOLS[key] || ''
+}

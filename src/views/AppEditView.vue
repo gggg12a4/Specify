@@ -42,72 +42,80 @@
     <div v-if="!app" class="not-found">App 不存在或已被删除</div>
 
     <div v-else class="edit-layout">
-      <!-- 左侧文件空间 -->
-      <aside class="file-panel">
-        <AppFilePanel />
-      </aside>
+      <!-- 全局失效警告条 -->
+      <div v-if="hasAnyEnabledError" class="global-error-banner">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>⚠️ 有工具已失效，请处理后才能运行 App</span>
+      </div>
 
-      <!-- 主编辑区 -->
-      <div class="edit-main">
-        <!-- 系统提示词 -->
-        <div class="field-group">
-          <label class="field-label">系统提示词</label>
-          <textarea
-            v-model="form.system_prompt"
-            class="prompt-box"
-            placeholder="定义 App 的角色、行为和限制…"
-            rows="8"
-            @input="markDirty"
-          ></textarea>
-        </div>
+      <div class="edit-content">
+        <!-- 左侧文件空间 -->
+        <aside class="file-panel">
+          <AppFilePanel />
+        </aside>
 
-        <!-- 工具区 -->
-        <div class="field-group">
-          <label class="field-label">工具</label>
-          <AppToolsSection
-            ref="toolsSectionRef"
-            :tools="form.tools"
-            :custom-tools="form.custom_tools"
-            :special-tools="form.special_tools"
-            :platform="app.platform || 'claude'"
-            @update:tools="(v) => { form.tools = v; markDirty() }"
-            @update:custom-tools="(v) => { form.custom_tools = v; markDirty() }"
-            @update:special-tools="(v) => { form.special_tools = v; markDirty() }"
-            @show-info="infoTool = $event"
-            @show-config="configTool = $event"
-          />
-        </div>
-
-        <!-- MCP 服务区 -->
-        <div class="field-group">
-          <div class="field-label-row">
-            <label class="field-label">MCP 服务</label>
-            <button class="btn-add-mcp" @click="showAddMcp = true">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              添加 MCP
-            </button>
+        <!-- 主编辑区 -->
+        <div class="edit-main">
+          <!-- 系统提示词 -->
+          <div class="field-group">
+            <label class="field-label">系统提示词</label>
+            <textarea
+              v-model="form.system_prompt"
+              class="prompt-box"
+              placeholder="定义 App 的角色、行为和限制…"
+              rows="8"
+              @input="markDirty"
+            ></textarea>
           </div>
 
-          <div v-if="!form.mcp_services.length" class="mcp-empty">
-            还没有添加 MCP 服务，点击「添加 MCP」接入外部工具
+          <!-- 工具区 -->
+          <div class="field-group">
+            <label class="field-label">工具</label>
+            <AppToolsSection
+              ref="toolsSectionRef"
+              :tools="form.tools"
+              :custom-tools="form.custom_tools"
+              :special-tools="form.special_tools"
+              :platform="app.platform || 'claude'"
+              @update:tools="(v) => { form.tools = v; markDirty() }"
+              @update:custom-tools="(v) => { form.custom_tools = v; markDirty() }"
+              @update:special-tools="(v) => { form.special_tools = v; markDirty() }"
+              @show-info="infoTool = $event"
+              @show-config="configTool = $event"
+            />
           </div>
 
-          <div v-else class="mcp-list">
-            <div v-for="mcp in form.mcp_services" :key="mcp.id" class="mcp-row">
-              <label class="mcp-check">
-                <input type="checkbox" :checked="mcp.enabled" @change="toggleMcp(mcp.id, $event.target.checked)" />
-              </label>
-              <div class="mcp-info">
-                <span class="mcp-name">{{ mcp.name }}</span>
-                <span class="mcp-meta">{{ mcp.tool_count || 0 }} 个工具 · {{ truncateUrl(mcp.url) }}</span>
-              </div>
-              <div class="mcp-btns">
-                <button class="icon-btn" title="配置" @click="openMcpConfig(mcp)">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                </button>
-                <button class="icon-btn icon-btn-danger" title="删除" @click="removeMcp(mcp.id)">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                </button>
+          <!-- MCP 服务区 -->
+          <div class="field-group">
+            <div class="field-label-row">
+              <label class="field-label">MCP 服务</label>
+              <button class="btn-add-mcp" @click="showAddMcp = true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                添加 MCP
+              </button>
+            </div>
+
+            <div v-if="!form.mcp_services.length" class="mcp-empty">
+              还没有添加 MCP 服务，点击「添加 MCP」接入外部工具
+            </div>
+
+            <div v-else class="mcp-list">
+              <div v-for="mcp in form.mcp_services" :key="mcp.id" class="mcp-row">
+                <label class="mcp-check">
+                  <input type="checkbox" :checked="mcp.enabled" @change="toggleMcp(mcp.id, $event.target.checked)" />
+                </label>
+                <div class="mcp-info">
+                  <span class="mcp-name">{{ mcp.name }}</span>
+                  <span class="mcp-meta">{{ mcp.tool_count || 0 }} 个工具 · {{ truncateUrl(mcp.url) }}</span>
+                </div>
+                <div class="mcp-btns">
+                  <button class="icon-btn" title="配置" @click="openMcpConfig(mcp)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  </button>
+                  <button class="icon-btn icon-btn-danger" title="删除" @click="removeMcp(mcp.id)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -177,6 +185,7 @@ const showLeaveConfirm = ref(false)
 const showAddMcp = ref(false)
 const showMcpConfig = ref(false)
 const mcpConfigTarget = ref(null)
+const hasAnyEnabledError = ref(false)
 let pendingNav = null
 
 watch(app, (a) => {
@@ -196,7 +205,21 @@ watch(() => form, () => {
 
 function markDirty() {
   isDirty.value = true
+  checkGlobalErrors()
 }
+
+function checkGlobalErrors() {
+  if (toolsSectionRef.value) {
+    const errors = toolsSectionRef.value.checkEnabledToolsErrors()
+    hasAnyEnabledError.value = errors && errors.length > 0
+  }
+}
+
+// Watch for changes that might affect error state
+watch(() => [form.tools, form.special_tools, form.custom_tools], () => {
+  // Use setTimeout to ensure DOM is updated and checkEnabledToolsErrors gets latest data
+  setTimeout(checkGlobalErrors, 150)
+}, { deep: true })
 
 function handleSave(silent = false) {
   if (!isDirty.value) return Promise.resolve()
@@ -484,6 +507,29 @@ onBeforeRouteLeave(async (to, from, next) => {
 
 /* ── Layout ── */
 .edit-layout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.global-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 24px;
+  background: rgba(245, 158, 11, 0.1);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.3);
+  color: #b45309;
+  font-size: 14px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.global-error-banner svg {
+  color: #f59e0b;
+}
+
+.edit-content {
   flex: 1;
   display: flex;
   overflow: hidden;
