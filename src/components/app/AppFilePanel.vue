@@ -1,90 +1,88 @@
 <template>
   <div class="file-panel">
-    <!-- ── 上半部：App 资料 ── -->
-    <div class="panel-section app-resource">
-      <div class="section-header">
-        <span class="section-title">📁 App 资料</span>
-        <div class="header-btns">
-          <button class="hdr-btn" title="新建文件夹" @click="showMkdir = true">+ 文件夹</button>
-          <button class="hdr-btn" title="上传文件" @click="openUpload">上传</button>
-        </div>
-      </div>
-      <p class="guide-text">在这里管理你的 App 资料，复制路径后在提示词中引用，AI 即可读取使用。</p>
-
-      <div class="tree-body">
-        <!-- shared/ -->
-        <div class="dir-node">
-          <div class="dir-row" @click="toggleDir('shared')">
-            <span class="dir-arrow">{{ expanded.shared ? '▾' : '▸' }}</span>
-            <span class="dir-name">shared/</span>
-            <button class="copy-btn" title="复制路径" @click.stop="copyPath('shared/')">📋</button>
-          </div>
-          <div v-if="expanded.shared" class="dir-children">
-            <div v-if="!sharedFiles.length" class="empty-dir">（空）</div>
-            <div
-              v-for="item in sharedFiles" :key="item.path"
-              class="file-row"
-              @mouseenter="hovered = item.path"
-              @mouseleave="hovered = null"
-            >
-              <span class="file-icon">{{ item.isDir ? '▸' : '📄' }}</span>
-              <span class="file-name">{{ item.name }}</span>
-              <div v-if="hovered === item.path" class="file-actions">
-                <button class="file-btn" title="复制路径" @click.stop="copyPath(item.path)">📋</button>
-                <button v-if="!item.isDir" class="file-btn" title="下载" @click.stop="downloadFile(item)">⬇</button>
-                <button class="file-btn file-btn-del" title="删除" @click.stop="askDelete(item)">🗑</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- mailbox/ -->
-        <div class="dir-node">
-          <div class="dir-row" @click="toggleDir('mailbox')">
-            <span class="dir-arrow">{{ expanded.mailbox ? '▾' : '▸' }}</span>
-            <span class="dir-name">mailbox/</span>
-            <button class="help-btn" title="查看使用说明" @click.stop="showMailboxHelp = true">?</button>
-          </div>
-          <div v-if="expanded.mailbox" class="dir-children">
-            <div v-if="!mailboxFiles.length" class="empty-dir">（空）</div>
-            <div
-              v-for="item in mailboxFiles" :key="item.path"
-              class="file-row"
-              @mouseenter="hovered = item.path"
-              @mouseleave="hovered = null"
-            >
-              <span class="file-icon">{{ item.isDir ? '▸' : '📄' }}</span>
-              <span class="file-name">{{ item.name }}</span>
-              <div v-if="hovered === item.path" class="file-actions">
-                <button class="file-btn" title="复制路径" @click.stop="copyPath(item.path)">📋</button>
-                <button v-if="!item.isDir" class="file-btn" title="下载" @click.stop="downloadFile(item)">⬇</button>
-                <button class="file-btn file-btn-del" title="删除" @click.stop="askDelete(item)">🗑</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div class="panel-header">
+      <span class="panel-title">工作区资源</span>
+      <button class="header-btn" title="新建文件夹" @click="openMkdirIn('shared/')">
+        <PlusIcon :size="14" />
+      </button>
     </div>
 
-    <!-- 分隔线 -->
-    <div class="panel-divider">─ ─ ─ ─ ─ ─ ─ ─</div>
-
-    <!-- ── 下半部：用户网盘说明 ── -->
-    <div class="panel-section user-disk">
-      <div class="disk-header">💡 用户网盘说明</div>
-      <p class="disk-intro">如果你的 App 需要帮用户处理文件，可在提示词中使用以下文件夹名来引用。Specify 会自动为每个用户创建独立个人网盘。不涉及文件操作可跳过。</p>
-
-      <div v-for="d in diskDirs" :key="d.name" class="disk-dir">
-        <div class="disk-dir-name">📂 {{ d.name }}</div>
-        <div class="disk-dir-label">{{ d.label }}</div>
-        <div class="disk-dir-desc">{{ d.desc }}</div>
-        <div v-if="d.note" class="disk-dir-note">⚡ {{ d.note }}</div>
+    <div class="tree-view">
+      <!-- shared / 核心知识库 -->
+      <div class="folder-block">
+        <div
+          class="folder-header"
+          :class="{ expanded: expanded.shared }"
+          @click="toggleDir('shared')"
+        >
+          <div class="folder-header-left">
+            <span class="folder-chevron">▸</span>
+            <FolderTypeIcon />
+            <span>shared / 核心知识库</span>
+          </div>
+          <div class="folder-header-actions" @click.stop>
+            <span class="folder-action" title="上传文件或文件夹" @click="openUploadTo('shared/')">
+              <UploadIcon :size="13" />
+            </span>
+            <span class="folder-action" title="新建文件夹" @click="openMkdirIn('shared/')">
+              <PlusIcon :size="13" />
+            </span>
+          </div>
+        </div>
+        <div class="folder-desc">
+          存放 Agent 必须阅读的文档或准则。复制此处的路径并粘贴到提示词中，AI 即可将其作为核心知识。
+        </div>
+        <div class="folder-contents" :class="{ expanded: expanded.shared }">
+          <FolderTreeList
+            :files="sharedFiles"
+            parent-path="shared/"
+            :expanded-paths="expandedPaths"
+            @upload="openUploadTo"
+            @mkdir="openMkdirIn"
+            @copy="copyPath"
+            @delete="askDelete"
+            @download="downloadFile"
+          />
+        </div>
       </div>
 
-      <div class="disk-example">
-        <div class="disk-example-title">提示词中可以引用这些文件夹：</div>
-        <div class="disk-example-code">"将报告保存到用户的 workspace/"</div>
-        <div class="disk-example-code">"把要点记录到用户的 memory/"</div>
+      <!-- mailbox / 用户传递 -->
+      <div class="folder-block">
+        <div
+          class="folder-header"
+          :class="{ expanded: expanded.mailbox }"
+          @click="toggleDir('mailbox')"
+        >
+          <div class="folder-header-left">
+            <span class="folder-chevron">▸</span>
+            <FolderTypeIcon />
+            <span>mailbox / 用户传递</span>
+          </div>
+          <div class="folder-header-actions" @click.stop>
+            <span class="folder-action" title="上传文件或文件夹" @click="openUploadTo('mailbox/')">
+              <UploadIcon :size="13" />
+            </span>
+            <span class="folder-action" title="新建文件夹" @click="openMkdirIn('mailbox/')">
+              <PlusIcon :size="13" />
+            </span>
+            <span class="folder-action" title="使用说明" @click="showMailboxHelp = true">?</span>
+          </div>
+        </div>
+        <div class="folder-desc">
+          App 内用户之间的文件传递通道。写入后系统生成加密文件名，需知道具体文件名才能读取。
+        </div>
+        <div class="folder-contents" :class="{ expanded: expanded.mailbox }">
+          <FolderTreeList
+            :files="mailboxFiles"
+            parent-path="mailbox/"
+            :expanded-paths="expandedPaths"
+            @upload="openUploadTo"
+            @mkdir="openMkdirIn"
+            @copy="copyPath"
+            @delete="askDelete"
+            @download="downloadFile"
+          />
+        </div>
       </div>
     </div>
 
@@ -123,8 +121,7 @@
             <div class="simple-field">
               <label>创建到：</label>
               <select v-model="mkdirParent" class="simple-select">
-                <option value="shared/">shared/</option>
-                <option value="mailbox/">mailbox/</option>
+                <option v-for="p in allFolderPaths" :key="p" :value="p">{{ p }}</option>
               </select>
             </div>
             <div class="simple-field">
@@ -145,13 +142,10 @@
       <Transition name="modal">
         <div v-if="showUpload" class="overlay" @click="showUpload = false">
           <div class="simple-dialog" @click.stop>
-            <div class="simple-dialog-title">上传文件</div>
+            <div class="simple-dialog-title">上传文件或文件夹</div>
             <div class="simple-field">
               <label>上传到：</label>
-              <select v-model="uploadTarget" class="simple-select">
-                <option value="shared/">shared/</option>
-                <option value="mailbox/">mailbox/</option>
-              </select>
+              <div class="upload-target-path">{{ uploadTarget }}</div>
             </div>
             <div
               class="upload-zone"
@@ -160,11 +154,25 @@
               @dragleave="isDragging = false"
               @drop.prevent="handleDrop"
             >
-              <p>拖拽文件到此处</p>
-              <p>或 <label class="upload-label">点击选择文件<input ref="fileInputRef" type="file" multiple hidden @change="handleFileSelect" /></label></p>
+              <p>拖拽文件到此处，或选择上传方式</p>
+              <p class="upload-btns">
+                <label class="upload-label">
+                  选择文件
+                  <input ref="fileInputRef" type="file" multiple hidden @change="handleFileSelect" />
+                </label>
+                <span class="upload-sep">或</span>
+                <label class="upload-label">
+                  选择文件夹
+                  <input ref="dirInputRef" type="file" webkitdirectory multiple hidden @change="handleDirSelect" />
+                </label>
+              </p>
             </div>
-            <!-- 待上传文件列表 -->
-            <div v-if="pendingFiles.length" class="pending-list">
+            <div v-if="uploadMode === 'folder' && pendingFolderItems.length" class="folder-upload-preview">
+              <div class="folder-upload-preview-title">将先创建文件夹，再上传其中的内容：</div>
+              <div class="folder-upload-preview-path">{{ uploadTarget }}{{ folderUploadName }}/</div>
+              <div class="folder-upload-preview-count">共 {{ pendingFolderItems.length }} 个文件</div>
+            </div>
+            <div v-else-if="uploadMode === 'file' && pendingFiles.length" class="pending-list">
               <div v-for="(f, i) in pendingFiles" :key="i" class="pending-item">
                 <span class="pending-name">{{ f.name }}</span>
                 <span class="pending-size">{{ formatSize(f.size) }}</span>
@@ -173,8 +181,8 @@
             </div>
             <div class="simple-footer">
               <button class="btn-ghost-sm" @click="cancelUpload">取消</button>
-              <button class="btn-primary-sm" :disabled="!pendingFiles.length" @click="confirmUpload">
-                上传 {{ pendingFiles.length ? `(${pendingFiles.length})` : '' }}
+              <button class="btn-primary-sm" :disabled="!canConfirmUpload" @click="confirmUpload">
+                {{ confirmUploadLabel }}
               </button>
             </div>
           </div>
@@ -187,9 +195,9 @@
       <Transition name="modal">
         <div v-if="deleteTarget" class="overlay" @click="deleteTarget = null">
           <div class="simple-dialog" @click.stop>
-            <div class="simple-dialog-title">删除文件</div>
+            <div class="simple-dialog-title">{{ deleteTarget?.isDir ? '删除文件夹' : '删除文件' }}</div>
             <div class="delete-confirm-body">
-              确定要删除 <strong>{{ deleteTarget.name }}</strong> 吗？此操作不可撤销。
+              确定要删除 <strong>{{ deleteTarget.name }}</strong>{{ deleteTarget?.isDir ? ' 及其所有内容' : '' }}吗？此操作不可撤销。
             </div>
             <div class="simple-footer">
               <button class="btn-ghost-sm" @click="deleteTarget = null">取消</button>
@@ -203,32 +211,63 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
+import FolderTypeIcon from '@/components/app/FolderTypeIcon.vue'
+import FolderTreeList from '@/components/app/FolderTreeList.vue'
+import UploadIcon from '@/components/app/UploadIcon.vue'
+import PlusIcon from '@/components/app/PlusIcon.vue'
+import { showSuccess, showError } from '@/composables/useNotification'
 
 const expanded = reactive({ shared: true, mailbox: false })
-const hovered = ref(null)
+const expandedPaths = reactive({ 'shared/skills/': false })
 const showMailboxHelp = ref(false)
 const showMkdir = ref(false)
 const showUpload = ref(false)
 const mkdirParent = ref('shared/')
 const mkdirName = ref('')
 const uploadTarget = ref('shared/')
+const uploadMode = ref('file')
 const pendingFiles = ref([])
+const pendingFolderItems = ref([])
 const isDragging = ref(false)
 const deleteTarget = ref(null)
 const fileInputRef = ref(null)
+const dirInputRef = ref(null)
 
 const sharedFiles = ref([
   { name: 'skills/', path: 'shared/skills/', isDir: true, fileObj: null }
 ])
 const mailboxFiles = ref([])
 
-const diskDirs = [
-  { name: 'workspace/', label: '主文件夹', desc: '用户和 AI 的主要工作目录，产出物默认保存在这里' },
-  { name: 'temp/', label: '临时区（定期清理）', desc: '工具运行的中间结果暂存在此，无需手动管理' },
-  { name: 'memory/', label: '记忆磁盘', desc: '需要长期记忆的内容可放在这里，适合保存用户偏好、关键结论等', note: '写入需启用 SPmake' },
-  { name: 'assets/', label: '用户上传内容', desc: '用户在对话中上传的文件自动保存到这里' }
-]
+const allFolderPaths = computed(() => {
+  const paths = new Set(['shared/', 'mailbox/'])
+  for (const item of [...sharedFiles.value, ...mailboxFiles.value]) {
+    if (item.isDir) paths.add(item.path)
+  }
+  return [...paths].sort()
+})
+
+const folderUploadName = computed(() => {
+  if (!pendingFolderItems.value.length) return ''
+  const first = pendingFolderItems.value[0].relativePath
+  return first.split('/').filter(Boolean)[0] || ''
+})
+
+const canConfirmUpload = computed(() =>
+  uploadMode.value === 'folder'
+    ? pendingFolderItems.value.length > 0 && !!folderUploadName.value
+    : pendingFiles.value.length > 0
+)
+
+const confirmUploadLabel = computed(() => {
+  if (uploadMode.value === 'folder' && pendingFolderItems.value.length) {
+    return `上传文件夹 (${pendingFolderItems.value.length})`
+  }
+  if (uploadMode.value === 'file' && pendingFiles.value.length) {
+    return `上传 (${pendingFiles.value.length})`
+  }
+  return '上传'
+})
 
 function toggleDir(name) {
   expanded[name] = !expanded[name]
@@ -236,9 +275,21 @@ function toggleDir(name) {
 
 async function copyPath(path) {
   try {
-    await navigator.clipboard.writeText(path)
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(path)
+    } else {
+      const textArea = document.createElement('textarea')
+      textArea.value = path
+      textArea.style.position = 'absolute'
+      textArea.style.left = '-999999px'
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      textArea.remove()
+    }
+    showSuccess(`路径已复制：${path}`)
   } catch {
-    // fallback silently
+    showError('复制失败，请重试')
   }
 }
 
@@ -248,57 +299,215 @@ function formatSize(bytes) {
   return (bytes / 1024 / 1024).toFixed(1) + ' MB'
 }
 
+function getListForPath(path) {
+  return path.startsWith('mailbox/') ? mailboxFiles : sharedFiles
+}
+
 function handleMkdir() {
   if (!mkdirName.value.trim()) return
   const dirName = mkdirName.value.trim() + '/'
   const path = mkdirParent.value + mkdirName.value.trim() + '/'
-  const list = mkdirParent.value === 'shared/' ? sharedFiles : mailboxFiles
+  const list = getListForPath(mkdirParent.value)
   if (!list.value.find(f => f.path === path)) {
     list.value.push({ name: dirName, path, isDir: true, fileObj: null })
+    expandedPaths[path] = true
   }
   mkdirName.value = ''
   showMkdir.value = false
 }
 
-function openUpload() {
+function openMkdirIn(path) {
+  mkdirParent.value = path
+  mkdirName.value = ''
+  showMkdir.value = true
+}
+
+function openUploadTo(target) {
+  uploadTarget.value = target
+  uploadMode.value = 'file'
   pendingFiles.value = []
+  pendingFolderItems.value = []
   showUpload.value = true
 }
 
 function handleFileSelect(e) {
-  const files = Array.from(e.target.files)
-  mergeIntoPending(files)
+  uploadMode.value = 'file'
+  pendingFolderItems.value = []
+  pendingFiles.value = Array.from(e.target.files)
   e.target.value = ''
 }
 
-function handleDrop(e) {
-  isDragging.value = false
-  const files = Array.from(e.dataTransfer.files).filter(f => !f.type.startsWith(''))
-  mergeIntoPending(Array.from(e.dataTransfer.files))
+function handleDirSelect(e) {
+  const files = Array.from(e.target.files)
+  if (!files.length) return
+  uploadMode.value = 'folder'
+  pendingFiles.value = []
+  pendingFolderItems.value = files.map(file => ({
+    file,
+    relativePath: normalizeRelativePath(file.webkitRelativePath || file.name),
+  }))
+  e.target.value = ''
 }
 
-function mergeIntoPending(files) {
-  for (const f of files) {
-    if (!pendingFiles.value.find(p => p.name === f.name)) {
-      pendingFiles.value.push(f)
+async function handleDrop(e) {
+  isDragging.value = false
+  const items = Array.from(e.dataTransfer.items || [])
+  const hasDirectory = items.some(item => {
+    const entry = item.webkitGetAsEntry?.()
+    return entry?.isDirectory
+  })
+
+  if (hasDirectory) {
+    uploadMode.value = 'folder'
+    pendingFiles.value = []
+    const collected = []
+    for (const item of items) {
+      const entry = item.webkitGetAsEntry?.()
+      if (entry) collected.push(...await readEntry(entry, ''))
     }
+    pendingFolderItems.value = collected
+    return
+  }
+
+  uploadMode.value = 'file'
+  pendingFolderItems.value = []
+  pendingFiles.value = Array.from(e.dataTransfer.files)
+}
+
+function normalizeRelativePath(path) {
+  return path.replace(/\\/g, '/')
+}
+
+async function readAllEntries(reader) {
+  const all = []
+  while (true) {
+    const batch = await new Promise((resolve, reject) => reader.readEntries(resolve, reject))
+    if (!batch.length) break
+    all.push(...batch)
+  }
+  return all
+}
+
+async function readEntry(entry, basePath) {
+  if (entry.isFile) {
+    return new Promise(resolve => {
+      entry.file(file => {
+        resolve([{
+          file,
+          relativePath: normalizeRelativePath(basePath + file.name),
+        }])
+      })
+    })
+  }
+  if (entry.isDirectory) {
+    const entries = await readAllEntries(entry.createReader())
+    const nested = await Promise.all(
+      entries.map(child => readEntry(child, basePath + entry.name + '/'))
+    )
+    return nested.flat()
+  }
+  return []
+}
+
+function getRootPrefix(path) {
+  return path.startsWith('mailbox/') ? 'mailbox/' : 'shared/'
+}
+
+function ensureDirPath(list, dirPath, rootPrefix) {
+  if (!dirPath.startsWith(rootPrefix) || dirPath === rootPrefix) return
+  const relative = dirPath.slice(rootPrefix.length)
+  const parts = relative.split('/').filter(Boolean)
+  let acc = rootPrefix
+  for (const part of parts) {
+    acc += part + '/'
+    if (!list.value.some(f => f.path === acc)) {
+      list.value.push({ name: part + '/', path: acc, isDir: true, fileObj: null })
+    }
+    expandedPaths[acc] = true
+  }
+}
+
+function expandAfterUpload(path) {
+  const rootPrefix = getRootPrefix(path)
+  if (rootPrefix === 'shared/') expanded.shared = true
+  else expanded.mailbox = true
+
+  const relative = path.slice(rootPrefix.length)
+  const parts = relative.split('/').filter(Boolean)
+  let acc = rootPrefix
+  for (const part of parts) {
+    acc += part + '/'
+    expandedPaths[acc] = true
   }
 }
 
 function confirmUpload() {
-  const list = uploadTarget.value === 'shared/' ? sharedFiles : mailboxFiles
+  if (uploadMode.value === 'folder') confirmFolderUpload()
+  else confirmFileUpload()
+}
+
+function confirmFileUpload() {
+  const list = getListForPath(uploadTarget.value)
+  const count = pendingFiles.value.length
+  const target = uploadTarget.value
+
   for (const file of pendingFiles.value) {
-    const path = uploadTarget.value + file.name
-    if (!list.value.find(f => f.path === path)) {
-      list.value.push({ name: file.name, path, isDir: false, fileObj: file })
+    const fullPath = target + file.name
+    if (!list.value.find(f => f.path === fullPath)) {
+      list.value.push({ name: file.name, path: fullPath, isDir: false, fileObj: file })
     }
   }
+
   pendingFiles.value = []
   showUpload.value = false
+  expandAfterUpload(target)
+  showSuccess(`已上传 ${count} 个文件到 ${target}`)
+}
+
+function confirmFolderUpload() {
+  const folderName = folderUploadName.value
+  if (!folderName) {
+    showError('无法识别文件夹，请重新选择')
+    return
+  }
+
+  const list = getListForPath(uploadTarget.value)
+  const rootPrefix = getRootPrefix(uploadTarget.value)
+  const containerPath = uploadTarget.value + folderName + '/'
+
+  ensureDirPath(list, containerPath, rootPrefix)
+  expandedPaths[containerPath] = true
+
+  let uploadedCount = 0
+  for (const { file, relativePath } of pendingFolderItems.value) {
+    const innerPath = relativePath.startsWith(folderName + '/')
+      ? relativePath.slice(folderName.length + 1)
+      : relativePath === folderName
+        ? ''
+        : relativePath
+
+    if (!innerPath) continue
+
+    const fullPath = containerPath + innerPath
+    const parentDir = fullPath.slice(0, fullPath.lastIndexOf('/') + 1)
+    ensureDirPath(list, parentDir, rootPrefix)
+
+    if (!list.value.find(f => f.path === fullPath)) {
+      list.value.push({ name: file.name, path: fullPath, isDir: false, fileObj: file })
+      uploadedCount++
+    }
+  }
+
+  pendingFolderItems.value = []
+  showUpload.value = false
+  expandAfterUpload(containerPath)
+  showSuccess(`已创建 ${containerPath} 并上传 ${uploadedCount} 个文件`)
 }
 
 function cancelUpload() {
   pendingFiles.value = []
+  pendingFolderItems.value = []
+  uploadMode.value = 'file'
   showUpload.value = false
 }
 
@@ -309,8 +518,13 @@ function askDelete(item) {
 function confirmDelete() {
   if (!deleteTarget.value) return
   const path = deleteTarget.value.path
-  sharedFiles.value = sharedFiles.value.filter(f => f.path !== path)
-  mailboxFiles.value = mailboxFiles.value.filter(f => f.path !== path)
+  if (deleteTarget.value.isDir) {
+    sharedFiles.value = sharedFiles.value.filter(f => !f.path.startsWith(path))
+    mailboxFiles.value = mailboxFiles.value.filter(f => !f.path.startsWith(path))
+  } else {
+    sharedFiles.value = sharedFiles.value.filter(f => f.path !== path)
+    mailboxFiles.value = mailboxFiles.value.filter(f => f.path !== path)
+  }
   deleteTarget.value = null
 }
 
@@ -323,6 +537,36 @@ function downloadFile(item) {
   a.click()
   URL.revokeObjectURL(url)
 }
+
+const VIRTUAL_DISK_PATHS = [
+  { label: 'workspace / 工作目录', value: 'workspace/', kind: 'folder' },
+  { label: 'assets / 用户上传', value: 'assets/', kind: 'folder' },
+  { label: 'memory / 长期记忆', value: 'memory/', kind: 'folder' },
+  { label: 'temp / 临时区', value: 'temp/', kind: 'folder' },
+]
+
+function getMentionFileItems() {
+  const items = [
+    { label: 'shared / 核心知识库', value: 'shared/', kind: 'folder' },
+    { label: 'mailbox / 用户传递', value: 'mailbox/', kind: 'folder' },
+    ...VIRTUAL_DISK_PATHS,
+  ]
+
+  const seen = new Set(items.map(i => i.value))
+  for (const item of [...sharedFiles.value, ...mailboxFiles.value]) {
+    if (seen.has(item.path)) continue
+    seen.add(item.path)
+    items.push({
+      label: item.name.replace(/\/$/, ''),
+      value: item.path,
+      kind: item.isDir ? 'folder' : 'file',
+    })
+  }
+
+  return items
+}
+
+defineExpose({ getMentionFileItems })
 </script>
 
 <style scoped>
@@ -330,249 +574,215 @@ function downloadFile(item) {
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden;
+}
+
+/* ── Panel header ── */
+.panel-header {
+  padding: 20px 24px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+.panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+  letter-spacing: -0.01em;
+}
+.header-btn {
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: none;
+  transition: background 0.15s, color 0.15s;
+}
+.header-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+/* ── Tree view ── */
+.tree-view {
+  padding: 0 16px 20px;
+  flex: 1;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
   scrollbar-width: none;
 }
-.file-panel::-webkit-scrollbar {
+.tree-view::-webkit-scrollbar {
   display: none;
 }
 
-/* ── App 资料区 ── */
-.app-resource {
-  flex-shrink: 0;
+/* ── Folder block ── */
+.folder-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.panel-section {
-  padding: 12px 14px;
-}
-
-.section-header {
+.folder-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
-}
-.section-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-text);
-}
-.header-btns {
-  display: flex;
-  gap: 4px;
-}
-.hdr-btn {
-  font-size: 11px;
-  padding: 3px 8px;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  color: var(--color-text-secondary);
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
   cursor: pointer;
-  transition: all 0.15s;
+  border-radius: 6px;
+  user-select: none;
+  transition: background 0.15s;
 }
-.hdr-btn:hover {
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
-  border-color: var(--color-primary-soft);
-}
-
-.guide-text {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  line-height: 1.5;
-  margin: 0 0 8px;
+.folder-header:hover {
+  background: #f3f4f6;
 }
 
-/* Tree */
-.tree-body {
-  display: flex;
-  flex-direction: column;
-}
-
-.dir-node {
-  display: flex;
-  flex-direction: column;
-}
-.dir-row {
+.folder-header-left {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 0;
-  cursor: pointer;
-  user-select: none;
-  border-radius: 4px;
-  transition: background 0.1s;
-  position: relative;
-}
-.dir-row:hover {
-  background: var(--color-bg-secondary);
-}
-.dir-arrow {
-  font-size: 9px;
-  color: var(--color-text-muted);
-  width: 12px;
-  flex-shrink: 0;
-}
-.dir-name {
-  font-size: 13px;
-  color: var(--color-text);
-  font-weight: 500;
-  font-family: var(--font-mono, monospace);
-  flex: 1;
+  gap: 10px;
   min-width: 0;
-}
-.copy-btn,
-.help-btn {
-  font-size: 11px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  opacity: 0;
-  padding: 1px 3px;
-  border-radius: 3px;
-  transition: opacity 0.15s;
-}
-.dir-row:hover .copy-btn,
-.dir-row:hover .help-btn {
-  opacity: 1;
-}
-.help-btn {
-  color: var(--color-text-muted);
-  border: 1px solid var(--color-border);
-  font-size: 10px;
-  font-weight: 600;
-}
-.help-btn:hover {
-  color: var(--color-primary);
-  border-color: var(--color-primary);
+  flex: 1;
 }
 
-.dir-children {
-  padding-left: 16px;
+.folder-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0;
 }
+
+.folder-action {
+  opacity: 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: opacity 0.2s, color 0.15s, background 0.15s;
+  cursor: pointer;
+}
+.folder-header:hover .folder-action {
+  opacity: 1;
+}
+.folder-action:hover {
+  color: #374151;
+  background: #e5e7eb;
+}
+
+.folder-chevron {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.folder-header.expanded .folder-chevron {
+  transform: rotate(90deg);
+}
+
+/* Contextual description */
+.folder-desc {
+  margin: 0 8px 6px 32px;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.5;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: top;
+  opacity: 1;
+  max-height: 120px;
+}
+.folder-header.expanded + .folder-desc {
+  opacity: 0;
+  max-height: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+  transform: scaleY(0.9);
+}
+.folder-contents {
+  display: none;
+  margin-left: 14px;
+  border-left: 1px solid var(--color-border);
+  padding-left: 8px;
+}
+.folder-contents.expanded {
+  display: block;
+}
+
 .empty-dir {
   font-size: 12px;
   color: var(--color-text-muted);
-  padding: 3px 0;
+  padding: 6px 8px;
   font-style: italic;
 }
-.file-row {
+
+/* ── File nodes ── */
+.file-node {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 0;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--color-text);
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 2px;
   position: relative;
+  transition: background 0.15s;
+}
+.file-node:hover {
+  background: var(--color-bg-secondary);
 }
 .file-icon {
-  font-size: 12px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  flex-shrink: 0;
 }
 .file-name {
-  font-size: 12px;
-  color: var(--color-text-secondary);
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
 }
 .file-actions {
   display: flex;
-  gap: 2px;
+  gap: 0;
   flex-shrink: 0;
 }
-.file-btn {
+.file-action-btn {
   font-size: 11px;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 1px 3px;
-  border-radius: 3px;
+  padding: 1px 2px;
+  border-radius: 4px;
   color: var(--color-text-muted);
   transition: all 0.1s;
 }
-.file-btn:hover {
+.file-action-btn:hover {
   background: var(--color-bg-secondary);
 }
-.file-btn-del:hover {
+.file-action-del:hover {
   color: var(--color-error);
 }
 
-/* ── 分隔 ── */
-.panel-divider {
-  font-size: 10px;
-  color: var(--color-text-muted);
-  padding: 4px 14px;
-  opacity: 0.5;
-  flex-shrink: 0;
-}
-
-/* ── 用户网盘说明 ── */
-.user-disk {
-  flex: 1;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-.user-disk::-webkit-scrollbar {
-  display: none;
-}
-.disk-header {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-text);
-  margin-bottom: 8px;
-}
-.disk-intro {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  line-height: 1.55;
-  margin: 0 0 12px;
-}
-.disk-dir {
-  margin-bottom: 10px;
-}
-.disk-dir-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text);
-  font-family: var(--font-mono, monospace);
-}
-.disk-dir-label {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  font-style: italic;
-  margin: 1px 0;
-}
-.disk-dir-desc {
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-}
-.disk-dir-note {
-  font-size: 11px;
-  color: var(--color-warning, #f59e0b);
-}
-.disk-example {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--color-border);
-}
-.disk-example-title {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  margin-bottom: 4px;
-}
-.disk-example-code {
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  font-family: var(--font-mono, monospace);
-  background: var(--color-bg-secondary);
-  padding: 3px 6px;
-  border-radius: 3px;
-  margin-bottom: 3px;
-}
-
-/* ── 弹窗 ── */
+/* ── Modals ── */
 .overlay {
   position: fixed;
   inset: 0;
@@ -727,7 +937,6 @@ function downloadFile(item) {
   opacity: 0.88;
 }
 
-/* 上传区 */
 .upload-zone {
   border: 2px dashed var(--color-border);
   border-radius: var(--radius-md);
@@ -742,13 +951,58 @@ function downloadFile(item) {
   border-color: var(--color-primary);
   background: var(--color-primary-soft);
 }
+.upload-target-path {
+  padding: 7px 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
+  font-size: 13px;
+  font-family: var(--font-mono, monospace);
+}
+.upload-btns {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.upload-sep {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.folder-upload-preview {
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.folder-upload-preview-title {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.folder-upload-preview-path {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  font-family: var(--font-mono, monospace);
+  word-break: break-all;
+}
+.folder-upload-preview-count {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
 .upload-label {
   color: var(--color-primary);
   cursor: pointer;
   text-decoration: underline;
 }
 
-/* 待上传列表 */
 .pending-list {
   display: flex;
   flex-direction: column;
@@ -791,7 +1045,6 @@ function downloadFile(item) {
   color: var(--color-error);
 }
 
-/* 删除确认 */
 .delete-confirm-body {
   font-size: 13px;
   color: var(--color-text-secondary);

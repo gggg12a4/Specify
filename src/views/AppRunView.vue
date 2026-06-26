@@ -26,10 +26,9 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
             重置
           </button>
-          <button v-if="isDebugMode" class="hdr-btn" title="模型配置" @click="showRunConfig = true">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            模型
-          </button>
+          <span v-if="isDebugMode && currentModelName" class="model-badge" :title="currentModelName">
+            {{ currentModelName }}
+          </span>
         </div>
       </header>
 
@@ -262,6 +261,7 @@ import FilePreviewList from '@/components/common/FilePreviewList.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import InputDialog from '@/components/common/InputDialog.vue'
 import RunConfigModal from '@/components/common/RunConfigModal.vue'
+import { getModelsForPlatform, resolveAppModel } from '@/constants/platformModels'
 import { createPreviewURL, revokePreviewURL, detectContentType, fileToBase64 } from '@/utils/file'
 import { useApiConfig } from '@/composables/useApiConfig'
 import * as chatApi from '@/api/chat'
@@ -273,6 +273,12 @@ const appStore = useAppStore()
 const { hasKeyForPlatform } = useApiConfig()
 
 const app = computed(() => appStore.getApp(route.params.id))
+
+const currentModelId = computed(() => resolveAppModel(app.value))
+const currentModelName = computed(() => {
+  const models = getModelsForPlatform(app.value?.platform)
+  return models.find(m => m.id === currentModelId.value)?.name || currentModelId.value
+})
 
 const isDebugMode = computed(() => route.query.mode !== 'formal')
 const isOwner = computed(() => true) // In a real app, this checks if currentUser.id === app.author_id. Mocking as owner by default for workspace, but normally share mode determines this.
@@ -500,7 +506,7 @@ async function doStream(appId, content) {
   const controller = chatApi.sendMessageStream(
     {
       messages: messages.value.slice(0, -1).map(m => ({ role: m.role, content: m.text })),
-      config: {},
+      config: { model: currentModelId.value },
       sessionId: currentSessionId.value,
       systemPrompt: app.value?.system_prompt
     },
@@ -745,6 +751,22 @@ async function scroll() {
 }
 .hdr-btn:hover:not(:disabled) { background: var(--color-bg-secondary); color: var(--color-text); }
 .hdr-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.model-badge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 180px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .not-found {
   flex: 1; display: flex; align-items: center; justify-content: center;

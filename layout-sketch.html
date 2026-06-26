@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>AppEditView - 布局优化草图 (Modern Minimal)</title>
+  <style>
+    :root {
+      /* Modern minimal palette (Linear / Vercel style) */
+      --bg: oklch(99% 0.002 240);
+      --surface: oklch(100% 0 0);
+      --fg: oklch(18% 0.012 250);
+      --muted: oklch(54% 0.012 250);
+      --border: oklch(92% 0.005 250);
+      --border-hover: oklch(85% 0.005 250);
+      --accent: oklch(58% 0.18 255);
+      --accent-soft: oklch(96% 0.04 255);
+
+      --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+      --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-body);
+      background-color: var(--bg);
+      color: var(--fg);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Top Bar */
+    .edit-bar {
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .bar-left, .bar-right { display: flex; align-items: center; gap: 16px; }
+
+    .nav-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+    .nav-back {
+      color: var(--muted);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px; height: 28px;
+      border-radius: var(--radius-sm);
+      transition: background 0.15s;
+    }
+    .nav-back:hover { background: var(--bg); color: var(--fg); }
+    .nav-sep { color: var(--border-hover); }
+    .nav-current { font-weight: 600; color: var(--fg); letter-spacing: -0.01em; }
+
+    .btn {
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--fg);
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: var(--shadow-sm);
+    }
+    .btn:hover { border-color: var(--border-hover); background: var(--bg); }
+    .btn-primary {
+      background: var(--fg); /* minimal style often uses black for primary CTA */
+      color: #fff;
+      border: none;
+    }
+    .btn-primary:hover { background: #000; box-shadow: var(--shadow-md); transform: translateY(-1px); }
+
+    /* Layout */
+    .edit-layout { flex: 1; display: flex; overflow: hidden; }
+
+    /* Left Sidebar: Product-led Contextual Guide */
+    .file-panel {
+      width: 320px; /* Wider to accommodate descriptions */
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 1px 0 2px rgba(0,0,0,0.02);
+      z-index: 5;
+    }
+
+    .panel-header {
+      padding: 20px 24px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .panel-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--fg);
+      letter-spacing: -0.01em;
+    }
+    .header-btn {
+      color: var(--muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; border-radius: var(--radius-sm);
+    }
+    .header-btn:hover { background: var(--bg); color: var(--fg); }
+
+    .tree-view {
+      padding: 0 16px 20px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px; /* space between folder blocks */
+    }
+
+    /* Contextual Folder Block */
+    .folder-block {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .folder-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--fg);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      user-select: none;
+    }
+    .folder-header:hover { background: var(--bg); }
+
+    .folder-header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .folder-action {
+      opacity: 0;
+      color: var(--muted);
+      font-size: 12px;
+      transition: opacity 0.2s;
+    }
+    .folder-header:hover .folder-action { opacity: 1; }
+    .folder-action:hover { color: var(--fg); }
+
+    .folder-icon { color: var(--muted); font-size: 14px; transition: transform 0.2s; }
+    .folder-header.expanded .folder-icon { transform: rotate(90deg); }
+
+    /* The embedded contextual help */
+    .folder-desc {
+      margin: 0 8px 6px 28px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-origin: top;
+      opacity: 1;
+      height: auto;
+      max-height: 100px;
+    }
+
+    /* When the folder is expanded, hide the description smoothly */
+    .folder-header.expanded + .folder-desc {
+      opacity: 0;
+      max-height: 0;
+      margin-bottom: 0;
+      overflow: hidden;
+      transform: scaleY(0.9);
+    }
+
+    .folder-contents { display: none; margin-left: 14px; border-left: 1px solid var(--border); padding-left: 8px;}
+    .folder-contents.expanded { display: block; }
+
+    .file-node {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      font-size: 13px;
+      color: var(--fg);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      user-select: none;
+      margin-bottom: 2px;
+    }
+    .file-node:hover { background: var(--bg); }
+    .file-node.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+    .file-icon { color: var(--muted); font-size: 14px; }
+    .file-node.active .file-icon { color: var(--accent); }
+
+
+    /* Main Edit Area */
+    .edit-main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 40px;
+      background: var(--bg); /* Slight contrast from sidebar */
+    }
+
+    .edit-container {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--fg);
+      letter-spacing: -0.02em;
+    }
+    .section-desc {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Prompt Box */
+    .prompt-box {
+      width: 100%;
+      min-height: 180px;
+      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      font-family: var(--font-mono); /* Use mono for system prompt gives a "code/system" feel */
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--fg);
+      resize: vertical;
+      transition: all 0.2s;
+      box-shadow: var(--shadow-sm);
+    }
+    .prompt-box:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    /* Grid layout for Cards */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .tool-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      transition: all 0.2s;
+      box-shadow: var(--shadow-sm);
+    }
+    .tool-card:hover { border-color: var(--border-hover); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+
+    .tool-card.disabled { background: var(--bg); border-style: dashed; box-shadow: none; }
+    .tool-card.disabled:hover { transform: none; }
+    .tool-card.disabled .card-title { color: var(--muted); }
+    .tool-card.disabled .card-toggle { background: var(--border); }
+    .tool-card.disabled .card-toggle-knob { transform: translateX(0); }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .card-icon-wrap {
+      width: 40px; height: 40px;
+      border-radius: var(--radius-md);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; color: var(--fg);
+      margin-bottom: 12px;
+    }
+    .tool-card.disabled .card-icon-wrap { opacity: 0.5; }
+
+    .card-title { font-size: 14px; font-weight: 600; color: var(--fg); }
+    .card-meta { font-size: 12px; color: var(--muted); font-family: var(--font-mono); margin-top: 6px; }
+
+    /* Toggle Switch */
+    .card-toggle {
+      width: 36px; height: 20px;
+      background: var(--fg); /* minimalist black toggle */
+      border-radius: 10px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .card-toggle-knob {
+      position: absolute; top: 2px; left: 2px;
+      width: 16px; height: 16px;
+      background: white; border-radius: 50%;
+      transition: transform 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+      transform: translateX(16px);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .card-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: auto;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .action-link {
+      font-size: 12px;
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    .action-link:hover { color: var(--fg); }
+    .action-remove:hover { color: #ef4444; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(255,255,255,0.8);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      display: none; align-items: center; justify-content: center;
+      z-index: 1000; opacity: 0; transition: opacity 0.2s;
+    }
+    .modal-overlay.visible { display: flex; opacity: 1; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      width: 440px; padding: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+      transform: translateY(10px) scale(0.98);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .modal-overlay.visible .modal { transform: translateY(0) scale(1); }
+
+    .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em; }
+    .modal-desc { font-size: 13px; color: var(--muted); margin-bottom: 24px; line-height: 1.5; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px;}
+  </style>
+</head>
+<body>
+
+  <!-- 顶部导航 -->
+  <header class="edit-bar">
+    <div class="bar-left">
+      <div class="nav-breadcrumb">
+        <a href="#" class="nav-back" title="返回">←</a>
+        <span class="nav-sep">/</span>
+        <span class="nav-current">My Awesome Agent</span>
+      </div>
+    </div>
+    <div class="bar-right">
+      <button class="btn">
+        <span style="font-size: 16px;">▶</span> 开始调试
+      </button>
+      <button class="btn btn-primary">保存修改</button>
+    </div>
+  </header>
+
+  <div class="edit-layout">
+    <!-- 左侧：产品级上下文引导的资源区 -->
+    <aside class="file-panel">
+      <div class="panel-header">
+        <span class="panel-title">工作区资源</span>
+      </div>
+      <div class="tree-view">
+
+        <!-- 核心知识库块 -->
+        <div class="folder-block">
+          <div class="folder-header expanded">
+            <div class="folder-header-left">
+              <span class="folder-icon">▸</span>
+              <span>shared / 核心知识库</span>
+            </div>
+            <span class="folder-action" title="上传文件">+</span>
+          </div>
+          <div class="folder-desc">
+            存放 Agent 必须阅读的文档或准则。复制此处的路径并粘贴到提示词中，AI 即可将其作为核心知识。
+          </div>
+          <div class="folder-contents expanded">
+            <div class="file-node">
+              <span class="file-icon">📄</span>
+              <span>instructions.md</span>
+            </div>
+            <div class="file-node active">
+              <span class="file-icon">📄</span>
+              <span>knowledge_base.pdf</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 静态资源块 -->
+        <div class="folder-block">
+          <div class="folder-header">
+            <div class="folder-header-left">
+              <span class="folder-icon">▸</span>
+              <span>assets / 静态素材</span>
+            </div>
+            <span class="folder-action" title="上传文件">+</span>
+          </div>
+          <div class="folder-desc">
+            存放图片、Logo、音频等不可执行的媒体文件。
+          </div>
+          <div class="folder-contents">
+            <div class="file-node">
+              <span class="file-icon">🖼️</span>
+              <span>logo.png</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 环境配置块 -->
+        <div class="folder-block">
+          <div class="folder-header">
+            <div class="folder-header-left">
+              <span class="folder-icon">▸</span>
+              <span>configs / 环境配置</span>
+            </div>
+            <span class="folder-action" title="新建文件">+</span>
+          </div>
+          <div class="folder-desc">
+            存放 JSON 或 YAML 格式的参数配置。修改这里的配置可直接影响工具的运行逻辑。
+          </div>
+          <div class="folder-contents">
+            <div class="file-node">
+              <span class="file-icon">⚙️</span>
+              <span>env.json</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- 右侧：核心编辑区 -->
+    <main class="edit-main">
+      <div class="edit-container">
+
+        <!-- 提示词配置 -->
+        <section>
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">系统提示词 (System Prompt)</h2>
+              <div class="section-desc">定义该 Agent 的角色、行为边界以及如何使用工作区资源。</div>
+            </div>
+          </div>
+          <textarea class="prompt-box" spellcheck="false">You are a helpful AI assistant.
+Your main knowledge base is located at `shared/knowledge_base.pdf`.
+Always refer to `configs/env.json` before executing external commands.
+
+Use the tools provided to answer user queries effectively.</textarea>
+        </section>
+
+        <!-- MCP 服务配置 (响应式网格) -->
+        <section>
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">外部能力接入 (MCP)</h2>
+              <div class="section-desc">为 Agent 挂载外部 API 和本地服务能力。</div>
+            </div>
+            <button class="btn">+ 添加服务</button>
+          </div>
+
+          <div class="card-grid">
+
+            <!-- 卡片 1 -->
+            <div class="tool-card">
+              <div class="card-top">
+                <div class="card-icon-wrap">☁️</div>
+                <div class="card-toggle"><div class="card-toggle-knob"></div></div>
+              </div>
+              <div>
+                <div class="card-title">GitHub Integration</div>
+                <div class="card-meta">4 tools · api.github.com</div>
+              </div>
+              <div class="card-actions">
+                <a class="action-link">配置参数</a>
+                <a class="action-link action-remove">移除</a>
+              </div>
+            </div>
+
+            <!-- 卡片 2 -->
+            <div class="tool-card">
+              <div class="card-top">
+                <div class="card-icon-wrap">💻</div>
+                <div class="card-toggle"><div class="card-toggle-knob"></div></div>
+              </div>
+              <div>
+                <div class="card-title">Local File System</div>
+                <div class="card-meta">6 tools · localhost:3000</div>
+              </div>
+              <div class="card-actions">
+                <a class="action-link">配置参数</a>
+                <a class="action-link action-remove">移除</a>
+              </div>
+            </div>
+
+            <!-- 卡片 3 (禁用状态) -->
+            <div class="tool-card disabled">
+              <div class="card-top">
+                <div class="card-icon-wrap">💬</div>
+                <div class="card-toggle"><div class="card-toggle-knob"></div></div>
+              </div>
+              <div>
+                <div class="card-title">Slack Notifier</div>
+                <div class="card-meta">2 tools · hooks.slack.com</div>
+              </div>
+              <div class="card-actions">
+                <a class="action-link">配置参数</a>
+                <a class="action-link action-remove">移除</a>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Overlay -->
+  <div class="modal-overlay" id="config-modal">
+    <div class="modal">
+      <div class="modal-title">配置 GitHub Integration</div>
+      <div class="modal-desc">调整此 MCP 服务的环境变量或访问权限。</div>
+
+      <!-- Mock Form -->
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <label style="font-size: 13px; font-weight: 500; color: var(--fg);">Access Token</label>
+          <input type="password" value="ghp_xxxxxxxxxxxx" style="padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 13px; background: var(--bg);">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn" id="close-modal-btn">取消</button>
+        <button class="btn btn-primary" id="close-modal-btn2">保存配置</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 交互逻辑
+    const folderHeaders = document.querySelectorAll('.folder-header');
+    folderHeaders.forEach(header => {
+      header.addEventListener('click', () => {
+        const contents = header.nextElementSibling.nextElementSibling; // Skip the desc div
+        if (contents && contents.classList.contains('folder-contents')) {
+          const isExpanded = contents.classList.toggle('expanded');
+          header.classList.toggle('expanded', isExpanded);
+        }
+      });
+    });
+
+    const fileNodes = document.querySelectorAll('.file-node');
+    fileNodes.forEach(node => {
+      node.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.file-node').forEach(n => n.classList.remove('active'));
+        node.classList.add('active');
+      });
+    });
+
+    const toggles = document.querySelectorAll('.card-toggle');
+    toggles.forEach(toggle => {
+      toggle.addEventListener('click', () => {
+        const card = toggle.closest('.tool-card');
+        const knob = toggle.querySelector('.card-toggle-knob');
+        const isCurrentlyDisabled = card.classList.contains('disabled');
+
+        if (isCurrentlyDisabled) {
+          card.classList.remove('disabled');
+          toggle.style.background = 'var(--fg)';
+          knob.style.transform = 'translateX(16px)';
+        } else {
+          card.classList.add('disabled');
+          toggle.style.background = 'var(--border)';
+          knob.style.transform = 'translateX(0)';
+        }
+      });
+    });
+
+    const configLinks = document.querySelectorAll('a.action-link:not(.action-remove)');
+    const modal = document.getElementById('config-modal');
+    configLinks.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        modal.classList.add('visible');
+      });
+    });
+
+    document.querySelectorAll('#close-modal-btn, #close-modal-btn2').forEach(btn =>
+      btn.addEventListener('click', () => modal.classList.remove('visible'))
+    );
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.classList.remove('visible');
+    });
+  </script>
+</body>
+</html>

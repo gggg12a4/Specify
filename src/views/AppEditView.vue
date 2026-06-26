@@ -44,80 +44,124 @@
     <div v-else class="edit-layout">
       <!-- 全局失效警告条 -->
       <div v-if="hasAnyEnabledError" class="global-error-banner">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <span>⚠️ 有工具已失效，请处理后才能运行 App</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>有工具已失效，请处理后再运行 App</span>
       </div>
 
       <div class="edit-content">
         <!-- 左侧文件空间 -->
         <aside class="file-panel">
-          <AppFilePanel />
+          <AppFilePanel ref="filePanelRef" />
         </aside>
 
         <!-- 主编辑区 -->
         <div class="edit-main">
-          <!-- 系统提示词 -->
-          <div class="field-group">
-            <label class="field-label">系统提示词</label>
-            <textarea
-              v-model="form.system_prompt"
-              class="prompt-box"
-              placeholder="定义 App 的角色、行为和限制…"
-              rows="8"
-              @input="markDirty"
-            ></textarea>
-          </div>
-
-          <!-- 工具区 -->
-          <div class="field-group">
-            <label class="field-label">工具</label>
-            <AppToolsSection
-              ref="toolsSectionRef"
-              :tools="form.tools"
-              :custom-tools="form.custom_tools"
-              :special-tools="form.special_tools"
-              :platform="app.platform || 'claude'"
-              @update:tools="(v) => { form.tools = v; markDirty() }"
-              @update:custom-tools="(v) => { form.custom_tools = v; markDirty() }"
-              @update:special-tools="(v) => { form.special_tools = v; markDirty() }"
-              @show-info="infoTool = $event"
-              @show-config="configTool = $event"
-            />
-          </div>
-
-          <!-- MCP 服务区 -->
-          <div class="field-group">
-            <div class="field-label-row">
-              <label class="field-label">MCP 服务</label>
-              <button class="btn-add-mcp" @click="showAddMcp = true">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                添加 MCP
-              </button>
-            </div>
-
-            <div v-if="!form.mcp_services.length" class="mcp-empty">
-              还没有添加 MCP 服务，点击「添加 MCP」接入外部工具
-            </div>
-
-            <div v-else class="mcp-list">
-              <div v-for="mcp in form.mcp_services" :key="mcp.id" class="mcp-row">
-                <label class="mcp-check">
-                  <input type="checkbox" :checked="mcp.enabled" @change="toggleMcp(mcp.id, $event.target.checked)" />
-                </label>
-                <div class="mcp-info">
-                  <span class="mcp-name">{{ mcp.name }}</span>
-                  <span class="mcp-meta">{{ mcp.tool_count || 0 }} 个工具 · {{ truncateUrl(mcp.url) }}</span>
-                </div>
-                <div class="mcp-btns">
-                  <button class="icon-btn" title="配置" @click="openMcpConfig(mcp)">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                  </button>
-                  <button class="icon-btn icon-btn-danger" title="删除" @click="removeMcp(mcp.id)">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                  </button>
+          <div class="edit-container">
+            <!-- 底层模型 -->
+            <section class="edit-section">
+              <div class="section-header">
+                <div>
+                  <h2 class="section-title">底层模型</h2>
+                  <p class="section-desc">选择该平台（{{ platformLabel }}）下用于调试与运行的模型。</p>
                 </div>
               </div>
-            </div>
+              <AppModelSection
+                :platform="app.platform || 'claude'"
+                :model-value="form.model"
+                @update:model-value="(v) => { form.model = v; markDirty() }"
+              />
+            </section>
+
+            <!-- 系统提示词 -->
+            <section class="edit-section">
+              <div class="section-header">
+                <div>
+                  <h2 class="section-title">系统提示词</h2>
+                  <p class="section-desc">定义 App 的角色、行为边界以及如何使用工作区资源。</p>
+                </div>
+              </div>
+              <div
+                class="prompt-box prompt-trigger"
+                role="button"
+                tabindex="0"
+                @click="openPromptModal"
+                @keydown.enter.prevent="openPromptModal"
+                @keydown.space.prevent="openPromptModal"
+              >
+                <div v-if="form.system_prompt.trim()" class="prompt-preview">{{ form.system_prompt }}</div>
+                <div v-else class="prompt-placeholder">定义 App 的角色、行为和限制…</div>
+                <span class="prompt-open-hint">点击展开编辑</span>
+              </div>
+            </section>
+
+            <!-- 工具区 -->
+            <section class="edit-section">
+              <div class="section-header">
+                <div>
+                  <h2 class="section-title">工具</h2>
+                  <p class="section-desc">配置 App 可调用的平台能力、特殊工具与自定义子 Agent。</p>
+                </div>
+              </div>
+              <AppToolsSection
+                ref="toolsSectionRef"
+                :tools="form.tools"
+                :custom-tools="form.custom_tools"
+                :special-tools="form.special_tools"
+                :platform="app.platform || 'claude'"
+                @update:tools="(v) => { form.tools = v; markDirty() }"
+                @update:custom-tools="(v) => { form.custom_tools = v; markDirty() }"
+                @update:special-tools="(v) => { form.special_tools = v; markDirty() }"
+                @show-info="infoTool = $event"
+                @show-config="configTool = $event"
+              />
+            </section>
+
+            <!-- MCP 服务区 -->
+            <section class="edit-section">
+              <div class="section-header">
+                <div>
+                  <h2 class="section-title">外部能力接入 (MCP)</h2>
+                  <p class="section-desc">为 App 挂载外部 API 和本地服务能力。</p>
+                </div>
+                <button class="btn btn-outline" @click="showAddMcp = true">+ 添加服务</button>
+              </div>
+
+              <div v-if="!form.mcp_services.length" class="mcp-empty">
+                还没有添加 MCP 服务，点击「添加服务」接入外部工具
+              </div>
+
+              <div v-else class="card-grid">
+                <div
+                  v-for="mcp in form.mcp_services"
+                  :key="mcp.id"
+                  class="tool-card"
+                  :class="{ disabled: !mcp.enabled }"
+                >
+                  <div class="card-top">
+                    <div class="card-icon-wrap">🔌</div>
+                    <button
+                      type="button"
+                      class="card-toggle"
+                      :class="{ off: !mcp.enabled }"
+                      :aria-pressed="mcp.enabled"
+                      title="启用 / 禁用"
+                      @click="toggleMcp(mcp.id, !mcp.enabled)"
+                    >
+                      <div class="card-toggle-knob"></div>
+                    </button>
+                  </div>
+                  <div>
+                    <div class="card-title">{{ mcp.name }}</div>
+                    <div class="card-meta">{{ mcp.tool_count || 0 }} tools · {{ truncateUrl(mcp.url) }}</div>
+                  </div>
+                  <div class="card-actions">
+                    <button type="button" class="action-link" @click="openMcpConfig(mcp)">配置参数</button>
+                    <button type="button" class="action-link action-remove" @click="removeMcp(mcp.id)">移除</button>
+                  </div>
+                  <span class="tool-type-badge type-mcp">MCP工具</span>
+                </div>
+              </div>
+            </section>
           </div>
         </div>
       </div>
@@ -146,6 +190,14 @@
       :mcp="mcpConfigTarget"
       @updated="handleMcpUpdated"
     />
+
+    <SystemPromptModal
+      v-model:visible="showPromptModal"
+      v-model="form.system_prompt"
+      :file-refs="promptFileRefs"
+      :tool-refs="promptToolRefs"
+      @done="markDirty"
+    />
   </div>
 </template>
 
@@ -160,6 +212,10 @@ import ToolInfoModal from '@/components/app/ToolInfoModal.vue'
 import ToolConfigModal from '@/components/app/ToolConfigModal.vue'
 import AddMcpModal from '@/components/app/AddMcpModal.vue'
 import McpConfigModal from '@/components/app/McpConfigModal.vue'
+import SystemPromptModal from '@/components/app/SystemPromptModal.vue'
+import AppModelSection from '@/components/app/AppModelSection.vue'
+import { SP_TOOLS } from '@/constants/spTools'
+import { resolveAppModel, getDefaultModelForPlatform } from '@/constants/platformModels'
 import { showSuccess, showConfirm } from '@/composables/useNotification'
 
 const route = useRoute()
@@ -169,9 +225,11 @@ const app = computed(() => appStore.getApp(route.params.id))
 const platformLabel = computed(() => PLATFORM_LABELS[app.value?.platform] || '')
 
 const toolsSectionRef = ref(null)
+const filePanelRef = ref(null)
 
 const form = reactive({
   system_prompt: '',
+  model: '',
   tools: {},
   custom_tools: [],
   special_tools: {},
@@ -185,12 +243,52 @@ const showLeaveConfirm = ref(false)
 const showAddMcp = ref(false)
 const showMcpConfig = ref(false)
 const mcpConfigTarget = ref(null)
+const showPromptModal = ref(false)
 const hasAnyEnabledError = ref(false)
 let pendingNav = null
+
+const promptFileRefs = computed(() => {
+  return filePanelRef.value?.getMentionFileItems?.() ?? [
+    { label: 'shared / 核心知识库', value: 'shared/', kind: 'folder' },
+    { label: 'mailbox / 用户传递', value: 'mailbox/', kind: 'folder' },
+    { label: 'workspace / 工作目录', value: 'workspace/', kind: 'folder' },
+    { label: 'assets / 用户上传', value: 'assets/', kind: 'folder' },
+    { label: 'memory / 长期记忆', value: 'memory/', kind: 'folder' },
+  ]
+})
+
+const promptToolRefs = computed(() => {
+  const items = []
+
+  for (const tool of SP_TOOLS) {
+    if (form.tools[tool.key]?.enabled) {
+      items.push({ label: tool.name, value: tool.key, desc: tool.desc, kind: 'tool' })
+    }
+  }
+
+  for (const [key, cfg] of Object.entries(form.special_tools || {})) {
+    if (cfg?.enabled) {
+      items.push({ label: key, value: key, kind: 'tool' })
+    }
+  }
+
+  for (const tool of form.custom_tools || []) {
+    if (tool.enabled !== false) {
+      items.push({ label: tool.name, value: tool.name, desc: tool.description, kind: 'tool' })
+    }
+  }
+
+  return items
+})
+
+function openPromptModal() {
+  showPromptModal.value = true
+}
 
 watch(app, (a) => {
   if (!a) return
   form.system_prompt = a.system_prompt || ''
+  form.model = resolveAppModel(a)
   form.tools = JSON.parse(JSON.stringify(a.tools || {}))
   form.custom_tools = JSON.parse(JSON.stringify(a.custom_tools || []))
   form.special_tools = JSON.parse(JSON.stringify(a.special_tools || {}))
@@ -231,6 +329,7 @@ function handleSave(silent = false) {
     setTimeout(() => {
       appStore.updateApp(app.value.id, {
         system_prompt: form.system_prompt,
+        model: form.model || getDefaultModelForPlatform(app.value.platform),
         tools: form.tools,
         custom_tools: form.custom_tools,
         special_tools: form.special_tools,
@@ -516,17 +615,17 @@ onBeforeRouteLeave(async (to, from, next) => {
 .global-error-banner {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 24px;
-  background: rgba(245, 158, 11, 0.1);
-  border-bottom: 1px solid rgba(245, 158, 11, 0.3);
-  color: #b45309;
-  font-size: 14px;
-  font-weight: 500;
+  gap: 8px;
+  padding: 6px 24px;
+  background: #fefce8;
+  color: #854d0e;
+  font-size: 13px;
+  font-weight: 400;
   flex-shrink: 0;
 }
 .global-error-banner svg {
-  color: #f59e0b;
+  color: #ca8a04;
+  flex-shrink: 0;
 }
 
 .edit-content {
@@ -536,14 +635,15 @@ onBeforeRouteLeave(async (to, from, next) => {
 }
 
 .file-panel {
-  width: 240px;
+  width: 320px;
   flex-shrink: 0;
   border-right: 1px solid var(--color-border);
   background: var(--color-surface);
-  overflow-y: auto;
-  scrollbar-width: none;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-shadow: 1px 0 2px rgba(0, 0, 0, 0.02);
+  z-index: 5;
 }
 .file-panel::-webkit-scrollbar {
   display: none;
@@ -553,96 +653,293 @@ onBeforeRouteLeave(async (to, from, next) => {
   flex: 1;
   overflow-y: auto;
   scrollbar-width: none;
-  padding: 28px 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+  padding: 40px;
+  background: var(--color-bg);
 }
 .edit-main::-webkit-scrollbar {
   display: none;
 }
 
-/* ── Fields ── */
-.field-group {
+.edit-container {
+  max-width: 960px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 7px;
-}
-.field-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.field-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  gap: 40px;
 }
 
+.edit-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.section-desc {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+/* ── Prompt ── */
 .prompt-box {
-  padding: 12px 14px;
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-md);
+  width: 100%;
+  min-height: 180px;
+  padding: 16px 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
   background: var(--color-surface);
   color: var(--color-text);
-  font-size: 14px;
-  line-height: 1.65;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  line-height: 1.6;
   resize: vertical;
   outline: none;
-  font-family: inherit;
-  min-height: 160px;
   transition: border-color 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
-.prompt-box:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-soft);
-}
-
-/* ── MCP ── */
-.btn-add-mcp {
-  display: flex; align-items: center; gap: 5px;
-  padding: 5px 12px; font-size: 12px; font-weight: 500;
-  background: transparent; color: var(--color-primary);
-  border: 1px solid var(--color-primary); border-radius: var(--radius-md);
-  cursor: pointer; transition: all 0.15s;
-}
-.btn-add-mcp:hover { background: var(--color-primary-soft); }
-
-.mcp-empty {
-  font-size: 13px; color: var(--color-text-muted); padding: 14px 12px;
-  border: 1.5px dashed var(--color-border); border-radius: var(--radius-md);
-  text-align: center;
+.prompt-box:focus-visible {
+  outline: none;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px #dbeafe;
 }
 
-.mcp-list { display: flex; flex-direction: column; gap: 2px; }
+.prompt-trigger {
+  position: relative;
+  cursor: pointer;
+  min-height: 180px;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
 
-.mcp-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px; border-radius: var(--radius-md);
+.prompt-trigger:hover {
+  border-color: #cbd5e1;
+  background: #fafafa;
+}
+
+.prompt-preview {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text);
+  max-height: 220px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 8;
+  line-clamp: 8;
+  -webkit-box-orient: vertical;
+}
+
+.prompt-placeholder {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+.prompt-open-hint {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.prompt-trigger:hover .prompt-open-hint,
+.prompt-trigger:focus-visible .prompt-open-hint {
+  opacity: 1;
+}
+
+/* ── Buttons (sketch style) ── */
+.btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.btn-outline {
+  background: var(--color-surface);
+  color: var(--color-text);
   border: 1px solid var(--color-border);
-  background: var(--color-surface); transition: all 0.15s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
-.mcp-row:hover { border-color: var(--color-text-muted); }
-
-.mcp-check input[type="checkbox"] {
-  width: 15px; height: 15px; flex-shrink: 0;
-  accent-color: var(--color-primary); cursor: pointer;
+.btn-outline:hover {
+  border-color: var(--color-text-muted);
+  background: var(--color-bg-secondary);
 }
 
-.mcp-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.mcp-name { font-size: 13px; font-weight: 600; color: var(--color-text); }
-.mcp-meta { font-size: 11px; color: var(--color-text-muted); font-family: var(--font-mono); }
-
-.mcp-btns { display: flex; gap: 2px; flex-shrink: 0; }
-.icon-btn {
-  width: 26px; height: 26px; border: none; background: none;
-  cursor: pointer; color: var(--color-text-muted); border-radius: 6px;
-  display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+/* ── MCP cards ── */
+.mcp-empty {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  padding: 24px 20px;
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+  text-align: center;
+  background: var(--color-surface);
 }
-.icon-btn:hover { color: var(--color-primary); background: var(--color-primary-soft); }
-.icon-btn-danger:hover { color: var(--color-error) !important; background: rgba(239,68,68,0.1) !important; }
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.tool-card {
+  position: relative;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.tool-type-badge {
+  margin-top: auto;
+  padding-top: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  align-self: flex-start;
+  letter-spacing: 0.02em;
+}
+.tool-type-badge.type-mcp {
+  color: #059669;
+}
+.tool-card:hover {
+  border-color: var(--color-text-muted);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+}
+.tool-card.disabled {
+  background: var(--color-bg);
+  border-style: dashed;
+  box-shadow: none;
+}
+.tool-card.disabled:hover {
+  transform: none;
+}
+.tool-card.disabled .card-title {
+  color: var(--color-text-muted);
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.card-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+.tool-card.disabled .card-icon-wrap {
+  opacity: 0.5;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.card-meta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono, monospace);
+  margin-top: 6px;
+}
+
+.card-toggle {
+  width: 36px;
+  height: 20px;
+  background: var(--color-text);
+  border: none;
+  border-radius: 10px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+  padding: 0;
+}
+.card-toggle.off {
+  background: var(--color-border);
+}
+.card-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateX(16px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+}
+.card-toggle.off .card-toggle-knob {
+  transform: translateX(0);
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.action-link {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s;
+  padding: 0;
+}
+.action-link:hover {
+  color: var(--color-text);
+}
+.action-remove:hover {
+  color: var(--color-error, #ef4444);
+}
 
 /* ── Confirm dialog ── */
 .overlay {

@@ -43,6 +43,7 @@ function defaultApp(data = {}) {
     name: data.name || '',
     description: data.description || '',
     platform: data.platform || 'claude',
+    model: data.model || '',
     system_prompt: data.system_prompt || '',
     tools: data.tools || defaultToolConfig(),
     // 平台预置特殊工具（绘图、图片理解等）
