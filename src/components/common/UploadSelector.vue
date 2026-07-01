@@ -78,6 +78,10 @@
 </template>
 
 <script setup>
+/**
+ * 聊天输入区附件选择器。
+ * 弹出类型菜单（图片/视频/音频/文件），选择后触发 file-selected 事件。
+ */
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 const emit = defineEmits(['file-selected'])
@@ -86,6 +90,7 @@ const showMenu = ref(false)
 const fileInputRef = ref(null)
 const currentType = ref('image')
 
+/** 根据当前选择的类型返回 input accept 属性 */
 const acceptTypes = computed(() => {
   const typeMap = {
     image: 'image/jpeg,image/png,image/gif,image/webp',
@@ -96,6 +101,7 @@ const acceptTypes = computed(() => {
   return typeMap[currentType.value] || '*/*'
 })
 
+/** 选择附件类型后关闭菜单并打开文件选择器 */
 function handleSelectType(type) {
   currentType.value = type
   showMenu.value = false
@@ -103,6 +109,7 @@ function handleSelectType(type) {
   fileInputRef.value?.click()
 }
 
+/** 文件选中后 emit file-selected，并清空 input 以允许重复选同一文件 */
 function handleFileChange(event) {
   const file = event.target.files?.[0]
   if (file) {
@@ -115,17 +122,19 @@ function handleFileChange(event) {
   event.target.value = ''
 }
 
-// 点击外部关闭菜单
+/** 点击组件外部时关闭类型菜单 */
 function handleClickOutside(event) {
   if (!event.target.closest('.upload-selector')) {
     showMenu.value = false
   }
 }
 
+/** 注册 document 点击监听 */
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
 })
 
+/** 移除 document 点击监听 */
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
 })

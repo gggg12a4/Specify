@@ -14,6 +14,7 @@
 </template>
 
 <script setup>
+/** 工具卡片上的齿轮配置按钮，点击 emit click */
 defineProps({
   title: { type: String, default: '配置参数' },
 })

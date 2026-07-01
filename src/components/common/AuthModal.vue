@@ -66,6 +66,10 @@
 </template>
 
 <script setup>
+/**
+ * 登录/注册弹窗。
+ * 调用 mockApi 完成认证后写入 authStore 并 emit logged-in。
+ */
 import { ref, reactive, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import * as mockApi from '@/api/mockApi'
@@ -85,6 +89,7 @@ const regError = ref('')
 const loginForm = reactive({ phone: '', password: '' })
 const regForm = reactive({ phone: '', password: '', confirm: '' })
 
+/** 弹窗打开时重置表单、错误信息与 tab */
 watch(() => props.visible, (v) => {
   if (v) {
     activeTab.value = props.initialTab
@@ -98,6 +103,7 @@ watch(() => props.visible, (v) => {
   }
 })
 
+/** 手机号密码登录 */
 async function handleLogin() {
   loginError.value = ''
   if (!loginForm.phone || !loginForm.password) {
@@ -116,6 +122,7 @@ async function handleLogin() {
   }
 }
 
+/** 注册开发者账号并自动登录 */
 async function handleRegister() {
   regError.value = ''
   if (!regForm.phone) { regError.value = '请输入手机号'; return }

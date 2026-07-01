@@ -18,6 +18,7 @@
 </template>
 
 <script setup>
+/** 上传 SVG 图标 */
 defineProps({
   size: { type: [Number, String], default: 13 },
 })

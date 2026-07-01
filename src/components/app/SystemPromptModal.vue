@@ -165,6 +165,10 @@
 </template>
 
 <script setup>
+/**
+ * 系统提示词全屏编辑弹窗。
+ * 支持分屏/纯编辑/纯预览三种模式，输入 @ 触发文件与工具引用菜单。
+ */
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { renderMarkdown } from '@/utils/markdown'
 import MentionPicker from '@/components/app/MentionPicker.vue'
@@ -201,22 +205,28 @@ const mentionRange = ref(null)
 const mentionIndex = ref(0)
 const mentionStyle = ref({ top: '0px', left: '0px' })
 
+/** Markdown 预览 HTML */
 const previewHtml = computed(() => renderMarkdown(draft.value))
+/** 当前草稿字数 */
 const charCount = computed(() => draft.value.length)
 
+/** @ 菜单中过滤后的文件夹项 */
 const filteredFolders = computed(() =>
   filterMentionItems(props.fileRefs, mentionQuery.value)
 )
 
+/** @ 菜单中过滤后的已启用工具项 */
 const filteredTools = computed(() =>
   filterMentionItems(props.toolRefs, mentionQuery.value)
 )
 
+/** 合并文件夹与工具为扁平列表，供键盘导航索引 */
 const flatMentionItems = computed(() => [
   ...filteredFolders.value,
   ...filteredTools.value,
 ])
 
+/** 弹窗打开时初始化草稿、重置 tab 并聚焦编辑器 */
 watch(
   () => props.visible,
   (open) => {
@@ -230,6 +240,7 @@ watch(
   },
 )
 
+/** 切换 tab 时关闭 @ 菜单，编辑类 tab 重新聚焦 */
 watch(activeTab, (tab) => {
   if (tab === 'split' || tab === 'edit') {
     closeMention()
@@ -241,16 +252,19 @@ watch(activeTab, (tab) => {
   }
 })
 
+/** 过滤结果变化时校正键盘选中索引，防止越界 */
 watch(flatMentionItems, (items) => {
   if (mentionIndex.value >= items.length) {
     mentionIndex.value = Math.max(0, items.length - 1)
   }
 })
 
+/** 聚焦 textarea 编辑器 */
 function focusEditor() {
   editorRef.value?.focus()
 }
 
+/** 关闭 @ 引用菜单并重置状态 */
 function closeMention() {
   mentionOpen.value = false
   mentionQuery.value = ''
@@ -258,6 +272,7 @@ function closeMention() {
   mentionIndex.value = 0
 }
 
+/** 根据光标位置检测 @ 触发，更新查询词与浮层坐标 */
 function updateMentionState() {
   const el = editorRef.value
   if (!el || activeTab.value === 'preview') {
@@ -285,10 +300,12 @@ function updateMentionState() {
   }
 }
 
+/** 输入时刷新 @ 菜单状态 */
 function onEditorInput() {
   updateMentionState()
 }
 
+/** 编辑器键盘：@ 菜单导航/确认，Escape 关闭菜单或弹窗 */
 function onEditorKeydown(e) {
   if (mentionOpen.value && flatMentionItems.value.length) {
     if (e.key === 'ArrowDown') {
@@ -321,6 +338,7 @@ function onEditorKeydown(e) {
   }
 }
 
+/** 选中 @ 项后替换触发区间并恢复光标 */
 function selectMention(item) {
   if (!item || !mentionRange.value) return
 
@@ -339,6 +357,7 @@ function selectMention(item) {
   })
 }
 
+/** 从引用面板插入路径/工具名到当前光标位置 */
 function insertRef(value) {
   const el = editorRef.value
   if (!el) {
@@ -363,6 +382,7 @@ function insertRef(value) {
   closeMention()
 }
 
+/** 完成编辑：回写 modelValue 并关闭弹窗 */
 function handleDone() {
   emit('update:modelValue', draft.value)
   emit('done', draft.value)
@@ -370,17 +390,20 @@ function handleDone() {
   emit('close')
 }
 
+/** 取消编辑并关闭弹窗（不回写） */
 function handleClose() {
   emit('update:visible', false)
   emit('close')
 }
 
+/** 全局 Escape 关闭弹窗（@ 菜单未打开时） */
 function onKeydown(e) {
   if (e.key === 'Escape' && props.visible && !mentionOpen.value) {
     handleClose()
   }
 }
 
+/** 点击引用面板外部时收起面板 */
 function onDocClick(e) {
   if (!showRefPanel.value) return
   const wrap = document.querySelector('.ref-wrap')
@@ -389,11 +412,13 @@ function onDocClick(e) {
   }
 }
 
+/** 注册全局键盘与点击监听 */
 onMounted(() => {
   document.addEventListener('keydown', onKeydown)
   document.addEventListener('click', onDocClick)
 })
 
+/** 卸载时移除全局监听 */
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
   document.removeEventListener('click', onDocClick)

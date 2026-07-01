@@ -77,6 +77,10 @@
 </template>
 
 <script setup>
+/**
+ * 编辑已有 MCP 服务弹窗。
+ * 可修改 URL/Header 并可选重新测试连接；保存时不要求必须测通。
+ */
 import { ref, watch } from 'vue'
 import * as mockApi from '@/api/mockApi'
 
@@ -94,6 +98,7 @@ const connError = ref('')
 const foundTools = ref([])
 const testing = ref(false)
 
+/** 弹窗打开时用 mcp prop 回填表单 */
 watch(() => props.visible, (v) => {
   if (v && props.mcp) {
     form.value = {
@@ -106,14 +111,17 @@ watch(() => props.visible, (v) => {
   }
 })
 
+/** 表单变更后清除上次测试成功状态 */
 watch(() => [form.value.url, form.value.headers], () => {
   if (connState.value !== 'idle') connState.value = 'idle'
 }, { deep: true })
 
+/** 追加一行自定义 Header */
 function addHeader() {
   form.value.headers.push({ key: '', value: '' })
 }
 
+/** 删除指定 Header 行，至少保留一行空行 */
 function removeHeader(index) {
   form.value.headers.splice(index, 1)
   if (form.value.headers.length === 0) {
@@ -121,6 +129,7 @@ function removeHeader(index) {
   }
 }
 
+/** 测试 MCP 连接并更新 tool 列表展示 */
 async function testConn() {
   if (!form.value.url.trim()) { errors.value.url = 'URL 不能为空'; return }
   testing.value = true
@@ -143,6 +152,7 @@ async function testConn() {
   }
 }
 
+/** 保存修改；若刚测通则同步更新 tool_count */
 async function handleSave() {
   if (!form.value.url.trim()) { errors.value.url = 'URL 不能为空'; return }
   const updates = {

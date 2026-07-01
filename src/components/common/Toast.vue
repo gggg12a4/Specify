@@ -47,11 +47,16 @@
 </template>
 
 <script setup>
+/**
+ * 全局 Toast 通知容器。
+ * 通过 defineExpose 暴露 addToast，最多同时显示 3 条。
+ */
 import { ref } from 'vue'
 
 const toasts = ref([])
 let idCounter = 0
 
+/** 添加一条 Toast，超时自动移除，超出 3 条时丢弃最旧的 */
 function addToast({ type = 'info', message, duration = 3000 }) {
   const id = ++idCounter
   const toast = { id, type, message }
@@ -71,6 +76,7 @@ function addToast({ type = 'info', message, duration = 3000 }) {
   }
 }
 
+/** 手动移除指定 id 的 Toast */
 function removeToast(id) {
   const index = toasts.value.findIndex(t => t.id === id)
   if (index > -1) {

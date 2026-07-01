@@ -45,6 +45,10 @@
 </template>
 
 <script setup>
+/**
+ * 工作空间 App/模板卡片。
+ * 展示名称、平台、工具数与操作按钮（编辑/运行/删除或一键使用模板）。
+ */
 import { computed } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { PLATFORM_LABELS } from '@/constants/spTools'
@@ -55,7 +59,9 @@ const props = defineProps({
 const emit = defineEmits(['edit', 'run', 'delete', 'advanced', 'use-template'])
 
 const appStore = useAppStore()
+/** 已启用工具总数（含 MCP、自定义工具等） */
 const toolCount = computed(() => appStore.getEnabledToolCount(props.agent))
+/** 平台中文标签 */
 const platformLabel = computed(() => PLATFORM_LABELS[props.agent.platform] || '')
 </script>
 

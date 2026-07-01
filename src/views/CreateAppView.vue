@@ -105,6 +105,12 @@
 </template>
 
 <script setup>
+/**
+ * 创建新 App 向导页（/developer/app/create）。
+ *
+ * 填写名称与平台后写入 appStore；若带 fromTemplate 参数，
+ * 则从 localStorage 读取 specify_template_clone 预填配置。
+ */
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
@@ -163,8 +169,10 @@ const PLATFORM_INFO = {
   },
 }
 
+/** 当前选中平台的能力说明信息 */
 const currentPlatform = computed(() => PLATFORM_INFO[selectedPlatform.value])
 
+/** 校验 App 名称：非空且仅允许英文字母与下划线 */
 function validate() {
   errors.value.name = ''
   if (!form.value.name.trim()) {
@@ -182,6 +190,7 @@ function validate() {
   return true
 }
 
+/** 校验通过后创建 App，模板模式合并预填配置，创建完成跳转编辑页 */
 async function handleSubmit() {
   if (!validate()) {
     nameRef.value?.focus()
@@ -215,6 +224,7 @@ async function handleSubmit() {
   router.push({ name: 'AppEdit', params: { id: app.id } })
 }
 
+/** 挂载时读取模板克隆数据并聚焦名称输入框 */
 onMounted(() => {
   if (route.query.fromTemplate === 'true') {
     isFromTemplate.value = true

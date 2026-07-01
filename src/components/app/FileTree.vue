@@ -208,6 +208,10 @@
 </template>
 
 <script setup>
+/**
+ * 运行页用户网盘文件树（AppRunView 侧边栏）。
+ * 对接 mockApi 管理 shared/workspace/temp/memory/assets 等目录的文件 CRUD。
+ */
 import { ref, reactive, computed, onMounted } from 'vue'
 import * as mockApi from '@/api/mockApi'
 
@@ -244,11 +248,13 @@ const dirs = reactive([
 const expanded = reactive({ shared: false, workspace: true, temp: false, memory: false, assets: false })
 const expandedPaths = reactive({})  // subdir path → boolean
 
+/** 切换子目录展开状态 */
 function toggleSubDir(path) {
   expandedPaths[path] = !expandedPaths[path]
 }
 
 // An item is visible when all its ancestor sub-dirs (depth ≥ 1) are expanded
+/** 根据父目录展开状态判断文件项是否可见 */
 function isItemVisible(item) {
   const parts = item.path.split('/')
   // parts[0] is the root dir key; ancestors start at index 2
@@ -258,21 +264,26 @@ function isItemVisible(item) {
   return true
 }
 
+/** 是否为 App 所有者（控制上传/删除权限） */
 const isOwner = computed(() => props.isOwner)
 
 // ── Computed ─────────────────────────────────────────────────────
+/** 当前上传目标目录的展示名 */
 const folderName = computed(() =>
   pendingFolderItems.value[0]?.relativePath.split('/')[0] ?? ''
 )
 
+/** 文件夹上传进度百分比 */
 const progressPercent = computed(() =>
   uploadProgress.total ? Math.round((uploadProgress.current / uploadProgress.total) * 100) : 0
 )
 
+/** 上传弹窗确认按钮是否可点 */
 const canConfirmUpload = computed(() =>
   uploadMode.value === 'file' ? pendingFiles.value.length > 0 : pendingFolderItems.value.length > 0
 )
 
+/** 上传按钮文案（区分文件/文件夹模式与数量） */
 const uploadBtnText = computed(() => {
   if (uploadProgress.uploading) return '上传中...'
   if (uploadMode.value === 'file')
@@ -284,6 +295,7 @@ const uploadBtnText = computed(() => {
 
 // ── Tree loading ──────────────────────────────────────────────────
 // Recursively flatten a nested tree into a display list with depth info
+/** 将 API 返回的树结构扁平化为带 depth 的列表项 */
 function _flattenItems(items, basePath, depth) {
   const result = []
   for (const item of items || []) {
@@ -301,6 +313,7 @@ function _flattenItems(items, basePath, depth) {
   return result
 }
 
+/** 将 mockApi 文件树加载到本地 dirs 状态 */
 function _loadTree(apiTree) {
   // Clear stale subdir expand state
   Object.keys(expandedPaths).forEach(k => delete expandedPaths[k])
@@ -311,6 +324,7 @@ function _loadTree(apiTree) {
   }
 }
 
+/** 挂载时从后端拉取文件树 */
 onMounted(async () => {
   if (!props.appId) return
   const res = await mockApi.getFiles(props.appId, 'user')
@@ -318,20 +332,25 @@ onMounted(async () => {
 })
 
 // ── Dir actions ───────────────────────────────────────────────────
+/** 切换顶层目录（shared/workspace 等）展开 */
 function toggleDir(key) { expanded[key] = !expanded[key] }
 
+/** 复制路径到剪贴板 */
 async function copyPath(path) {
   try { await navigator.clipboard.writeText(path) } catch { /* silent */ }
 }
 
+/** 格式化字节数为可读字符串 */
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B'
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
   return (bytes / 1024 / 1024).toFixed(1) + ' MB'
 }
 
+/** 获取指定顶层目录的文件列表 */
 function getDirFiles(key) { return dirs.find(d => d.key === key)?.files || [] }
 
+/** 在目标目录下创建新文件夹 */
 async function handleMkdir() {
   if (!mkdirName.value.trim() || !props.appId) return
   const path = mkdirTarget.value + '/' + mkdirName.value.trim()
@@ -348,6 +367,7 @@ async function handleMkdir() {
 }
 
 // ── Upload dialog lifecycle ───────────────────────────────────────
+/** 打开上传弹窗并重置待传状态 */
 function openUpload() {
   // If not owner, prevent uploading to Shared/
   if (!isOwner.value && uploadTarget.value === 'shared') {
@@ -362,6 +382,7 @@ function openUpload() {
   showUpload.value = true
 }
 
+/** 切换上传模式（单文件 / 文件夹） */
 function switchMode(mode) {
   uploadMode.value = mode
   pendingFiles.value = []
@@ -369,6 +390,7 @@ function switchMode(mode) {
   uploadErrors.value = []
 }
 
+/** 取消上传并关闭弹窗 */
 function cancelUpload() {
   pendingFiles.value = []
   pendingFolderItems.value = []
@@ -378,16 +400,19 @@ function cancelUpload() {
 }
 
 // ── File mode ─────────────────────────────────────────────────────
+/** 文件选择器变更：合并到待传列表 */
 function handleFileSelect(e) {
   mergeIntoPending(Array.from(e.target.files))
   e.target.value = ''
 }
 
+/** 去重合并文件到 pendingFiles */
 function mergeIntoPending(files) {
   for (const f of files)
     if (!pendingFiles.value.find(p => p.name === f.name)) pendingFiles.value.push(f)
 }
 
+/** 确认单文件上传并刷新文件树 */
 async function confirmFileUpload() {
   if (!pendingFiles.value.length || !props.appId) return
   for (const file of pendingFiles.value)
@@ -400,6 +425,7 @@ async function confirmFileUpload() {
 }
 
 // ── Folder mode ───────────────────────────────────────────────────
+/** 文件夹选择器变更：解析 webkitRelativePath */
 function handleFolderInputSelect(e) {
   const files = Array.from(e.target.files)
   pendingFolderItems.value = files.map(f => ({ file: f, relativePath: f.webkitRelativePath }))
@@ -408,6 +434,7 @@ function handleFolderInputSelect(e) {
 }
 
 // Reads all entries from a DirectoryReader, handling the 100-item batch limit
+/** 分批读取 DirectoryReader 全部条目 */
 async function _readAllEntries(reader) {
   const all = []
   while (true) {
@@ -419,6 +446,7 @@ async function _readAllEntries(reader) {
 }
 
 // Recursively turns a FileSystemEntry into [{ file, relativePath }]
+/** 递归读取 FileSystemEntry 为文件+相对路径列表 */
 async function _readEntry(entry, basePath) {
   if (entry.isFile) {
     return new Promise(resolve => {
@@ -434,6 +462,7 @@ async function _readEntry(entry, basePath) {
 }
 
 // ── Unified drop handler ──────────────────────────────────────────
+/** 拖拽上传：区分目录与多文件 */
 async function handleDrop(e) {
   isDragging.value = false
   if (uploadMode.value === 'folder') {
@@ -451,6 +480,7 @@ async function handleDrop(e) {
 }
 
 // ── Folder upload processor ───────────────────────────────────────
+/** 处理文件夹拖拽条目并写入 pendingFolderItems */
 async function processFolder(items) {
   uploadProgress.current = 0
   uploadProgress.total = items.length
@@ -495,14 +525,17 @@ async function processFolder(items) {
 }
 
 // ── Confirm dispatcher ────────────────────────────────────────────
+/** 根据当前模式分发到文件或文件夹上传确认 */
 async function confirmUpload() {
   if (uploadMode.value === 'file') await confirmFileUpload()
   else await processFolder(pendingFolderItems.value)
 }
 
 // ── Delete ────────────────────────────────────────────────────────
+/** 打开删除确认弹窗 */
 function askDelete(item) { deleteTarget.value = item }
 
+/** 确认删除文件/目录并刷新树 */
 async function confirmDelete() {
   if (!deleteTarget.value || !props.appId) return
   const res = await mockApi.deleteFile(props.appId, deleteTarget.value.path)
@@ -515,6 +548,7 @@ async function confirmDelete() {
 }
 
 // ── Download ──────────────────────────────────────────────────────
+/** 下载本地 File 对象 */
 async function downloadFile(item) {
   if (item.isDir) return
   let fileObj = item.fileObj

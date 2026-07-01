@@ -68,6 +68,10 @@
 </template>
 
 <script setup>
+/**
+ * 递归文件树列表：渲染某父路径下的直接子项，子目录继续递归 FolderTreeList。
+ * 操作事件（上传/新建/复制/删除/下载）向上冒泡给 AppFilePanel 处理。
+ */
 import { ref, computed } from 'vue'
 import FolderTypeIcon from '@/components/app/FolderTypeIcon.vue'
 import UploadIcon from '@/components/app/UploadIcon.vue'
@@ -85,8 +89,10 @@ defineEmits(['upload', 'mkdir', 'copy', 'delete', 'download', 'toggle-expand'])
 
 const hovered = ref(null)
 
+/** 当前父路径下的直接子文件/文件夹 */
 const children = computed(() => getDirectChildren(props.files, props.parentPath))
 
+/** 筛选 parentPath 下一层的直接子项（不含更深层） */
 function getDirectChildren(files, parentPath) {
   return files.filter(item => {
     if (!item.path.startsWith(parentPath)) return false
@@ -97,10 +103,12 @@ function getDirectChildren(files, parentPath) {
   })
 }
 
+/** 判断某路径是否在 expandedPaths 中展开 */
 function isExpanded(path) {
   return !!props.expandedPaths[path]
 }
 
+/** 切换子目录展开状态（直接修改 expandedPaths 对象） */
 function toggleExpand(path) {
   props.expandedPaths[path] = !props.expandedPaths[path]
 }

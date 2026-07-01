@@ -14,6 +14,7 @@
 </template>
 
 <script setup>
+/** 橙色文件夹 SVG 图标，用于工作区文件树 */
 defineProps({
   size: { type: [Number, String], default: 15 },
 })

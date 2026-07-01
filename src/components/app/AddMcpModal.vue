@@ -87,6 +87,10 @@
 </template>
 
 <script setup>
+/**
+ * 添加 MCP 服务弹窗。
+ * 填写 URL 与 Header 后必须先测试连接成功，才能将服务写入 App。
+ */
 import { ref, watch } from 'vue'
 import * as mockApi from '@/api/mockApi'
 
@@ -107,10 +111,12 @@ const connStatusClass = {
   'conn-idle': true,
 }
 
+/** 弹窗打开时重置表单与连接状态 */
 watch(() => props.visible, (v) => {
   if (v) resetForm()
 })
 
+/** 表单变更后重置连接测试结果（需重新测试） */
 watch(() => [form.value.url, form.value.headers], () => {
   if (connState.value !== 'idle') {
     connState.value = 'idle'
@@ -118,6 +124,7 @@ watch(() => [form.value.url, form.value.headers], () => {
   }
 }, { deep: true })
 
+/** 重置为初始空表单 */
 function resetForm() {
   form.value = { url: '', headers: [{ key: '', value: '' }] }
   errors.value = { url: '' }
@@ -126,10 +133,12 @@ function resetForm() {
   foundTools.value = []
 }
 
+/** 追加一行自定义 Header */
 function addHeader() {
   form.value.headers.push({ key: '', value: '' })
 }
 
+/** 删除指定 Header 行，至少保留一行空行 */
 function removeHeader(index) {
   form.value.headers.splice(index, 1)
   if (form.value.headers.length === 0) {
@@ -137,6 +146,7 @@ function removeHeader(index) {
   }
 }
 
+/** 校验 URL 非空且为 http(s) 格式 */
 function validate() {
   errors.value = { url: '' }
   let ok = true
@@ -145,6 +155,7 @@ function validate() {
   return ok
 }
 
+/** 调用 mockApi 测试 MCP 连通性并展示发现的 tools */
 async function testConn() {
   if (!form.value.url.trim()) { errors.value.url = 'URL 不能为空'; return }
   testing.value = true
@@ -168,6 +179,7 @@ async function testConn() {
   }
 }
 
+/** 校验通过后创建 MCP 服务并 emit created */
 async function handleAdd() {
   if (!validate()) return
   const res = await mockApi.createMcp(props.appId, {

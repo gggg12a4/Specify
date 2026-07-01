@@ -40,6 +40,10 @@
 </template>
 
 <script setup>
+/**
+ * 特殊工具子模型选择弹窗。
+ * 按 toolKey + platform 展示可选子模型列表。
+ */
 import { ref, computed, watch } from 'vue'
 import { SPECIAL_TOOL_MAP, TOOL_SUB_MODELS } from '@/constants/spTools'
 
@@ -53,9 +57,12 @@ const emit = defineEmits(['update:visible', 'confirm'])
 
 const selected = ref(null)
 
+/** 特殊工具元信息 */
 const toolInfo = computed(() => SPECIAL_TOOL_MAP[props.toolKey])
+/** 当前平台下该工具可用的子模型列表 */
 const subModels = computed(() => TOOL_SUB_MODELS[props.toolKey]?.[props.platform] || [])
 
+/** 打开时预选当前子模型或平台默认值 */
 watch(() => props.visible, (v) => {
   if (v) {
     const defaultModel = subModels.value.find(m => m.default)
@@ -63,6 +70,7 @@ watch(() => props.visible, (v) => {
   }
 })
 
+/** 确认选中子模型并关闭弹窗 */
 function confirm() {
   emit('confirm', selected.value)
   emit('update:visible', false)

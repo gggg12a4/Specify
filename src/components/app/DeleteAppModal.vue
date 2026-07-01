@@ -44,6 +44,10 @@
 </template>
 
 <script setup>
+/**
+ * 删除 App 二次确认弹窗。
+ * 要求用户手动输入 App 名称匹配后才允许删除。
+ */
 import { ref, watch, nextTick } from 'vue'
 
 const props = defineProps({
@@ -53,12 +57,14 @@ const emit = defineEmits(['confirm', 'cancel'])
 const inputRef = ref(null)
 const inputName = ref('')
 
+/** 切换目标 App 时清空输入并聚焦 */
 watch(() => props.app, async () => {
   inputName.value = ''
   await nextTick()
   inputRef.value?.focus()
 }, { immediate: true })
 
+/** 名称匹配后 emit confirm */
 function handleConfirm() {
   if (inputName.value === props.app?.name) {
     emit('confirm')

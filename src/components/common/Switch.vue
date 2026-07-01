@@ -16,6 +16,7 @@
 </template>
 
 <script setup>
+/** 开关组件：v-model 布尔值，可选显示开/关文字 */
 const props = defineProps({
   modelValue: {
     type: Boolean,
@@ -37,6 +38,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'change'])
 
+/** 切换开关状态并 emit update:modelValue 与 change */
 function toggle() {
   if (props.disabled) return
   const newValue = !props.modelValue

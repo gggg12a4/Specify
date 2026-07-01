@@ -77,6 +77,10 @@
 </template>
 
 <script setup>
+/**
+ * 待发送附件预览列表。
+ * 按 contentType 区分图片/视频/音频/文件展示，支持移除。
+ */
 import { formatFileSize } from '@/utils/file'
 
 defineProps({
@@ -89,10 +93,12 @@ defineProps({
 
 const emit = defineEmits(['remove'])
 
+/** 移除指定附件并向上 emit */
 function handleRemove(id) {
   emit('remove', id)
 }
 
+/** 格式化文件大小展示 */
 function formatSize(bytes) {
   return formatFileSize(bytes)
 }

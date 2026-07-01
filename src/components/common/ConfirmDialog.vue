@@ -23,6 +23,7 @@
 </template>
 
 <script setup>
+/** 通用确认弹窗：支持危险操作样式与自定义按钮文案 */
 const props = defineProps({
   visible: { type: Boolean, default: false },
   title: { type: String, default: '确认' },
@@ -33,7 +34,9 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:visible', 'confirm', 'cancel'])
 
+/** 确认并关闭弹窗 */
 function handleConfirm() { emit('confirm'); emit('update:visible', false) }
+/** 取消并关闭弹窗 */
 function handleCancel() { emit('cancel'); emit('update:visible', false) }
 </script>
 

@@ -22,6 +22,9 @@
 </template>
 
 <script setup>
+/**
+ * 平台模型选择区：按 platform 展示可选模型卡片，v-model 绑定 model id。
+ */
 import { computed } from 'vue'
 import { getModelsForPlatform, PLATFORM_NAMES } from '@/constants/platformModels'
 
@@ -32,7 +35,9 @@ const props = defineProps({
 
 defineEmits(['update:modelValue'])
 
+/** 当前平台下的可选模型列表 */
 const models = computed(() => getModelsForPlatform(props.platform))
+/** 平台展示名称 */
 const platformName = computed(() => PLATFORM_NAMES[props.platform] || props.platform)
 </script>
 

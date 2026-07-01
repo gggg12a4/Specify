@@ -211,6 +211,13 @@
 </template>
 
 <script setup>
+/**
+ * App 编辑页左侧「工作区资源」面板。
+ *
+ * 管理 shared/（核心知识库）与 mailbox/（用户传递）的本地文件树；
+ * 用户网盘路径（workspace/ 等）仅作为 @ 引用项暴露，不在此面板展示。
+ * 通过 getMentionFileItems() 向系统提示词编辑器提供可引用路径列表。
+ */
 import { ref, reactive, computed } from 'vue'
 import FolderTypeIcon from '@/components/app/FolderTypeIcon.vue'
 import FolderTreeList from '@/components/app/FolderTreeList.vue'
@@ -239,6 +246,7 @@ const sharedFiles = ref([
 ])
 const mailboxFiles = ref([])
 
+/** 汇总所有可创建子目录的父路径（含 shared/mailbox 根及已有文件夹） */
 const allFolderPaths = computed(() => {
   const paths = new Set(['shared/', 'mailbox/'])
   for (const item of [...sharedFiles.value, ...mailboxFiles.value]) {
@@ -247,18 +255,21 @@ const allFolderPaths = computed(() => {
   return [...paths].sort()
 })
 
+/** 文件夹上传时从 relativePath 提取顶层文件夹名 */
 const folderUploadName = computed(() => {
   if (!pendingFolderItems.value.length) return ''
   const first = pendingFolderItems.value[0].relativePath
   return first.split('/').filter(Boolean)[0] || ''
 })
 
+/** 上传弹窗确认按钮是否可点（文件或文件夹待传列表非空） */
 const canConfirmUpload = computed(() =>
   uploadMode.value === 'folder'
     ? pendingFolderItems.value.length > 0 && !!folderUploadName.value
     : pendingFiles.value.length > 0
 )
 
+/** 上传弹窗确认按钮文案（区分文件数/文件夹文件数） */
 const confirmUploadLabel = computed(() => {
   if (uploadMode.value === 'folder' && pendingFolderItems.value.length) {
     return `上传文件夹 (${pendingFolderItems.value.length})`
@@ -269,10 +280,12 @@ const confirmUploadLabel = computed(() => {
   return '上传'
 })
 
+/** 切换 shared/mailbox 顶层目录的展开/折叠 */
 function toggleDir(name) {
   expanded[name] = !expanded[name]
 }
 
+/** 复制文件路径到剪贴板，优先 Clipboard API，降级 execCommand */
 async function copyPath(path) {
   try {
     if (navigator.clipboard?.writeText) {
@@ -293,16 +306,19 @@ async function copyPath(path) {
   }
 }
 
+/** 将字节数格式化为 B / KB / MB */
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B'
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
   return (bytes / 1024 / 1024).toFixed(1) + ' MB'
 }
 
+/** 根据路径前缀返回 shared 或 mailbox 对应的文件列表 ref */
 function getListForPath(path) {
   return path.startsWith('mailbox/') ? mailboxFiles : sharedFiles
 }
 
+/** 在指定父目录下创建新文件夹并自动展开 */
 function handleMkdir() {
   if (!mkdirName.value.trim()) return
   const dirName = mkdirName.value.trim() + '/'
@@ -316,12 +332,14 @@ function handleMkdir() {
   showMkdir.value = false
 }
 
+/** 打开新建文件夹弹窗并预设父路径 */
 function openMkdirIn(path) {
   mkdirParent.value = path
   mkdirName.value = ''
   showMkdir.value = true
 }
 
+/** 打开上传弹窗并清空待传列表，默认文件模式 */
 function openUploadTo(target) {
   uploadTarget.value = target
   uploadMode.value = 'file'
@@ -330,6 +348,7 @@ function openUploadTo(target) {
   showUpload.value = true
 }
 
+/** 文件选择器变更：切换为单文件上传模式 */
 function handleFileSelect(e) {
   uploadMode.value = 'file'
   pendingFolderItems.value = []
@@ -337,6 +356,7 @@ function handleFileSelect(e) {
   e.target.value = ''
 }
 
+/** 文件夹选择器变更：解析 webkitRelativePath 为相对路径列表 */
 function handleDirSelect(e) {
   const files = Array.from(e.target.files)
   if (!files.length) return
@@ -349,6 +369,7 @@ function handleDirSelect(e) {
   e.target.value = ''
 }
 
+/** 拖拽上传：检测目录则递归读取，否则按多文件处理 */
 async function handleDrop(e) {
   isDragging.value = false
   const items = Array.from(e.dataTransfer.items || [])
@@ -374,10 +395,12 @@ async function handleDrop(e) {
   pendingFiles.value = Array.from(e.dataTransfer.files)
 }
 
+/** 统一路径分隔符为 / */
 function normalizeRelativePath(path) {
   return path.replace(/\\/g, '/')
 }
 
+/** 分批读取 DirectoryReader 的全部条目（API 单次有数量限制） */
 async function readAllEntries(reader) {
   const all = []
   while (true) {
@@ -388,6 +411,7 @@ async function readAllEntries(reader) {
   return all
 }
 
+/** 递归遍历 FileSystemEntry，收集文件及其相对路径 */
 async function readEntry(entry, basePath) {
   if (entry.isFile) {
     return new Promise(resolve => {
@@ -409,10 +433,12 @@ async function readEntry(entry, basePath) {
   return []
 }
 
+/** 从完整路径提取根前缀 shared/ 或 mailbox/ */
 function getRootPrefix(path) {
   return path.startsWith('mailbox/') ? 'mailbox/' : 'shared/'
 }
 
+/** 递归补全中间层目录节点，确保树结构完整 */
 function ensureDirPath(list, dirPath, rootPrefix) {
   if (!dirPath.startsWith(rootPrefix) || dirPath === rootPrefix) return
   const relative = dirPath.slice(rootPrefix.length)
@@ -427,6 +453,7 @@ function ensureDirPath(list, dirPath, rootPrefix) {
   }
 }
 
+/** 上传完成后展开相关父级目录，使新文件可见 */
 function expandAfterUpload(path) {
   const rootPrefix = getRootPrefix(path)
   if (rootPrefix === 'shared/') expanded.shared = true
@@ -441,11 +468,13 @@ function expandAfterUpload(path) {
   }
 }
 
+/** 根据当前上传模式分发到文件或文件夹确认逻辑 */
 function confirmUpload() {
   if (uploadMode.value === 'folder') confirmFolderUpload()
   else confirmFileUpload()
 }
 
+/** 将待传文件写入目标目录列表，展开目录并提示成功 */
 function confirmFileUpload() {
   const list = getListForPath(uploadTarget.value)
   const count = pendingFiles.value.length
@@ -464,6 +493,7 @@ function confirmFileUpload() {
   showSuccess(`已上传 ${count} 个文件到 ${target}`)
 }
 
+/** 将文件夹内所有文件按相对路径写入树，自动补全中间目录 */
 function confirmFolderUpload() {
   const folderName = folderUploadName.value
   if (!folderName) {
@@ -504,6 +534,7 @@ function confirmFolderUpload() {
   showSuccess(`已创建 ${containerPath} 并上传 ${uploadedCount} 个文件`)
 }
 
+/** 取消上传并关闭弹窗，清空待传列表 */
 function cancelUpload() {
   pendingFiles.value = []
   pendingFolderItems.value = []
@@ -511,10 +542,12 @@ function cancelUpload() {
   showUpload.value = false
 }
 
+/** 打开删除确认弹窗 */
 function askDelete(item) {
   deleteTarget.value = item
 }
 
+/** 确认删除：目录则级联删除子路径，文件则精确匹配 */
 function confirmDelete() {
   if (!deleteTarget.value) return
   const path = deleteTarget.value.path
@@ -528,6 +561,7 @@ function confirmDelete() {
   deleteTarget.value = null
 }
 
+/** 通过 Blob URL 触发浏览器下载本地文件 */
 function downloadFile(item) {
   if (item.isDir || !item.fileObj) return
   const url = URL.createObjectURL(item.fileObj)
@@ -538,6 +572,7 @@ function downloadFile(item) {
   URL.revokeObjectURL(url)
 }
 
+/** 用户网盘虚拟目录：不在面板渲染，但可在提示词中 @ 引用 */
 const VIRTUAL_DISK_PATHS = [
   { label: 'workspace / 工作目录', value: 'workspace/', kind: 'folder' },
   { label: 'assets / 用户上传', value: 'assets/', kind: 'folder' },
@@ -545,6 +580,7 @@ const VIRTUAL_DISK_PATHS = [
   { label: 'temp / 临时区', value: 'temp/', kind: 'folder' },
 ]
 
+/** 供 SystemPromptModal 的 @ 菜单使用：面板目录 + 虚拟网盘 + 已上传文件 */
 function getMentionFileItems() {
   const items = [
     { label: 'shared / 核心知识库', value: 'shared/', kind: 'folder' },

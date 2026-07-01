@@ -50,6 +50,10 @@
 </template>
 
 <script setup>
+/**
+ * @ 引用浮层：展示文件夹与已启用工具列表，支持键盘导航与点击选择。
+ * 纯展示组件，选择结果通过 select/hover 事件交给 SystemPromptModal 处理。
+ */
 defineProps({
   folders: { type: Array, default: () => [] },
   tools: { type: Array, default: () => [] },

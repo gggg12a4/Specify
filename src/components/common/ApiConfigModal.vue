@@ -140,6 +140,10 @@
 </template>
 
 <script setup>
+/**
+ * API 密钥池管理弹窗。
+ * 列表查看/增删改 BYOK 密钥；addMode 为 true 时添加完自动关闭并触发 saved。
+ */
 import { ref, reactive, watch } from 'vue'
 import { useApiConfig } from '@/composables/useApiConfig'
 import { showSuccess, showConfirm } from '@/composables/useNotification'
@@ -173,7 +177,7 @@ const formData = reactive({
 // 错误信息
 const errors = reactive({})
 
-// 监听弹窗显示
+/** 弹窗显示时刷新列表，addMode 直接进入添加表单 */
 watch(() => props.visible, (visible) => {
   if (visible) {
     refreshKeys()
@@ -185,10 +189,12 @@ watch(() => props.visible, (visible) => {
   }
 })
 
+/** 从 useApiConfig 重新加载密钥列表 */
 function refreshKeys() {
   keys.value = getKeys() || []
 }
 
+/** 进入添加新密钥表单 */
 function openAdd() {
   editId.value = null
   formData.alias = ''
@@ -198,6 +204,7 @@ function openAdd() {
   isEditing.value = true
 }
 
+/** 进入编辑已有密钥表单 */
 function openEdit(k) {
   editId.value = k.id
   formData.alias = k.alias || ''
@@ -207,6 +214,7 @@ function openEdit(k) {
   isEditing.value = true
 }
 
+/** 退出编辑；addMode 且无密钥时直接关闭整个弹窗 */
 function cancelEdit() {
   if (props.addMode && keys.value.length === 0) {
     // 如果是强制添加模式且没有其他 key，取消则直接关闭弹窗
@@ -216,6 +224,7 @@ function cancelEdit() {
   }
 }
 
+/** 确认后删除指定密钥 */
 async function confirmDelete(id) {
   const isConfirmed = await showConfirm({
     title: '删除确认',
@@ -230,7 +239,7 @@ async function confirmDelete(id) {
   }
 }
 
-// 验证表单
+/** 校验 alias、baseUrl、apiKey 三项必填 */
 function validateForm() {
   clearAllErrors()
   let isValid = true
@@ -251,15 +260,17 @@ function validateForm() {
   return isValid
 }
 
+/** 清空所有字段错误信息 */
 function clearAllErrors() {
   Object.keys(errors).forEach(key => delete errors[key])
 }
 
+/** 清除单个字段的错误提示 */
 function clearError(field) {
   delete errors[field]
 }
 
-// 保存配置
+/** 新增或更新密钥，addMode 下保存后自动关闭并 emit saved */
 function handleSaveForm() {
   if (!validateForm()) return
 
@@ -289,11 +300,12 @@ function handleSaveForm() {
   }
 }
 
-// 取消/关闭配置
+/** 关闭弹窗 */
 function handleCancel() {
   emit('update:visible', false)
 }
 
+/** 脱敏展示 API Key（保留首尾各 4 位） */
 function maskKey(key) {
   if (!key) return '-'
   if (key.length <= 8) return '****'

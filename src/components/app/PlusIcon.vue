@@ -12,6 +12,7 @@
 </template>
 
 <script setup>
+/** 加号 SVG 图标（新建文件夹等操作） */
 defineProps({
   size: { type: [Number, String], default: 13 },
   strokeWidth: { type: [Number, String], default: 2.5 },

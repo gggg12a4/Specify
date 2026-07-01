@@ -22,6 +22,7 @@
 </template>
 
 <script setup>
+/** 删除 SVG 图标 */
 defineProps({
   size: { type: [Number, String], default: 12 },
 })

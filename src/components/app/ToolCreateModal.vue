@@ -132,6 +132,10 @@
 </template>
 
 <script setup>
+/**
+ * 创建/编辑自定义 Agent 工具弹窗。
+ * 支持嵌套平台工具与其他 Agent 工具，编辑模式下 DFS 检测循环依赖。
+ */
 import { reactive, ref, watch, computed } from 'vue'
 import { SP_TOOLS, SPECIAL_TOOLS, isToolError, getToolErrorMsg } from '@/constants/spTools'
 import { showError } from '@/composables/useNotification'
@@ -151,18 +155,21 @@ const form = reactive({ name: '', description: '', system_prompt: '', tools: [],
 const configTool = ref(null)
 const pendingConfig = reactive({})
 
-// 全部推荐工具：所有 SP 工具 + 当前平台支持的特殊工具
+/** 可选推荐工具：SP 工具 + 当前平台特殊工具 */
 const availableRecommendedTools = computed(() => {
   const special = SPECIAL_TOOLS.filter(t => t.platforms.includes(props.platform))
   return [...SP_TOOLS, ...special]
 })
 
-// 其他自创工具（排除自身）
+/** 其他自定义工具（排除当前正在编辑的自身） */
 const otherCustomTools = computed(() =>
   props.existingCustomTools.filter(t => t.id !== props.initial?.id)
 )
 
-// 深度优先搜索（DFS）检测循环依赖
+/**
+ * DFS 检测嵌套 Agent 工具是否形成循环依赖。
+ * 从候选工具出发沿 sub_tools 向下搜索，能否回到当前编辑中的工具 id。
+ */
 function isCircularDependency(targetId, visited = new Set()) {
   // 如果是创建模式，因为当前工具还没有 ID 且还没被其他工具依赖，所以不可能形成循环
   if (props.mode === 'create') return false;
@@ -196,7 +203,7 @@ function isCircularDependency(targetId, visited = new Set()) {
   return false;
 }
 
-// 被引用的工具名列表
+/** 引用当前工具的其他 Agent 名称列表（编辑模式警告用） */
 const referencedBy = computed(() => {
   const refs = props.initial?.referenced_by || []
   return refs.map(r => {
@@ -205,7 +212,7 @@ const referencedBy = computed(() => {
   })
 })
 
-// 判断工具是否已在 App 中启用（配置锁定）
+/** 判断推荐工具是否已在 App 层启用（启用后配置锁定，不可在此修改） */
 function isInApp(tool) {
   const isSp = SP_TOOLS.some(t => t.key === tool.key)
   return isSp
@@ -213,6 +220,7 @@ function isInApp(tool) {
     : !!props.enabledSpecialTools[tool.key]?.enabled
 }
 
+/** 打开子工具参数配置内嵌弹窗并初始化 pendingConfig */
 function openConfig(tool) {
   configTool.value = tool
   // 初始化待配置表单：用已保存的值，没有则用参数默认值
@@ -222,6 +230,7 @@ function openConfig(tool) {
   })
 }
 
+/** 保存子工具参数到 form.toolConfigs */
 function saveConfig() {
   const cfg = {}
   configTool.value.params?.forEach(p => {
@@ -231,11 +240,13 @@ function saveConfig() {
   configTool.value = null
 }
 
+/** 从嵌套工具列表中移除指定 key */
 function removeToolDep(key) {
   form.tools = form.tools.filter(t => t !== key)
   markDirty()
 }
 
+/** 弹窗打开时根据 mode 初始化或回填表单 */
 watch(() => props.visible, v => {
   if (v) {
     configTool.value = null
@@ -252,10 +263,12 @@ watch(() => props.visible, v => {
   }
 })
 
+/** 将 sub_tools 对象数组转为扁平 id/key 列表供 checkbox 绑定 */
 function subToolsToFlat(subTools = []) {
   return subTools.map(t => t.type === 'recommended' ? t.name : t.custom_tool_id)
 }
 
+/** 将扁平 id 列表转回 sub_tools 引用结构（区分推荐工具与自定义工具） */
 function flatToSubTools(ids = []) {
   const spKeys = new Set(SP_TOOLS.map(t => t.key))
   const specialKeys = new Set(SPECIAL_TOOLS.map(t => t.key))
@@ -266,6 +279,7 @@ function flatToSubTools(ids = []) {
   })
 }
 
+/** 校验必填项后 emit confirm 并关闭弹窗 */
 function handleConfirm() {
   if (!form.name.trim())         { showError('工具名称不能为空'); return }
   if (!form.description.trim())  { showError('工具描述不能为空'); return }
@@ -280,11 +294,13 @@ function handleConfirm() {
   emit('update:visible', false)
 }
 
+/** 取消并关闭弹窗 */
 function handleCancel() {
   emit('cancel')
   emit('update:visible', false)
 }
 
+/** 触发依赖列表响应式更新（预留扩展点） */
 function markDirty() {
   // Can be expanded if needed, currently used just to trigger reactivity or tracking
 }

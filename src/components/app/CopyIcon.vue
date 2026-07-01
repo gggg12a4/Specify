@@ -14,6 +14,7 @@
 </template>
 
 <script setup>
+/** 复制 SVG 图标 */
 defineProps({
   size: { type: [Number, String], default: 12 },
 })

@@ -71,6 +71,10 @@
 </template>
 
 <script setup>
+/**
+ * 运行前 API Key 配置弹窗（JIT 拦截）。
+ * 无对应平台密钥时要求填写并保存；已有密钥则直接确认继续。
+ */
 import { ref, computed, watch } from 'vue'
 import { useApiConfig } from '@/composables/useApiConfig'
 import { PLATFORM_NAMES } from '@/constants/platformModels'
@@ -88,21 +92,27 @@ const { hasKeyForPlatform, getDefaultKeyForPlatform, addKey } = useApiConfig()
 const forceNewKey = ref(false)
 const newCredential = ref({ alias: '', baseUrl: '', apiKey: '' })
 
+/** 平台展示名 */
 const platformName = computed(() => PLATFORM_NAMES[props.platform] || props.platform)
+/** 是否需要录入新密钥（无密钥或用户主动修改） */
 const needsNewKey = computed(() => !hasKeyForPlatform(props.platform) || forceNewKey.value)
+/** 已有密钥的摘要信息 */
 const existingKeyInfo = computed(() => getDefaultKeyForPlatform(props.platform))
 
+/** 新密钥模式下 apiKey 与 baseUrl 必填 */
 const canConfirm = computed(() => {
   if (needsNewKey.value && (!newCredential.value.apiKey.trim() || !newCredential.value.baseUrl.trim())) return false
   return true
 })
 
+/** 弹窗打开时重置强制新密钥状态与表单 */
 watch(() => props.visible, (v) => {
   if (!v) return
   forceNewKey.value = false
   newCredential.value = { alias: '', baseUrl: '', apiKey: '' }
 })
 
+/** 必要时保存新密钥到配置池，然后 emit confirm */
 async function confirm() {
   if (needsNewKey.value && newCredential.value.apiKey.trim()) {
     addKey({

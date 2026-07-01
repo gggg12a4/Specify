@@ -17,6 +17,7 @@
 </template>
 
 <script setup>
+/** 工具名称旁的信息图标，hover 显示 tooltip，点击 emit click */
 import { computed } from 'vue'
 
 const props = defineProps({
@@ -26,6 +27,7 @@ const props = defineProps({
 
 defineEmits(['click'])
 
+/** 无障碍朗读标签 */
 const ariaLabel = computed(() => `查看 ${props.label} 使用说明`)
 </script>
 

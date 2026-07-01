@@ -41,6 +41,10 @@
 </template>
 
 <script setup>
+/**
+ * 平台工具参数配置弹窗。
+ * 根据 tool.params 渲染 bool/int 表单项，支持平台禁用规则提示。
+ */
 import { reactive, computed } from 'vue'
 
 const props = defineProps({
@@ -50,11 +54,12 @@ const props = defineProps({
 })
 const emit = defineEmits(['save', 'close'])
 
-// timeout is universal — only show tool-specific (non-timeout) params + timeout
+/** 当前工具可配置的参数列表 */
 const configurableParams = computed(() => props.tool.params || [])
 
 const form = reactive({ ...props.config })
 
+/** 收集表单值，空字符串转为 null 后 emit save */
 function handleSave() {
   // Convert empty string to null for nullable ints
   const out = {}

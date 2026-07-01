@@ -32,6 +32,10 @@
 </template>
 
 <script setup>
+/**
+ * 单行文本输入弹窗。
+ * 支持 defaultValue 回填、validator 校验与 Enter/Esc 快捷键。
+ */
 import { ref, watch, nextTick } from 'vue'
 
 const props = defineProps({
@@ -48,6 +52,7 @@ const inputRef = ref(null)
 const inputValue = ref('')
 const errorMessage = ref('')
 
+/** 打开时填入默认值、清空错误并聚焦选中 */
 watch(() => props.visible, (v) => {
   if (v) {
     inputValue.value = props.defaultValue
@@ -56,6 +61,7 @@ watch(() => props.visible, (v) => {
   }
 })
 
+/** 校验通过后 emit confirm(trimmed value) */
 function handleConfirm() {
   const value = inputValue.value.trim()
   if (props.validator) {
@@ -66,6 +72,7 @@ function handleConfirm() {
   emit('update:visible', false)
 }
 
+/** 取消并关闭 */
 function handleCancel() {
   emit('cancel')
   emit('update:visible', false)

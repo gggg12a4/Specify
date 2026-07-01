@@ -39,6 +39,7 @@
 </template>
 
 <script setup>
+/** 工具说明弹窗：展示 summary、参数表与使用示例（纯展示） */
 defineProps({ tool: { type: Object, required: true } })
 defineEmits(['close'])
 </script>

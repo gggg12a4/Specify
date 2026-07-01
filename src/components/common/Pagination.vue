@@ -41,6 +41,10 @@
 </template>
 
 <script setup>
+/**
+ * 通用分页器。
+ * 支持 v-model 双向绑定当前页，页码过多时显示省略号。
+ */
 import { computed } from 'vue';
 
 const props = defineProps({
@@ -60,6 +64,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'change']);
 
+/** 当前页双向绑定，变更时同步 emit change */
 const currentPage = computed({
   get: () => props.modelValue,
   set: (val) => {
@@ -68,10 +73,12 @@ const currentPage = computed({
   }
 });
 
+/** 总页数 */
 const totalPages = computed(() => {
   return Math.ceil(props.total / props.pageSize);
 });
 
+/** 页码按钮序列（含省略号），最多展示 7 个按钮位 */
 const pageNumbers = computed(() => {
   const current = currentPage.value;
   const total = totalPages.value;
@@ -93,6 +100,7 @@ const pageNumbers = computed(() => {
   return pages;
 });
 
+/** 跳转到指定页（边界与重复点击保护） */
 function changePage(page) {
   if (page >= 1 && page <= totalPages.value && page !== currentPage.value) {
     currentPage.value = page;

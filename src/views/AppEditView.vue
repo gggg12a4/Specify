@@ -4,7 +4,7 @@
       <div class="bar-left">
         <router-link to="/" class="back-btn" @click.prevent="handleBack">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="15 18 9 12 15 6"/>
+            <polyline points="15 18 9 12 15 6" />
           </svg>
         </router-link>
         <div class="bar-title">
@@ -16,7 +16,8 @@
         </div>
       </div>
       <div class="bar-right">
-        <button class="btn-save" :class="{ 'is-saving': isSaving }" @click="handleSave()" :disabled="!isDirty || isSaving">
+        <button class="btn-save" :class="{ 'is-saving': isSaving }" @click="handleSave()"
+          :disabled="!isDirty || isSaving">
           <template v-if="isSaving">
             <span class="spinner"></span>
             保存中...
@@ -44,7 +45,11 @@
     <div v-else class="edit-layout">
       <!-- 全局失效警告条 -->
       <div v-if="hasAnyEnabledError" class="global-error-banner">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
         <span>有工具已失效，请处理后再运行 App</span>
       </div>
 
@@ -65,11 +70,8 @@
                   <p class="section-desc">选择该平台（{{ platformLabel }}）下用于调试与运行的模型。</p>
                 </div>
               </div>
-              <AppModelSection
-                :platform="app.platform || 'claude'"
-                :model-value="form.model"
-                @update:model-value="(v) => { form.model = v; markDirty() }"
-              />
+              <AppModelSection :platform="app.platform || 'claude'" :model-value="form.model"
+                @update:model-value="(v) => { form.model = v; markDirty() }" />
             </section>
 
             <!-- 系统提示词 -->
@@ -80,14 +82,8 @@
                   <p class="section-desc">定义 App 的角色、行为边界以及如何使用工作区资源。</p>
                 </div>
               </div>
-              <div
-                class="prompt-box prompt-trigger"
-                role="button"
-                tabindex="0"
-                @click="openPromptModal"
-                @keydown.enter.prevent="openPromptModal"
-                @keydown.space.prevent="openPromptModal"
-              >
+              <div class="prompt-box prompt-trigger" role="button" tabindex="0" @click="openPromptModal"
+                @keydown.enter.prevent="openPromptModal" @keydown.space.prevent="openPromptModal">
                 <div v-if="form.system_prompt.trim()" class="prompt-preview">{{ form.system_prompt }}</div>
                 <div v-else class="prompt-placeholder">定义 App 的角色、行为和限制…</div>
                 <span class="prompt-open-hint">点击展开编辑</span>
@@ -102,25 +98,19 @@
                   <p class="section-desc">配置 App 可调用的平台能力、特殊工具与自定义子 Agent。</p>
                 </div>
               </div>
-              <AppToolsSection
-                ref="toolsSectionRef"
-                :tools="form.tools"
-                :custom-tools="form.custom_tools"
-                :special-tools="form.special_tools"
-                :platform="app.platform || 'claude'"
+              <AppToolsSection ref="toolsSectionRef" :tools="form.tools" :custom-tools="form.custom_tools"
+                :special-tools="form.special_tools" :platform="app.platform || 'claude'"
                 @update:tools="(v) => { form.tools = v; markDirty() }"
                 @update:custom-tools="(v) => { form.custom_tools = v; markDirty() }"
-                @update:special-tools="(v) => { form.special_tools = v; markDirty() }"
-                @show-info="infoTool = $event"
-                @show-config="configTool = $event"
-              />
+                @update:special-tools="(v) => { form.special_tools = v; markDirty() }" @show-info="infoTool = $event"
+                @show-config="configTool = $event" />
             </section>
 
             <!-- MCP 服务区 -->
             <section class="edit-section">
               <div class="section-header">
                 <div>
-                  <h2 class="section-title">外部能力接入 (MCP)</h2>
+                  <h2 class="section-title">MCP工具 (MCP)</h2>
                   <p class="section-desc">为 App 挂载外部 API 和本地服务能力。</p>
                 </div>
                 <button class="btn btn-outline" @click="showAddMcp = true">+ 添加服务</button>
@@ -131,22 +121,12 @@
               </div>
 
               <div v-else class="card-grid">
-                <div
-                  v-for="mcp in form.mcp_services"
-                  :key="mcp.id"
-                  class="tool-card"
-                  :class="{ disabled: !mcp.enabled }"
-                >
+                <div v-for="mcp in form.mcp_services" :key="mcp.id" class="tool-card"
+                  :class="{ disabled: !mcp.enabled }">
                   <div class="card-top">
                     <div class="card-icon-wrap">🔌</div>
-                    <button
-                      type="button"
-                      class="card-toggle"
-                      :class="{ off: !mcp.enabled }"
-                      :aria-pressed="mcp.enabled"
-                      title="启用 / 禁用"
-                      @click="toggleMcp(mcp.id, !mcp.enabled)"
-                    >
+                    <button type="button" class="card-toggle" :class="{ off: !mcp.enabled }" :aria-pressed="mcp.enabled"
+                      title="启用 / 禁用" @click="toggleMcp(mcp.id, !mcp.enabled)">
                       <div class="card-toggle-knob"></div>
                     </button>
                   </div>
@@ -168,40 +148,27 @@
     </div>
 
     <ToolInfoModal v-if="infoTool" :tool="infoTool" @close="infoTool = null" />
-    <ToolConfigModal
-      v-if="configTool"
-      :tool="configTool.tool"
-      :config="form.tools[configTool.tool.key]?.config || {}"
-      :disabled-rules="configTool.disabledRules"
-      @save="handleToolConfigSave"
-      @close="configTool = null"
-    />
+    <ToolConfigModal v-if="configTool" :tool="configTool.tool" :config="form.tools[configTool.tool.key]?.config || {}"
+      :disabled-rules="configTool.disabledRules" @save="handleToolConfigSave" @close="configTool = null" />
 
     <!-- MCP 弹窗 -->
-    <AddMcpModal
-      v-model:visible="showAddMcp"
-      :app-id="app?.id"
-      @created="handleMcpCreated"
-    />
-    <McpConfigModal
-      v-if="mcpConfigTarget"
-      v-model:visible="showMcpConfig"
-      :app-id="app?.id"
-      :mcp="mcpConfigTarget"
-      @updated="handleMcpUpdated"
-    />
+    <AddMcpModal v-model:visible="showAddMcp" :app-id="app?.id" @created="handleMcpCreated" />
+    <McpConfigModal v-if="mcpConfigTarget" v-model:visible="showMcpConfig" :app-id="app?.id" :mcp="mcpConfigTarget"
+      @updated="handleMcpUpdated" />
 
-    <SystemPromptModal
-      v-model:visible="showPromptModal"
-      v-model="form.system_prompt"
-      :file-refs="promptFileRefs"
-      :tool-refs="promptToolRefs"
-      @done="markDirty"
-    />
+    <SystemPromptModal v-model:visible="showPromptModal" v-model="form.system_prompt" :file-refs="promptFileRefs"
+      :tool-refs="promptToolRefs" @done="markDirty" />
   </div>
 </template>
 
 <script setup>
+/**
+ * App 开发编辑页（/developer/app/:id/edit）。
+ *
+ * 左侧为工作区文件面板，右侧编辑模型、系统提示词、工具与 MCP 服务。
+ * form 为本地草稿，通过 isDirty 跟踪未保存修改；离开页面前会弹窗确认。
+ * 调试入口会先校验已启用工具的失效状态，必要时静默保存后再跳转运行页。
+ */
 import { ref, reactive, computed, watch } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useAppStore } from '@/stores/app'
@@ -221,7 +188,9 @@ import { showSuccess, showConfirm } from '@/composables/useNotification'
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
+/** 从路由 id 获取当前编辑的 App */
 const app = computed(() => appStore.getApp(route.params.id))
+/** 平台中文展示名 */
 const platformLabel = computed(() => PLATFORM_LABELS[app.value?.platform] || '')
 
 const toolsSectionRef = ref(null)
@@ -247,6 +216,7 @@ const showPromptModal = ref(false)
 const hasAnyEnabledError = ref(false)
 let pendingNav = null
 
+/** 系统提示词 @ 引用：合并面板内真实路径与用户网盘虚拟路径 */
 const promptFileRefs = computed(() => {
   return filePanelRef.value?.getMentionFileItems?.() ?? [
     { label: 'shared / 核心知识库', value: 'shared/', kind: 'folder' },
@@ -257,6 +227,7 @@ const promptFileRefs = computed(() => {
   ]
 })
 
+/** 系统提示词 @ 引用：仅包含当前已启用的平台/特殊/自定义工具 */
 const promptToolRefs = computed(() => {
   const items = []
 
@@ -281,10 +252,12 @@ const promptToolRefs = computed(() => {
   return items
 })
 
+/** 打开系统提示词全屏编辑弹窗 */
 function openPromptModal() {
   showPromptModal.value = true
 }
 
+/** App 数据加载后：深拷贝到 form 并重置 isDirty */
 watch(app, (a) => {
   if (!a) return
   form.system_prompt = a.system_prompt || ''
@@ -296,16 +269,19 @@ watch(app, (a) => {
   isDirty.value = false
 }, { immediate: true })
 
+/** form 任意字段变更时标记为未保存（跳过 App 尚未就绪的初始阶段） */
 watch(() => form, () => {
   if (!app.value) return // Don't trigger save on initial load if app is not ready
   isDirty.value = true
 }, { deep: true })
 
+/** 标记草稿已修改，并刷新顶部「工具失效」警告条 */
 function markDirty() {
   isDirty.value = true
   checkGlobalErrors()
 }
 
+/** 调用子组件检查已启用工具的失效项，更新 hasAnyEnabledError */
 function checkGlobalErrors() {
   if (toolsSectionRef.value) {
     const errors = toolsSectionRef.value.checkEnabledToolsErrors()
@@ -313,12 +289,13 @@ function checkGlobalErrors() {
   }
 }
 
-// Watch for changes that might affect error state
+/** 工具配置变更后延迟复检，等待子组件 DOM 更新完成 */
 watch(() => [form.tools, form.special_tools, form.custom_tools], () => {
   // Use setTimeout to ensure DOM is updated and checkEnabledToolsErrors gets latest data
   setTimeout(checkGlobalErrors, 150)
 }, { deep: true })
 
+/** 将 form 写回 appStore；silent 为 true 时不弹成功提示（调试前自动保存用） */
 function handleSave(silent = false) {
   if (!isDirty.value) return Promise.resolve()
 
@@ -345,6 +322,7 @@ function handleSave(silent = false) {
   })
 }
 
+/** 保存平台工具参数配置到 form.tools[key].config */
 function handleToolConfigSave(config) {
   const key = configTool.value.tool.key
   form.tools = { ...form.tools, [key]: { ...form.tools[key], config } }
@@ -353,11 +331,13 @@ function handleToolConfigSave(config) {
 }
 
 // ── MCP helpers ──────────────────────────────────────────────────────────────
+/** 切换 MCP 服务的启用/禁用状态 */
 function toggleMcp(id, enabled) {
   form.mcp_services = form.mcp_services.map(m => m.id === id ? { ...m, enabled } : m)
   markDirty()
 }
 
+/** 将 MCP URL 截断为「主机名 + 路径」用于卡片展示 */
 function truncateUrl(url) {
   if (!url) return ''
   try {
@@ -368,21 +348,25 @@ function truncateUrl(url) {
   }
 }
 
+/** 打开 MCP 服务编辑弹窗 */
 function openMcpConfig(mcp) {
   mcpConfigTarget.value = mcp
   showMcpConfig.value = true
 }
 
+/** AddMcpModal 创建成功后追加到 mcp_services 列表 */
 function handleMcpCreated(mcp) {
   form.mcp_services = [...form.mcp_services, mcp]
   markDirty()
 }
 
+/** McpConfigModal 保存后按 id 替换对应服务项 */
 function handleMcpUpdated(updated) {
   form.mcp_services = form.mcp_services.map(m => m.id === updated.id ? updated : m)
   markDirty()
 }
 
+/** 确认后从 mcp_services 中移除指定服务 */
 function removeMcp(id) {
   if (!confirm('确认删除此 MCP 服务？')) return
   form.mcp_services = form.mcp_services.filter(m => m.id !== id)
@@ -390,10 +374,12 @@ function removeMcp(id) {
 }
 
 // ── Navigation guards ────────────────────────────────────────────────────────
+/** 返回开发者工作空间首页 */
 function handleBack() {
   router.push('/workspace')
 }
 
+/** 进入调试运行页：先拦截失效工具，再处理未保存修改 */
 async function handleDebug() {
   if (toolsSectionRef.value) {
     const errors = toolsSectionRef.value.checkEnabledToolsErrors()
@@ -418,9 +404,7 @@ async function handleDebug() {
   router.push({ name: 'AppDevRun', params: { id: app.value.id }, query: { mode: 'debug' } })
 }
 
-// remove cancelLeave and confirmLeave as they're no longer used
-
-
+/** 路由离开守卫：有未保存修改时弹窗确认，取消则阻断导航 */
 onBeforeRouteLeave(async (to, from, next) => {
   if (isDirty.value) {
     const isConfirmed = await showConfirm({
@@ -468,6 +452,7 @@ onBeforeRouteLeave(async (to, from, next) => {
   align-items: center;
   gap: 12px;
 }
+
 .back-btn {
   width: 30px;
   height: 30px;
@@ -481,6 +466,7 @@ onBeforeRouteLeave(async (to, from, next) => {
   transition: all 0.15s;
   cursor: pointer;
 }
+
 .back-btn:hover {
   color: var(--color-text);
   border-color: var(--color-text-muted);
@@ -492,6 +478,7 @@ onBeforeRouteLeave(async (to, from, next) => {
   align-items: center;
   gap: 4px;
 }
+
 .bar-label {
   font-size: 12px;
   color: var(--color-text-muted);
@@ -500,15 +487,18 @@ onBeforeRouteLeave(async (to, from, next) => {
   background: var(--color-bg-secondary);
   border-radius: 4px;
 }
+
 .bar-sep {
   font-size: 13px;
   color: var(--color-text-muted);
 }
+
 .bar-app {
   font-size: 15px;
   font-weight: 600;
   color: var(--color-text);
 }
+
 .bar-platform {
   font-size: 11px;
   font-weight: 500;
@@ -519,6 +509,7 @@ onBeforeRouteLeave(async (to, from, next) => {
   border-radius: 10px;
   margin-left: 4px;
 }
+
 .unsaved-dot {
   width: 7px;
   height: 7px;
@@ -564,7 +555,8 @@ onBeforeRouteLeave(async (to, from, next) => {
 }
 
 .btn-debug:hover {
-  background: #059669; /* slightly darker green */
+  background: #059669;
+  /* slightly darker green */
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
@@ -585,14 +577,16 @@ onBeforeRouteLeave(async (to, from, next) => {
 .spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(0,0,0,0.1);
+  border: 2px solid rgba(0, 0, 0, 0.1);
   border-top-color: currentColor;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .not-found {
@@ -623,6 +617,7 @@ onBeforeRouteLeave(async (to, from, next) => {
   font-weight: 400;
   flex-shrink: 0;
 }
+
 .global-error-banner svg {
   color: #ca8a04;
   flex-shrink: 0;
@@ -645,6 +640,7 @@ onBeforeRouteLeave(async (to, from, next) => {
   box-shadow: 1px 0 2px rgba(0, 0, 0, 0.02);
   z-index: 5;
 }
+
 .file-panel::-webkit-scrollbar {
   display: none;
 }
@@ -656,13 +652,15 @@ onBeforeRouteLeave(async (to, from, next) => {
   padding: 40px;
   background: var(--color-bg);
 }
+
 .edit-main::-webkit-scrollbar {
   display: none;
 }
 
 .edit-container {
-  max-width: 960px;
+  max-width: 1200px;
   margin: 0 auto;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 40px;
@@ -713,6 +711,7 @@ onBeforeRouteLeave(async (to, from, next) => {
   transition: border-color 0.15s, box-shadow 0.15s;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
+
 .prompt-box:focus-visible {
   outline: none;
   border-color: #60a5fa;
@@ -780,12 +779,14 @@ onBeforeRouteLeave(async (to, from, next) => {
   gap: 6px;
   flex-shrink: 0;
 }
+
 .btn-outline {
   background: var(--color-surface);
   color: var(--color-text);
   border: 1px solid var(--color-border);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
+
 .btn-outline:hover {
   border-color: var(--color-text-muted);
   background: var(--color-bg-secondary);
@@ -830,22 +831,27 @@ onBeforeRouteLeave(async (to, from, next) => {
   align-self: flex-start;
   letter-spacing: 0.02em;
 }
+
 .tool-type-badge.type-mcp {
   color: #059669;
 }
+
 .tool-card:hover {
   border-color: var(--color-text-muted);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
   transform: translateY(-2px);
 }
+
 .tool-card.disabled {
   background: var(--color-bg);
   border-style: dashed;
   box-shadow: none;
 }
+
 .tool-card.disabled:hover {
   transform: none;
 }
+
 .tool-card.disabled .card-title {
   color: var(--color-text-muted);
 }
@@ -867,6 +873,7 @@ onBeforeRouteLeave(async (to, from, next) => {
   justify-content: center;
   font-size: 18px;
 }
+
 .tool-card.disabled .card-icon-wrap {
   opacity: 0.5;
 }
@@ -876,6 +883,7 @@ onBeforeRouteLeave(async (to, from, next) => {
   font-weight: 600;
   color: var(--color-text);
 }
+
 .card-meta {
   font-size: 12px;
   color: var(--color-text-muted);
@@ -895,9 +903,11 @@ onBeforeRouteLeave(async (to, from, next) => {
   flex-shrink: 0;
   padding: 0;
 }
+
 .card-toggle.off {
   background: var(--color-border);
 }
+
 .card-toggle-knob {
   position: absolute;
   top: 2px;
@@ -911,6 +921,7 @@ onBeforeRouteLeave(async (to, from, next) => {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   pointer-events: none;
 }
+
 .card-toggle.off .card-toggle-knob {
   transform: translateX(0);
 }
@@ -934,9 +945,11 @@ onBeforeRouteLeave(async (to, from, next) => {
   transition: color 0.15s;
   padding: 0;
 }
+
 .action-link:hover {
   color: var(--color-text);
 }
+
 .action-remove:hover {
   color: var(--color-error, #ef4444);
 }
@@ -945,7 +958,7 @@ onBeforeRouteLeave(async (to, from, next) => {
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.35);
+  background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -953,11 +966,12 @@ onBeforeRouteLeave(async (to, from, next) => {
   z-index: 9999;
   padding: 20px;
 }
+
 .confirm-dialog {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
   width: 100%;
   max-width: 360px;
   padding: 24px;
@@ -965,22 +979,26 @@ onBeforeRouteLeave(async (to, from, next) => {
   flex-direction: column;
   gap: 12px;
 }
+
 .confirm-title {
   font-size: 15px;
   font-weight: 600;
   color: var(--color-text);
 }
+
 .confirm-body {
   font-size: 14px;
   color: var(--color-text-secondary);
   line-height: 1.5;
 }
+
 .confirm-footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
   padding-top: 4px;
 }
+
 .btn-ghost {
   padding: 7px 18px;
   font-size: 13px;
@@ -992,10 +1010,12 @@ onBeforeRouteLeave(async (to, from, next) => {
   cursor: pointer;
   transition: all 0.15s;
 }
+
 .btn-ghost:hover {
   background: var(--color-bg-secondary);
   color: var(--color-text);
 }
+
 .btn-danger-sm {
   padding: 7px 18px;
   font-size: 13px;
@@ -1007,6 +1027,7 @@ onBeforeRouteLeave(async (to, from, next) => {
   cursor: pointer;
   transition: all 0.15s;
 }
+
 .btn-danger-sm:hover {
   opacity: 0.88;
 }

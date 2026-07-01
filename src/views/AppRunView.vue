@@ -252,6 +252,13 @@
 </template>
 
 <script setup>
+/**
+ * App 运行/调试页（AppDevRun / AppRun 路由共用）。
+ *
+ * 支持多会话管理（localStorage 持久化）、SSE 流式对话、文件上传与工具审批流。
+ * query.mode=debug 时展示开发者侧边栏；正式运行模式隐藏调试 UI。
+ * 首次进入若未配置对应平台 API Key，会通过 RunConfigModal 做 JIT 拦截。
+ */
 import { ref, computed, nextTick, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
@@ -272,15 +279,20 @@ const router = useRouter()
 const appStore = useAppStore()
 const { hasKeyForPlatform } = useApiConfig()
 
+/** 从路由 id 获取当前运行的 App */
 const app = computed(() => appStore.getApp(route.params.id))
 
+/** 当前 App 绑定的模型 id */
 const currentModelId = computed(() => resolveAppModel(app.value))
+/** 当前模型的人类可读名称 */
 const currentModelName = computed(() => {
   const models = getModelsForPlatform(app.value?.platform)
   return models.find(m => m.id === currentModelId.value)?.name || currentModelId.value
 })
 
+/** query.mode !== 'formal' 时为开发者调试模式 */
 const isDebugMode = computed(() => route.query.mode !== 'formal')
+/** 是否为 App 所有者（当前 mock 恒为 true） */
 const isOwner = computed(() => true) // In a real app, this checks if currentUser.id === app.author_id. Mocking as owner by default for workspace, but normally share mode determines this.
 
 const inputText = ref('')
@@ -302,12 +314,13 @@ const runConfigMode = ref('') // 'platform' | 'self_key'
 const inputTokens = ref(0)
 const outputTokens = ref(0)
 
-// Approval flow state
+// 工具调用需用户审批时的挂起状态
 const approvalItems = ref([])
 const approvalVisible = ref(false)
 let _pendingFormItems = []
 let _currentStream = null
 
+/** 是否允许发送：有内容、非流式中、非审批挂起 */
 const canSend = computed(() =>
   (inputText.value.trim().length > 0 || uploadedFiles.value.length > 0) &&
   !streaming.value && !approvalVisible.value
@@ -320,21 +333,29 @@ const examples = [
   { icon: '📊', text: '分析这组数据并给出趋势预测' },
 ]
 
+/** 将 token 数格式化为可读字符串（≥1000 显示 k） */
 function formatToken(n) {
   return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n)
 }
 
+/** 生成唯一会话/消息 id */
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2) }
+
+/** 用首条用户消息截取前 20 字作为会话标题 */
 function makeTitle(text) {
   const t = text?.trim() || '新对话'
   return t.length > 20 ? t.slice(0, 20) + '…' : t
 }
+
+/** 会话列表时间标签（当前固定为「刚刚」） */
 function timeLabel() { return '刚刚' }
 
-// ── localStorage 持久化 ──────────────────────────────────────────
+/** localStorage 中会话列表的 key（按 App id 隔离） */
 function storageKey() { return `specify_sessions_${route.params.id}` }
+/** localStorage 中当前活跃会话 id 的 key */
 function activeKey()  { return `specify_active_${route.params.id}` }
 
+/** 序列化消息列表：剔除 loading 态，文件只保留文件名 */
 function serializeMessages(msgs) {
   return msgs
     .filter(m => !m.loading)
@@ -350,6 +371,7 @@ function serializeMessages(msgs) {
     }))
 }
 
+/** 反序列化消息：恢复文本与元数据，文件对象不持久化 */
 function deserializeMessages(raw) {
   return (raw || []).map(m => ({
     role: m.role,
@@ -364,6 +386,7 @@ function deserializeMessages(raw) {
   }))
 }
 
+/** 将全部会话及当前活跃 id 写入 localStorage */
 function saveSessions() {
   try {
     const toSave = sessions.value.map(s => ({ ...s, messages: serializeMessages(s.messages) }))
@@ -372,6 +395,7 @@ function saveSessions() {
   } catch { /* storage full */ }
 }
 
+/** 从 localStorage 恢复会话列表并切换到上次活跃的会话 */
 function loadSessions() {
   try {
     const raw = localStorage.getItem(storageKey())
@@ -387,6 +411,7 @@ function loadSessions() {
   } catch { /* parse error */ }
 }
 
+/** 挂载时加载历史会话，并检查是否需要弹出运行配置（API Key JIT） */
 onMounted(async () => {
   loadSessions()
 
@@ -401,6 +426,7 @@ onMounted(async () => {
   }
 })
 
+/** 运行配置确认后标记已配置；若输入框有待发内容则自动发送 */
 function onRunConfigConfirm(cfg) {
   runConfigured.value = true
 
@@ -424,21 +450,24 @@ watch(currentSessionId, () => {
   else localStorage.removeItem(activeKey())
 })
 
-// ── 输入 ──────────────────────────────────────────────────────────
+/** 点击示例问题：填入输入框并聚焦 */
 function fillExample(ex) {
   inputText.value = ex.text
   nextTick(() => textareaRef.value?.focus())
 }
 
+/** Enter 发送，Shift+Enter 换行 */
 function handleKeydown(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
 }
 
+/** 根据内容自动调整 textarea 高度，最高 200px */
 function adjustHeight(e, elRef) {
   const el = elRef?.value || e.target
   if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 200) + 'px' }
 }
 
+/** 选择文件后创建预览 URL 并异步转 base64 供发送使用 */
 async function handleFileSelected({ file }) {
   const previewUrl = createPreviewURL(file)
   const contentType = detectContentType(file)
@@ -447,6 +476,7 @@ async function handleFileSelected({ file }) {
   item.base64Data = await fileToBase64(file)
 }
 
+/** 移除待发送文件并释放预览 URL */
 function handleRemoveFile(id) {
   const idx = uploadedFiles.value.findIndex(f => f.id === id)
   if (idx > -1) {
@@ -455,7 +485,7 @@ function handleRemoveFile(id) {
   }
 }
 
-// ── 发送 ──────────────────────────────────────────────────────────
+/** 发送用户消息：校验运行配置 → 入列 → 创建/更新会话 → 发起 SSE 流 */
 async function send() {
   if (!canSend.value) return
 
@@ -468,7 +498,7 @@ async function send() {
   inputText.value = ''
   ;[textareaRef.value, textareaRef2.value].forEach(el => { if (el) el.style.height = 'auto' })
 
-  // AI 执行期间 → 缓存为待发送消息
+  // 流式输出进行中：先入队，待当前轮次结束后再发送
   if (streaming.value) {
     messages.value.push({ role: 'user', text, files: [...uploadedFiles.value], pending: true })
     uploadedFiles.value = []
@@ -493,7 +523,10 @@ async function send() {
   await doStream(app.value.id, text)
 }
 
-// ── SSE 流式对话 ──────────────────────────────────────────────────
+/**
+ * 发起 SSE 流式对话。
+ * 逐 chunk 更新 AI 消息（文本/工具调用/审批挂起），完成后处理排队中的 pending 消息。
+ */
 async function doStream(appId, content) {
   streaming.value = true
 
@@ -596,7 +629,7 @@ async function doStream(appId, content) {
   }
 }
 
-// ── 审批流 ────────────────────────────────────────────────────────
+/** 工具审批：全部批准或拒绝后，以用户消息形式继续对话流 */
 async function submitApproval(allApproved) {
   const items = approvalItems.value.map(i => ({ ...i, approved: allApproved }))
   approvalVisible.value = false
@@ -609,6 +642,7 @@ async function submitApproval(allApproved) {
   await doStream(app.value.id, msgText)
 }
 
+/** 中止当前流式生成，清理 pending 与审批状态 */
 function stopStreaming() {
   _currentStream?.cancel()
   _currentStream = null
@@ -619,7 +653,7 @@ function stopStreaming() {
   messages.value.filter(m => m.pending).forEach(m => { m.pending = false })
 }
 
-// ── 重置对话 ─────────────────────────────────────────────────────
+/** 重置当前会话：取消流、删除后端会话、清空消息列表 */
 function handleReset() {
   _currentStream?.cancel()
   _currentStream = null
@@ -636,7 +670,7 @@ function handleReset() {
   messages.value = []
 }
 
-// ── 会话管理 ─────────────────────────────────────────────────────
+/** 新建对话：保存当前会话消息后清空输入与活跃会话 id */
 function newChat() {
   if (currentSessionId.value) {
     const s = sessions.value.find(s => s.id === currentSessionId.value)
@@ -647,6 +681,7 @@ function newChat() {
   currentSessionId.value = null
 }
 
+/** 切换到历史会话：先持久化当前消息，再加载目标会话 */
 function selectSession(item) {
   if (item.id === currentSessionId.value) return
   if (currentSessionId.value) {
@@ -659,26 +694,31 @@ function selectSession(item) {
   nextTick(() => scroll())
 }
 
+/** 从列表删除会话；若删的是当前会话则清空消息区 */
 function deleteSession(item) {
   sessions.value = sessions.value.filter(s => s.id !== item.id)
   if (currentSessionId.value === item.id) { messages.value = []; currentSessionId.value = null }
 }
 
+/** 切换会话置顶状态 */
 function pinSession(item) {
   const s = sessions.value.find(s => s.id === item.id)
   if (s) s.pinned = !s.pinned
 }
 
+/** 打开重命名弹窗并带入当前标题 */
 function renameSession(item) {
   renameDialog.value = { visible: true, sessionId: item.id, current: item.title }
 }
 
+/** 重命名确认后更新会话 title */
 function handleRenameConfirm(newTitle) {
   const s = sessions.value.find(s => s.id === renameDialog.value.sessionId)
   if (s && newTitle) s.title = newTitle
   renameDialog.value.visible = false
 }
 
+/** 将消息列表滚动到底部 */
 async function scroll() {
   await nextTick()
   if (scrollEl.value) scrollEl.value.scrollTop = scrollEl.value.scrollHeight

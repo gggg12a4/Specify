@@ -252,6 +252,12 @@
 </template>
 
 <script setup>
+/**
+ * App 工具配置区：平台工具、特殊工具、用户创建的 Agent 工具。
+ *
+ * 通过 v-model 风格 emit 将变更同步到父级 form；
+ * checkEnabledToolsErrors() 供 AppEditView 在保存/调试前做全局失效检查。
+ */
 import { ref, computed, watch } from 'vue'
 import { SP_TOOLS, SPECIAL_TOOLS, isToolError, getToolErrorMsg } from '@/constants/spTools'
 import ToolCreateModal from './ToolCreateModal.vue'
@@ -283,14 +289,17 @@ const subModelTool = ref(null)
 const allowedTools = ref([])
 const disabledConfigs = ref({})
 
+/** 平台工具悬停提示文案 */
 function getToolTooltip(tool) {
   return tool.desc || tool.detail?.summary || '点击查看使用说明'
 }
 
+/** 自定义 Agent 工具悬停提示文案 */
 function getCustomToolTooltip(ct) {
   return ct.description?.trim() || '点击查看使用说明'
 }
 
+/** 将自定义工具信息组装后触发 show-info 弹窗 */
 function openCustomToolInfo(ct) {
   emit('show-info', {
     name: ct.name || '(未命名)',
@@ -305,6 +314,7 @@ function openCustomToolInfo(ct) {
   })
 }
 
+/** 解析子工具引用的人类可读名称（内置工具名或自定义工具名） */
 function getToolDisplayName(sub) {
   if (sub.name) {
     const builtin = [...SP_TOOLS, ...SPECIAL_TOOLS].find(t => t.key === sub.name)
@@ -315,11 +325,13 @@ function getToolDisplayName(sub) {
   return ct?.name || sub.custom_tool_id || '未知工具'
 }
 
+/** 判断子工具引用是否指向平台内置工具（SP 或特殊工具） */
 function isPlatformTool(sub) {
   const key = sub.name || sub.custom_tool_id
   return [...SP_TOOLS, ...SPECIAL_TOOLS].some(t => t.key === key)
 }
 
+/** 平台切换时拉取该平台允许的工具列表与禁用配置项 */
 watch(() => props.platform, async (newPlatform) => {
   if (!newPlatform) return
   try {
@@ -333,6 +345,7 @@ watch(() => props.platform, async (newPlatform) => {
   }
 }, { immediate: true })
 
+/** 当前平台可用的 SP 工具列表，已启用的排在前面 */
 const visibleSpTools = computed(() => {
   const allowed = SP_TOOLS.filter(t => allowedTools.value.includes(t.key))
 
@@ -350,6 +363,7 @@ const visibleSpTools = computed(() => {
   })
 })
 
+/** 当前平台可用的特殊工具列表，已启用的排在前面 */
 const visibleSpecialTools = computed(() => {
   const allowed = SPECIAL_TOOLS.filter(t => allowedTools.value.includes(t.key))
 
@@ -367,6 +381,7 @@ const visibleSpecialTools = computed(() => {
   })
 })
 
+/** 自定义 Agent 工具列表，已启用的排在前面 */
 const sortedCustomTools = computed(() => {
   const listWithIndex = props.customTools.map((tool, index) => ({
     ...tool,
@@ -381,11 +396,13 @@ const sortedCustomTools = computed(() => {
   })
 })
 
+/** SPSkillManager 启用时检测 SPread/SPglob 依赖是否满足 */
 const skillManagerWarn = computed(() => {
   if (!props.tools['SPSkillManager']?.enabled) return false
   return !props.tools['SPread']?.enabled || !props.tools['SPglob']?.enabled
 })
 
+/** 切换 SP 平台工具开关；启用 SPSkillManager 时自动弹出配置 */
 function toggleSPTool(key, enabled) {
   setTimeout(() => {
     const updated = { ...props.tools, [key]: { ...props.tools[key], enabled } }
@@ -397,6 +414,7 @@ function toggleSPTool(key, enabled) {
   }, 100)
 }
 
+/** 切换特殊工具（如多模态）的启用状态 */
 function toggleSpecialTool(key, enabled) {
   setTimeout(() => {
     const current = props.specialTools[key] || {}
@@ -404,17 +422,20 @@ function toggleSpecialTool(key, enabled) {
   }, 100)
 }
 
+/** 打开特殊工具的子模型选择弹窗 */
 function openSubModel(tool) {
   subModelTool.value = tool
   showSubModel.value = true
 }
 
+/** 子模型选择确认后写入 special_tools[key].sub_model */
 function handleSubModelConfirm(subModelId) {
   const key = subModelTool.value.key
   const current = props.specialTools[key] || {}
   emit('update:specialTools', { ...props.specialTools, [key]: { ...current, sub_model: subModelId } })
 }
 
+/** 切换自定义 Agent 工具开关；启用前校验自身及依赖是否失效 */
 function toggleCustomTool(ct, checked) {
   if (checked && isToolOrDepError(ct)) {
     showError('请先修复异常，再启用该工具。')
@@ -428,11 +449,13 @@ function toggleCustomTool(ct, checked) {
   }, 100)
 }
 
+/** 按 id 局部更新自定义工具字段 */
 function updateCustomTool(id, updates) {
   const list = props.customTools.map(t => t.id === id ? { ...t, ...updates } : t)
   emit('update:customTools', list)
 }
 
+/** 删除自定义工具，并清理其他工具 sub_tools 中对它的引用 */
 function removeCustomTool(id) {
   if (!confirm('确认删除此工具？该工具被引用的地方将一并取消引用。')) return
 
@@ -452,11 +475,13 @@ function removeCustomTool(id) {
   emit('update:customTools', updatedList)
 }
 
+/** 打开自定义工具编辑弹窗 */
 function openEdit(ct) {
   editTarget.value = ct
   showEdit.value = true
 }
 
+/** 创建新自定义 Agent 工具，默认关闭并追加到列表 */
 function handleCreateTool(data) {
   const newTool = {
     id: 'ct_' + Date.now(),
@@ -467,6 +492,7 @@ function handleCreateTool(data) {
   emit('update:customTools', [...props.customTools, newTool])
 }
 
+/** 保存编辑后的自定义工具，修改后强制关闭并清空 lm_id */
 function handleEditTool(data) {
   const list = props.customTools.map(t =>
     t.id === editTarget.value.id ? { ...t, ...data, enabled: false, lm_id: null } : t
@@ -474,6 +500,7 @@ function handleEditTool(data) {
   emit('update:customTools', list)
 }
 
+/** 判断自定义工具自身或其子工具依赖是否存在平台失效 */
 function isToolOrDepError(ct) {
   if (isToolError(ct.id)) return true
   if (ct.sub_tools && ct.sub_tools.length) {
@@ -482,10 +509,12 @@ function isToolOrDepError(ct) {
   return false
 }
 
+/** 判断已启用的自定义工具是否处于失效状态 */
 function isActiveError(ct) {
   return ct.enabled && isToolOrDepError(ct)
 }
 
+/** 收集所有已启用但平台侧已失效的工具名称，供顶部警告条与调试拦截使用 */
 function checkEnabledToolsErrors() {
   const errors = []
 

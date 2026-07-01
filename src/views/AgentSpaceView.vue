@@ -7,7 +7,8 @@
         <div class="section-head">
           <h2 class="section-title">
             我的创作
-            <span v-if="authStore.isAuthenticated && appStore.apps.length" class="count">{{ appStore.apps.length }}</span>
+            <span v-if="authStore.isAuthenticated && appStore.apps.length" class="count">{{ appStore.apps.length
+              }}</span>
           </h2>
         </div>
 
@@ -28,7 +29,8 @@
           <!-- 固定的从零创建卡片 -->
           <button class="create-app-card" @click="handleCreateApp">
             <div class="create-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
@@ -38,8 +40,7 @@
 
           <!-- App 列表 (如果有数据) -->
           <AgentCard v-for="app in pagedApps" :key="app.id" :agent="app"
-            @edit="(id) => router.push({ name: 'AppEdit', params: { id } })"
-            @run="handleRunApp"
+            @edit="(id) => router.push({ name: 'AppEdit', params: { id } })" @run="handleRunApp"
             @delete="handleDeleteApp" />
 
           <!-- 官方模板展示 (没数据时显示) -->
@@ -60,13 +61,8 @@
     </main>
 
     <!-- 强制添加 API Key 弹窗 (JIT Interception) -->
-    <RunConfigModal
-      v-if="pendingApp"
-      v-model:visible="showApiConfigModal"
-      :app-id="pendingApp.id"
-      :platform="pendingApp.platform"
-      @confirm="onApiKeyAdded"
-    />
+    <RunConfigModal v-if="pendingApp" v-model:visible="showApiConfigModal" :app-id="pendingApp.id"
+      :platform="pendingApp.platform" @confirm="onApiKeyAdded" />
 
     <!-- 删除 App 确认弹窗 -->
     <DeleteAppModal v-if="deleteTarget" :app="deleteTarget" @confirm="confirmDeleteApp" @cancel="deleteTarget = null" />
@@ -80,8 +76,9 @@
 <script setup>
 /**
  * 开发者工作空间首页（/developer/workspace）。
- * 展示三块内容：我创建的 App、平台推荐 App、最近使用的 App。
- * 未登录时可浏览推荐区，创建/使用 App 需先登录。
+ *
+ * 展示「我的创作」App 列表与官方模板；未登录时引导登录。
+ * 运行 App 前通过 JIT 拦截检查 API Key，缺失时弹出 RunConfigModal。
  */
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -148,18 +145,20 @@ const showAuthModal = ref(false)
 const showApiConfigModal = ref(false)
 const currentPage = ref(1)
 
-// JIT 拦截状态
+// JIT 拦截：记录待运行 App id，供 RunConfigModal 使用
 const pendingRunAppId = ref(null)
+/** 根据 pendingRunAppId 解析完整 App 对象 */
 const pendingApp = computed(() => pendingRunAppId.value ? appStore.getApp(pendingRunAppId.value) : null)
 
-// 我创建的 App 分页
+/** 当前页 App 列表切片（每页 PAGE_SIZE 条，留一格给创建卡片） */
 const pagedApps = computed(() => {
   const start = (currentPage.value - 1) * PAGE_SIZE
   return appStore.apps.slice(start, start + PAGE_SIZE)
 })
+/** 总页数，基于 appStore.apps 长度计算 */
 const totalPages = computed(() => Math.ceil(appStore.apps.length / PAGE_SIZE))
 
-// ── 动态微引导 (Dynamic Banner) Logic ──
+/** 顶部轮播微引导文案列表（首条在 onMounted 中按时段个性化） */
 const banners = computed(() => {
   const name = authStore.currentUser?.nickname || authStore.currentUser?.phone || '开发者'
   return [
@@ -171,9 +170,11 @@ const banners = computed(() => {
 })
 
 const currentBannerIndex = ref(0)
+/** 当前展示的轮播 banner */
 const currentBanner = computed(() => banners.value[currentBannerIndex.value])
 let bannerTimer = null
 
+/** 挂载时设置问候语并启动 10s 轮播定时器 */
 onMounted(() => {
   const hour = new Date().getHours()
   let greeting = '你好'
@@ -189,26 +190,29 @@ onMounted(() => {
   }, 10000)
 })
 
+/** 卸载时清除 banner 轮播定时器 */
 onUnmounted(() => {
   if (bannerTimer) clearInterval(bannerTimer)
 })
 
-function handleOuterClick() {}
+/** 外层点击占位（预留关闭浮层等交互） */
+function handleOuterClick() { }
 
+/** 平滑滚动到页面顶部 */
 function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-  /** 创建 App：未登录先弹登录框，已登录跳转创建页 */
-  function handleCreateApp() {
-    if (!authStore.isAuthenticated) {
-      showAuthModal.value = true
-      return
-    }
-    router.push({ name: 'AppCreate' })
+/** 创建 App：未登录弹登录框，已登录跳转创建页 */
+function handleCreateApp() {
+  if (!authStore.isAuthenticated) {
+    showAuthModal.value = true
+    return
   }
+  router.push({ name: 'AppCreate' })
+}
 
-/** 拦截运行操作 (JIT Interception) */
+/** JIT 拦截运行：无 API Key 时弹 RunConfigModal，否则直接跳转 */
 function handleRunApp(appId) {
   const app = appStore.getApp(appId)
   if (!app) return
@@ -222,6 +226,7 @@ function handleRunApp(appId) {
   }
 }
 
+/** RunConfigModal 配置完成后继续执行待运行的 App */
 function onApiKeyAdded(payload) {
   if (pendingRunAppId.value) {
     const appId = pendingRunAppId.value
@@ -230,11 +235,12 @@ function onApiKeyAdded(payload) {
   }
 }
 
+/** 跳转到 App 调试运行页（debug 模式） */
 function executeRunApp(appId) {
   router.push({ name: 'AppDevRun', params: { id: appId }, query: { mode: 'debug' } })
 }
 
-/** 一键克隆模板并跳转：跳转到完整的 CreateAppView 页面 */
+/** 将官方模板写入 localStorage 并跳转创建页预填 */
 function handleTemplateClick(tpl) {
   // 把模板存进 localStorage 或者通过 state 传递，因为 URL query 可能太长
   // 简单起见，这里先把整个 tpl 存起来传给 router state，或者直接通过 query 传 id
@@ -242,14 +248,17 @@ function handleTemplateClick(tpl) {
   router.push({ name: 'AppCreate', query: { fromTemplate: 'true' } })
 }
 
+/** 打开指定 App 的高级配置（预留入口） */
 function openAdvanced(app) {
   advancedApp.value = app
 }
 
+/** 打开删除确认弹窗，记录待删 App */
 function handleDeleteApp(app) {
   deleteTarget.value = app
 }
 
+/** 确认删除后从 appStore 移除并关闭弹窗 */
 function confirmDeleteApp() {
   if (deleteTarget.value) {
     appStore.deleteApp(deleteTarget.value.id)
@@ -257,6 +266,7 @@ function confirmDeleteApp() {
   }
 }
 
+/** 登录成功后关闭 AuthModal */
 function onLoggedIn() {
   showAuthModal.value = false
 }
@@ -266,7 +276,7 @@ function onLoggedIn() {
 <style scoped>
 .agent-space {
   width: 100%;
-  min-height: 100%; /* Changed from 100vh since it's now inside a layout */
+  min-height: 100%;
   background: var(--color-bg);
   display: flex;
   flex-direction: column;
@@ -372,7 +382,8 @@ function onLoggedIn() {
 }
 
 .empty-guide-message {
-  grid-column: 1 / -1; /* 跨越整个网格宽度 */
+  grid-column: 1 / -1;
+  /* 跨越整个网格宽度 */
   background: rgba(99, 102, 241, 0.06);
   border: 1px solid var(--color-primary-soft);
   color: var(--color-primary);
@@ -421,7 +432,7 @@ function onLoggedIn() {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .create-text {
