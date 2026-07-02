@@ -56,7 +56,7 @@
 <script setup>
 /**
  * 添加 MCP 服务弹窗。
- * 按模板 config_schema 渲染表单，测试连接成功后写入 App。
+ * 按模板 config_schema 渲染表单；测试连接为可选步骤，校验通过即可添加。
  */
 import { ref, reactive, watch } from 'vue'
 import * as mockApi from '@/api/mockApi'
@@ -78,20 +78,23 @@ const emit = defineEmits(['update:visible', 'created'])
 
 const configValues = reactive(createDefaultMcpConfig(props.templateKey, 'create'))
 const errors = ref({})
-const connState = ref('idle')
+const connState = ref('idle')   // idle | testing | success | fail
 const connError = ref('')
 const testing = ref(false)
 
+/** 弹窗打开时重置表单与连接状态 */
 watch(() => props.visible, (visible) => {
   if (visible) resetForm()
 })
 
+/** 表单变更后重置连接状态，避免展示过期的测试结果 */
 watch(configValues, () => {
   if (connState.value !== 'idle') {
     connState.value = 'idle'
   }
 }, { deep: true })
 
+/** 恢复表单默认值并清空校验与连接反馈 */
 function resetForm() {
   Object.assign(configValues, createDefaultMcpConfig(props.templateKey, 'create'))
   errors.value = {}
@@ -99,6 +102,7 @@ function resetForm() {
   connError.value = ''
 }
 
+/** 组装测试连接 API 所需参数 */
 function getTestPayload() {
   const payload = buildMcpPayload(props.templateKey, configValues)
   return {
@@ -108,6 +112,7 @@ function getTestPayload() {
   }
 }
 
+/** 可选：测试 MCP 服务连通性 */
 async function testConn() {
   errors.value = validateMcpConfig(props.templateKey, 'create', configValues)
   if (Object.keys(errors.value).length) return
@@ -132,6 +137,7 @@ async function testConn() {
   }
 }
 
+/** 校验表单后创建 MCP 服务并追加到 App */
 async function handleAdd() {
   errors.value = validateMcpConfig(props.templateKey, 'create', configValues)
   if (Object.keys(errors.value).length) return

@@ -13,7 +13,7 @@
 </template>
 
 <script setup>
-/** 工具卡片上的齿轮配置按钮，点击 emit click */
+/** 工具 / MCP 卡片上的设置按钮，点击 emit click */
 defineProps({
   title: { type: String, default: '配置参数' },
 })

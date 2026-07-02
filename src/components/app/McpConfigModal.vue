@@ -55,7 +55,8 @@
 <script setup>
 /**
  * 编辑已有 MCP 服务弹窗。
- * 按模板 config_schema 的 config 模式渲染可编辑字段。
+ * 按模板 config_schema 的 config 模式渲染可编辑字段；服务名创建后不可修改。
+ * 测试连接为可选步骤，不阻塞保存。
  */
 import { ref, reactive, watch, computed } from 'vue'
 import * as mockApi from '@/api/mockApi'
@@ -78,10 +79,11 @@ const emit = defineEmits(['update:visible', 'updated'])
 const templateKey = computed(() => props.mcp?.template || DEFAULT_MCP_TEMPLATE)
 const configValues = reactive(mcpRecordToConfigValues(null, DEFAULT_MCP_TEMPLATE, 'config'))
 const errors = ref({})
-const connState = ref('idle')
+const connState = ref('idle')   // idle | testing | success | fail
 const connError = ref('')
 const testing = ref(false)
 
+/** 弹窗打开时用当前 MCP 记录回填表单 */
 watch(() => props.visible, (visible) => {
   if (visible && props.mcp) {
     Object.assign(configValues, mcpRecordToConfigValues(props.mcp, templateKey.value, 'config'))
@@ -90,10 +92,12 @@ watch(() => props.visible, (visible) => {
   }
 })
 
+/** 配置变更后重置连接状态 */
 watch(configValues, () => {
   if (connState.value !== 'idle') connState.value = 'idle'
 }, { deep: true })
 
+/** 组装测试连接 API 所需参数 */
 function getTestPayload() {
   const payload = buildMcpPayload(templateKey.value, configValues)
   return {
@@ -103,6 +107,7 @@ function getTestPayload() {
   }
 }
 
+/** 可选：测试修改后的 MCP 配置是否可连通 */
 async function testConn() {
   errors.value = validateMcpConfig(templateKey.value, 'config', configValues)
   if (Object.keys(errors.value).length) return
@@ -127,6 +132,7 @@ async function testConn() {
   }
 }
 
+/** 校验表单后更新 MCP 服务配置 */
 async function handleSave() {
   errors.value = validateMcpConfig(templateKey.value, 'config', configValues)
   if (Object.keys(errors.value).length) return

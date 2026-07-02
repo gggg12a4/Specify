@@ -16,7 +16,7 @@
           {{ section.empty }}
         </div>
 
-        <TransitionGroup v-else name="platform-fade" tag="div" class="card-grid">
+        <div v-else class="card-grid">
           <div
             v-for="tool in section.tools"
             :key="tool.key"
@@ -87,7 +87,7 @@
 
             <span class="tool-type-badge type-basetool">基础工具</span>
           </div>
-        </TransitionGroup>
+        </div>
       </div>
     </div>
 
@@ -170,6 +170,7 @@
                 </template>
               </div>
 
+              <!-- 嵌套子工具标签：异常优先展示，超出 MAX_VISIBLE_SUB_TOOLS 折叠为 +N -->
               <div v-if="getCustomSubTools(ct).length" class="nested-chips">
                 <span
                   v-for="sub in getVisibleSubTools(ct)"
@@ -235,6 +236,10 @@
  *
  * 通过 v-model 风格 emit 将变更同步到父级 form；
  * checkEnabledToolsErrors() 供 AppEditView 在保存/调试前做全局失效检查。
+ *
+ * 展示排序规则：
+ * - 平台工具 / 自定义工具：异常项优先，同优先级内保持原顺序
+ * - 嵌套子工具标签：异常依赖优先，最多展示 MAX_VISIBLE_SUB_TOOLS 个
  */
 import { ref, computed, watch } from 'vue'
 import { SP_TOOLS, SPECIAL_TOOLS, isToolError, getToolErrorMsg } from '@/constants/spTools'
@@ -274,8 +279,8 @@ const showSubModel = ref(false)
 const editTarget = ref(null)
 const subModelTool = ref(null)
 
-const allowedTools = ref([])
-const disabledConfigs = ref({})
+const allowedTools = ref([])       // 当前平台允许启用的工具 key 列表
+const disabledConfigs = ref({})    // 各工具禁用的配置项规则
 
 /** 平台工具悬停提示文案 */
 function getToolTooltip(tool) {
@@ -312,25 +317,34 @@ function getToolDisplayName(sub) {
   return ct?.name || sub.name || key || '未知工具'
 }
 
+/** 获取自定义工具引用的全部子工具列表 */
 function getCustomSubTools(ct) {
   return normalizeSubTools(ct, props.customTools)
 }
 
+/** 卡片内嵌套子工具最多展示数量，超出折叠为 +N */
 const MAX_VISIBLE_SUB_TOOLS = 3
 
-function getVisibleSubTools(ct) {
+/** 子工具排序：依赖异常的排在前，便于用户优先发现与修复 */
+function getSortedSubTools(ct) {
   const subs = getCustomSubTools(ct)
-  if (subs.length <= MAX_VISIBLE_SUB_TOOLS) return subs
   const errorSubs = subs.filter(sub => isSubToolError(sub))
   const normalSubs = subs.filter(sub => !isSubToolError(sub))
-  const picked = [...errorSubs, ...normalSubs].slice(0, MAX_VISIBLE_SUB_TOOLS)
-  return picked
+  return [...errorSubs, ...normalSubs]
 }
 
+/** 取排序后的前 N 个子工具用于卡片展示 */
+function getVisibleSubTools(ct) {
+  return getSortedSubTools(ct).slice(0, MAX_VISIBLE_SUB_TOOLS)
+}
+
+/** 折叠隐藏的子工具数量（基于排序后的列表计算） */
 function getHiddenSubToolCount(ct) {
-  return Math.max(0, getCustomSubTools(ct).length - MAX_VISIBLE_SUB_TOOLS)
+  const sorted = getSortedSubTools(ct)
+  return Math.max(0, sorted.length - MAX_VISIBLE_SUB_TOOLS)
 }
 
+/** 判断单个子工具引用是否处于平台失效或依赖异常状态 */
 function isSubToolError(sub) {
   return isSubToolErrorUtil(sub, props.customTools)
 }
@@ -360,19 +374,36 @@ const allPlatformTools = computed(() => {
   return [...sp, ...special]
 })
 
+/** 判断平台工具（SP / 特殊工具）当前是否已启用 */
 function isPlatformToolEnabled(tool) {
   if (tool.kind === 'sp') return !!props.tools[tool.key]?.enabled
   return !!props.specialTools[tool.key]?.enabled
 }
 
+/** 平台工具列表：有异常的优先，同组内保持原顺序 */
+function sortPlatformToolsWithErrorsFirst(tools) {
+  const withIndex = tools.map((tool, index) => ({ tool, index }))
+  return withIndex
+    .sort((a, b) => {
+      const aError = isToolError(a.tool.key) ? 1 : 0
+      const bError = isToolError(b.tool.key) ? 1 : 0
+      if (aError !== bError) return bError - aError
+      return a.index - b.index
+    })
+    .map(({ tool }) => tool)
+}
+
+/** 已启用的平台工具，异常项排在前面 */
 const enabledPlatformTools = computed(() =>
-  allPlatformTools.value.filter(t => isPlatformToolEnabled(t)),
+  sortPlatformToolsWithErrorsFirst(allPlatformTools.value.filter(t => isPlatformToolEnabled(t))),
 )
 
+/** 未启用的平台工具，异常项排在前面 */
 const morePlatformTools = computed(() =>
-  allPlatformTools.value.filter(t => !isPlatformToolEnabled(t)),
+  sortPlatformToolsWithErrorsFirst(allPlatformTools.value.filter(t => !isPlatformToolEnabled(t))),
 )
 
+/** 平台工具分区：「已启用」与「更多工具」两组 */
 const platformToolSections = computed(() => [
   {
     key: 'enabled',
@@ -388,12 +419,13 @@ const platformToolSections = computed(() => [
   },
 ])
 
+/** 按工具类型分发平台工具开关操作 */
 function togglePlatformTool(tool, enabled) {
   if (tool.kind === 'sp') toggleSPTool(tool.key, enabled)
   else toggleSpecialTool(tool.key, enabled)
 }
 
-/** 自定义 Agent 工具列表，已启用的排在前面 */
+/** 自定义 Agent 工具列表：有异常的优先，其次已启用的，最后保持原顺序 */
 const sortedCustomTools = computed(() => {
   const listWithIndex = props.customTools.map((tool, index) => ({
     ...tool,
@@ -401,9 +433,14 @@ const sortedCustomTools = computed(() => {
   }))
 
   return listWithIndex.sort((a, b) => {
-    const aTop = a.enabled ? 1 : 0
-    const bTop = b.enabled ? 1 : 0
-    if (aTop !== bTop) return bTop - aTop
+    const aError = isToolOrDepError(a) ? 1 : 0
+    const bError = isToolOrDepError(b) ? 1 : 0
+    if (aError !== bError) return bError - aError
+
+    const aEnabled = a.enabled ? 1 : 0
+    const bEnabled = b.enabled ? 1 : 0
+    if (aEnabled !== bEnabled) return bEnabled - aEnabled
+
     return a._originalIndex - b._originalIndex
   })
 })
@@ -819,38 +856,6 @@ function checkEnabledToolsErrors() {
   color: #059669;
 }
 
-.card-toggle {
-  width: 34px;
-  height: 18px;
-  flex-shrink: 0;
-  background: #111827;
-  border: none;
-  border-radius: 10px;
-  position: relative;
-  cursor: pointer;
-  transition: background 0.2s;
-  padding: 0;
-}
-.card-toggle.off {
-  background: #d1d5db;
-}
-.card-toggle-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
-  background: white;
-  border-radius: 50%;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  transform: translateX(16px);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-  pointer-events: none;
-}
-.card-toggle.off .card-toggle-knob {
-  transform: translateX(0);
-}
-
 .dep-warn {
   font-size: 10px;
   color: #b45309;
@@ -933,17 +938,6 @@ function checkEnabledToolsErrors() {
 
 .tool-card-agent .tool-type-badge {
   margin-top: 10px;
-}
-
-/* ── 平台工具：跨区切换时的轻量淡入淡出 ── */
-.platform-fade-enter-active,
-.platform-fade-leave-active {
-  transition: opacity 0.18s ease;
-}
-
-.platform-fade-enter-from,
-.platform-fade-leave-to {
-  opacity: 0;
 }
 
 /* ── List animation ── */

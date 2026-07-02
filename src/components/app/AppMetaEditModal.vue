@@ -53,6 +53,10 @@
 </template>
 
 <script setup>
+/**
+ * App 元信息编辑弹窗：修改名称与描述。
+ * 名称仅允许英文字母与下划线，保存后通过 save 事件回传父组件。
+ */
 import { ref, reactive, watch, nextTick } from 'vue'
 
 const props = defineProps({
@@ -67,6 +71,7 @@ const nameRef = ref(null)
 const draft = reactive({ name: '', description: '' })
 const errors = reactive({ name: '' })
 
+/** 弹窗打开时同步 props 到草稿并聚焦名称输入框 */
 watch(
   () => props.visible,
   (visible) => {
@@ -78,6 +83,7 @@ watch(
   },
 )
 
+/** 校验名称非空且仅含英文字母与下划线 */
 function validate() {
   errors.name = ''
   const trimmed = draft.name.trim()
@@ -92,10 +98,12 @@ function validate() {
   return true
 }
 
+/** 关闭弹窗 */
 function close() {
   emit('update:visible', false)
 }
 
+/** 校验通过后 emit save 并关闭 */
 function confirm() {
   if (!validate()) {
     nameRef.value?.focus()

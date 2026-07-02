@@ -182,6 +182,7 @@ export async function downloadFile(appId, path) {
   return ok({ path, blob: null, url: '#' })
 }
 
+/** 测试 MCP 服务连通性（仅验证 URL 可达，不返回工具列表） */
 export async function testMcp(appId, config) {
   if (!config?.url?.trim()) return fail('URL 不能为空')
   return ok({})

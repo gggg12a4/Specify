@@ -145,6 +145,7 @@
                 还没有添加 MCP 服务，点击「添加服务」接入外部工具
               </div>
 
+              <!-- MCP 服务卡片：名称 + URL（省略号截断，title 悬停查看完整地址） -->
               <div v-else class="mcp-card-grid">
                 <div
                   v-for="mcp in form.mcp_services"
@@ -1099,7 +1100,7 @@ onBeforeRouteLeave(async (to, from, next) => {
   background: var(--color-bg-secondary);
 }
 
-/* ── MCP cards ── */
+/* ── MCP 服务卡片（布局与 AppToolsSection 工具卡片对齐） ── */
 .mcp-empty {
   font-size: 13px;
   color: var(--color-text-muted);
@@ -1171,6 +1172,7 @@ onBeforeRouteLeave(async (to, from, next) => {
   line-height: 1.4;
 }
 
+/* URL 超出宽度时省略，完整地址通过 title 悬停查看 */
 .mcp-url {
   font-family: var(--font-mono, monospace);
   min-width: 0;
@@ -1219,41 +1221,6 @@ onBeforeRouteLeave(async (to, from, next) => {
 
 .tool-type-badge.type-mcp {
   color: #059669;
-}
-
-.card-toggle {
-  width: 34px;
-  height: 18px;
-  background: var(--color-text);
-  border: none;
-  border-radius: 10px;
-  position: relative;
-  cursor: pointer;
-  transition: background 0.2s;
-  flex-shrink: 0;
-  padding: 0;
-}
-
-.card-toggle.off {
-  background: var(--color-border);
-}
-
-.card-toggle-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
-  background: white;
-  border-radius: 50%;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  transform: translateX(16px);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-  pointer-events: none;
-}
-
-.card-toggle.off .card-toggle-knob {
-  transform: translateX(0);
 }
 
 /* ── Confirm dialog ── */

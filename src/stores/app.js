@@ -173,7 +173,7 @@ export const useAppStore = defineStore('appStore', () => {
     return apps.value.find(a => a.id === id) || null
   }
 
-  /** 统计 App 已启用工具总数（SP + 特殊 + 自定义 + MCP 工具数） */
+  /** 统计 App 已启用工具总数（SP + 特殊 + 自定义 Agent + 已启用 MCP 服务） */
   function getEnabledToolCount(app) {
     const spCount = Object.values(app.tools || {}).filter(t => t.enabled).length
     const specialCount = Object.values(app.special_tools || {}).filter(t => t.enabled).length
