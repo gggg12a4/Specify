@@ -1,44 +1,77 @@
 import { ref } from 'vue'
+import { PLATFORMS } from '@/constants/platforms'
 
 const API_CONFIG_KEY = 'specify_api_keys'
 
-// 默认配置（从环境变量读取，如果有的话可以作为初始项）
-const defaultKey = {
-  id: 'default_qwen',
-  alias: '默认大模型',
-  baseUrl: import.meta.env.VITE_QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-  apiKey: import.meta.env.VITE_QWEN_API_KEY || ''
+const apiKeys = ref(null)
+
+function genKeyId() {
+  return 'key_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
 }
 
-// 全局配置状态 (API Key 池)
-const apiKeys = ref(null)
+function inferPlatform(key) {
+  const url = (key.baseUrl || '').toLowerCase()
+  if (url.includes('dashscope') || url.includes('qwen')) return 'qwen'
+  if (url.includes('deepseek')) return 'deepseek'
+  if (url.includes('openai')) return 'gpt'
+  if (url.includes('generativelanguage') || url.includes('google')) return 'gemini'
+  return 'claude'
+}
+
+function normalizeKey(key) {
+  return {
+    id: key.id || genKeyId(),
+    alias: key.alias || '未命名密钥',
+    platform: key.platform || inferPlatform(key),
+    baseUrl: key.baseUrl || '',
+    apiKey: key.apiKey || '',
+    isDefault: !!key.isDefault,
+  }
+}
+
+/** 保证每个平台最多一条默认密钥 */
+function ensurePlatformDefaults(keys) {
+  const validPlatforms = new Set(PLATFORMS.map(p => p.key))
+  for (const platform of validPlatforms) {
+    const platformKeys = keys.filter(k => k.platform === platform && k.apiKey)
+    if (!platformKeys.length) continue
+    const defaults = platformKeys.filter(k => k.isDefault)
+    if (defaults.length === 1) continue
+    platformKeys.forEach((k, index) => {
+      k.isDefault = index === 0
+    })
+  }
+  return keys
+}
+
+function normalizeStoredKeys(rawKeys) {
+  if (!Array.isArray(rawKeys)) return []
+  const keys = rawKeys.map(normalizeKey)
+  return ensurePlatformDefaults(keys)
+}
 
 /**
  * API 配置池管理
+ * - 每条密钥绑定单一 platform
+ * - 同一 platform 可有多条密钥，其中一条 isDefault
+ * - App 通过 credential_id 选用密钥；未指定时使用平台默认密钥
  */
 export function useApiConfig() {
-  /**
-   * 从 localStorage 获取配置池
-   */
   function getStoredKeys() {
     try {
       const stored = localStorage.getItem(API_CONFIG_KEY)
-      if (stored) {
-        return JSON.parse(stored)
-      }
+      if (stored) return JSON.parse(stored)
     } catch (e) {
       console.warn('Failed to read API keys from localStorage:', e)
     }
     return null
   }
 
-  /**
-   * 保存配置池到 localStorage
-   */
   function saveKeys(keysArray) {
     try {
-      localStorage.setItem(API_CONFIG_KEY, JSON.stringify(keysArray))
-      apiKeys.value = keysArray
+      const normalized = ensurePlatformDefaults(keysArray.map(normalizeKey))
+      localStorage.setItem(API_CONFIG_KEY, JSON.stringify(normalized))
+      apiKeys.value = normalized
       return true
     } catch (e) {
       console.error('Failed to save API keys to localStorage:', e)
@@ -46,102 +79,145 @@ export function useApiConfig() {
     }
   }
 
-  /**
-   * 按平台检查配置池是否有可用的密钥
-   */
-  function hasKeyForPlatform(platform) {
-    const keys = getKeys()
-    if (!keys || keys.length === 0) return false
-    return keys.some(k => k.platform === platform && k.apiKey)
-  }
-
-  /**
-   * 检查配置池是否有任何密钥
-   */
-  function hasKeys() {
-    const keys = getKeys()
-    return keys && keys.length > 0 && keys.some(k => k.apiKey)
-  }
-
-  /**
-   * 获取当前配置池
-   */
   function getKeys() {
-    if (apiKeys.value) {
-      return apiKeys.value
-    }
+    if (apiKeys.value) return apiKeys.value
 
-    // 尝试从 localStorage 读取
     const stored = getStoredKeys()
     if (stored && Array.isArray(stored)) {
-      apiKeys.value = stored
-      return stored
+      const normalized = normalizeStoredKeys(stored)
+      apiKeys.value = normalized
+      if (JSON.stringify(stored) !== JSON.stringify(normalized)) {
+        localStorage.setItem(API_CONFIG_KEY, JSON.stringify(normalized))
+      }
+      return normalized
     }
 
-    // 初始化空池
     apiKeys.value = []
     return []
   }
 
-  /**
-   * 按 ID 查找特定配置
-   */
-  function getConfig(id) {
-    const keys = getKeys()
-    return keys.find(k => k.id === id) || null
+  function getKeyById(id) {
+    if (!id) return null
+    return getKeys().find(k => k.id === id) || null
   }
 
-  /**
-   * 获取某平台下的默认密钥（通常返回第一个找到的）
-   */
+  function getKeysForPlatform(platform) {
+    return getKeys().filter(k => k.platform === platform && k.apiKey)
+  }
+
+  function hasKeyForPlatform(platform) {
+    return getKeysForPlatform(platform).length > 0
+  }
+
   function getDefaultKeyForPlatform(platform) {
-    const keys = getKeys()
-    return keys.find(k => k.platform === platform && k.apiKey) || null
+    const platformKeys = getKeysForPlatform(platform)
+    return platformKeys.find(k => k.isDefault) || platformKeys[0] || null
   }
 
-  /**
-   * 添加新密钥
-   */
+  /** App 运行时解析实际使用的密钥：优先 credential_id，否则平台默认 */
+  function resolveKeyForApp(platform, credentialId = null) {
+    if (credentialId) {
+      const selected = getKeyById(credentialId)
+      if (selected?.platform === platform && selected.apiKey) return selected
+    }
+    return getDefaultKeyForPlatform(platform)
+  }
+
+  function hasKeyForApp(platform, credentialId = null) {
+    return !!resolveKeyForApp(platform, credentialId)?.apiKey
+  }
+
+  function isValidCredentialForPlatform(platform, credentialId) {
+    if (!credentialId) return true
+    const key = getKeyById(credentialId)
+    return !!(key && key.platform === platform && key.apiKey)
+  }
+
+  function hasKeys() {
+    return getKeys().some(k => k.apiKey)
+  }
+
+  function getConfig(id) {
+    return getKeyById(id)
+  }
+
+  function setDefaultKey(id) {
+    const keys = getKeys()
+    const target = keys.find(k => k.id === id)
+    if (!target?.apiKey) return false
+
+    keys.forEach(k => {
+      if (k.platform === target.platform) {
+        k.isDefault = k.id === id
+      }
+    })
+    saveKeys(keys)
+    return true
+  }
+
   function addKey(keyData) {
     const keys = getKeys()
-    const newKey = {
-      id: Date.now().toString(36) + Math.random().toString(36).substring(2, 7),
-      alias: keyData.alias || '未命名密钥',
-      platform: keyData.platform || 'claude', // 必须有归属平台
-      baseUrl: keyData.baseUrl || '',
-      apiKey: keyData.apiKey || ''
+    const platform = keyData.platform || 'claude'
+    const platformKeys = keys.filter(k => k.platform === platform && k.apiKey)
+    const shouldBeDefault = keyData.isDefault ?? platformKeys.length === 0
+
+    if (shouldBeDefault) {
+      keys.forEach(k => {
+        if (k.platform === platform) k.isDefault = false
+      })
     }
+
+    const newKey = normalizeKey({
+      id: genKeyId(),
+      alias: keyData.alias || '未命名密钥',
+      platform,
+      baseUrl: keyData.baseUrl || '',
+      apiKey: keyData.apiKey || '',
+      isDefault: shouldBeDefault,
+    })
+
     keys.push(newKey)
     saveKeys(keys)
     return newKey
   }
 
-  /**
-   * 更新现有密钥
-   */
   function updateKey(id, updates) {
     const keys = getKeys()
     const index = keys.findIndex(k => k.id === id)
-    if (index !== -1) {
-      keys[index] = { ...keys[index], ...updates }
-      saveKeys(keys)
-      return true
+    if (index === -1) return false
+
+    const nextPlatform = updates.platform || keys[index].platform
+    keys[index] = normalizeKey({ ...keys[index], ...updates, platform: nextPlatform })
+
+    if (updates.isDefault === true) {
+      keys.forEach(k => {
+        if (k.platform === keys[index].platform) {
+          k.isDefault = k.id === id
+        }
+      })
     }
-    return false
-  }
 
-  /**
-   * 删除密钥
-   */
-  function deleteKey(id) {
-    let keys = getKeys()
-    keys = keys.filter(k => k.id !== id)
     saveKeys(keys)
+    return true
   }
 
-  /**
-   * 清除所有配置
-   */
+  function deleteKey(id) {
+    const keys = getKeys()
+    const target = keys.find(k => k.id === id)
+    if (!target) return
+
+    const platform = target.platform
+    const wasDefault = target.isDefault
+    const nextKeys = keys.filter(k => k.id !== id)
+
+    if (wasDefault) {
+      const remaining = nextKeys.filter(k => k.platform === platform && k.apiKey)
+      if (remaining.length) remaining[0].isDefault = true
+    }
+
+    saveKeys(nextKeys)
+  }
+
   function clearConfig() {
     try {
       localStorage.removeItem(API_CONFIG_KEY)
@@ -154,14 +230,20 @@ export function useApiConfig() {
   return {
     apiKeys,
     getKeys,
+    getKeysForPlatform,
+    getKeyById,
     saveKeys,
     hasKeys,
     hasKeyForPlatform,
+    hasKeyForApp,
     getDefaultKeyForPlatform,
+    resolveKeyForApp,
+    isValidCredentialForPlatform,
+    setDefaultKey,
+    getConfig,
     addKey,
     updateKey,
     deleteKey,
-    clearConfig
+    clearConfig,
   }
 }
-

@@ -13,7 +13,7 @@
               <h2 class="modal-title">{{ isEditing ? (editId ? '编辑 API 密钥' : '添加 API 密钥') : 'API 密钥配置' }}</h2>
             </div>
             <p class="modal-subtitle">
-              {{ isEditing ? '配置你的大模型 API 凭证' : '集中管理你的 API 凭证池。运行应用时将自动使用这里的凭证。' }}
+              {{ isEditing ? '配置指定平台的大模型 API 凭证' : '按平台管理 API 凭证池。每个平台可配置多条密钥，并指定一条默认凭证。' }}
             </p>
           </div>
 
@@ -37,38 +37,57 @@
                 </button>
               </div>
 
-              <div v-else class="key-grid">
-                <div v-for="k in keys" :key="k.id" class="key-card">
-                  <div class="key-card-header">
-                    <span class="key-alias">{{ k.alias }}</span>
-                    <div class="key-actions">
-                      <button class="icon-btn" title="编辑" @click="openEdit(k)">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                      </button>
-                      <button class="icon-btn danger" title="删除" @click="confirmDelete(k.id)">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <polyline points="3 6 5 6 21 6"></polyline>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
-                      </button>
-                    </div>
+              <div v-else class="key-groups">
+                <div v-for="group in groupedKeys" :key="group.platform" class="key-group">
+                  <div class="group-header">
+                    <span class="group-title">{{ group.label }}</span>
+                    <span class="group-count">{{ group.keys.length }} 条</span>
                   </div>
-                  <div class="key-card-body">
-                    <div class="key-field">
-                      <span class="field-label">Base URL:</span>
-                      <span class="field-value">{{ k.baseUrl || '-' }}</span>
-                    </div>
-                    <div class="key-field">
-                      <span class="field-label">API Key:</span>
-                      <span class="field-value masked">{{ maskKey(k.apiKey) }}</span>
+
+                  <div class="key-grid">
+                    <div v-for="k in group.keys" :key="k.id" class="key-card" :class="{ 'is-default': k.isDefault }">
+                      <div class="key-card-header">
+                        <div class="key-title-wrap">
+                          <span class="key-alias">{{ k.alias }}</span>
+                          <span v-if="k.isDefault" class="default-badge">默认</span>
+                        </div>
+                        <div class="key-actions">
+                          <button
+                            v-if="!k.isDefault"
+                            class="text-btn"
+                            title="设为默认"
+                            @click="handleSetDefault(k.id)"
+                          >
+                            设为默认
+                          </button>
+                          <button class="icon-btn" title="编辑" @click="openEdit(k)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                          </button>
+                          <button class="icon-btn danger" title="删除" @click="confirmDelete(k.id)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <div class="key-card-body">
+                        <div class="key-field">
+                          <span class="field-label">Base URL:</span>
+                          <span class="field-value">{{ k.baseUrl || '-' }}</span>
+                        </div>
+                        <div class="key-field">
+                          <span class="field-label">API Key:</span>
+                          <span class="field-value masked">{{ maskKey(k.apiKey) }}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <!-- 添加按钮卡片 -->
                 <button class="add-key-card" @click="openAdd">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -81,6 +100,14 @@
 
             <!-- 编辑/添加模式 -->
             <div v-else class="form-view">
+              <div class="form-group">
+                <label class="form-label">所属平台 *</label>
+                <select v-model="formData.platform" class="form-input form-select" @change="clearError('platform')">
+                  <option v-for="p in PLATFORMS" :key="p.key" :value="p.key">{{ p.label }}</option>
+                </select>
+                <span v-if="errors.platform" class="form-error">{{ errors.platform }}</span>
+              </div>
+
               <div class="form-group">
                 <label class="form-label">备注别名 *</label>
                 <input
@@ -116,6 +143,11 @@
                 />
                 <span v-if="errors.apiKey" class="form-error">{{ errors.apiKey }}</span>
               </div>
+
+              <label class="default-check">
+                <input v-model="formData.isDefault" type="checkbox" />
+                设为该平台默认凭证
+              </label>
             </div>
           </div>
 
@@ -144,8 +176,9 @@
  * API 密钥池管理弹窗。
  * 列表查看/增删改 BYOK 密钥；addMode 为 true 时添加完自动关闭并触发 saved。
  */
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
 import { useApiConfig } from '@/composables/useApiConfig'
+import { PLATFORMS } from '@/constants/platforms'
 import { showSuccess, showConfirm } from '@/composables/useNotification'
 
 const props = defineProps({
@@ -161,17 +194,28 @@ const props = defineProps({
 
 const emit = defineEmits(['update:visible', 'saved'])
 
-const { getKeys, addKey, updateKey, deleteKey } = useApiConfig()
+const { getKeys, addKey, updateKey, deleteKey, setDefaultKey } = useApiConfig()
 
 const keys = ref([])
 const isEditing = ref(false)
 const editId = ref(null)
 
-// 表单数据
+const groupedKeys = computed(() => {
+  return PLATFORMS
+    .map(p => ({
+      platform: p.key,
+      label: p.label,
+      keys: keys.value.filter(k => k.platform === p.key),
+    }))
+    .filter(group => group.keys.length > 0)
+})
+
 const formData = reactive({
+  platform: 'claude',
   alias: '',
   baseUrl: '',
-  apiKey: ''
+  apiKey: '',
+  isDefault: false,
 })
 
 // 错误信息
@@ -197,9 +241,11 @@ function refreshKeys() {
 /** 进入添加新密钥表单 */
 function openAdd() {
   editId.value = null
+  formData.platform = 'claude'
   formData.alias = ''
   formData.baseUrl = ''
   formData.apiKey = ''
+  formData.isDefault = false
   clearAllErrors()
   isEditing.value = true
 }
@@ -207,11 +253,20 @@ function openAdd() {
 /** 进入编辑已有密钥表单 */
 function openEdit(k) {
   editId.value = k.id
+  formData.platform = k.platform || 'claude'
   formData.alias = k.alias || ''
   formData.baseUrl = k.baseUrl || ''
   formData.apiKey = k.apiKey || ''
+  formData.isDefault = !!k.isDefault
   clearAllErrors()
   isEditing.value = true
+}
+
+function handleSetDefault(id) {
+  if (setDefaultKey(id)) {
+    refreshKeys()
+    showSuccess('已设为平台默认凭证')
+  }
 }
 
 /** 退出编辑；addMode 且无密钥时直接关闭整个弹窗 */
@@ -248,6 +303,10 @@ function validateForm() {
     errors.alias = '备注别名不能为空'
     isValid = false
   }
+  if (!formData.platform) {
+    errors.platform = '请选择所属平台'
+    isValid = false
+  }
   if (!formData.baseUrl.trim()) {
     errors.baseUrl = 'Base URL 不能为空'
     isValid = false
@@ -276,16 +335,20 @@ function handleSaveForm() {
 
   if (editId.value) {
     updateKey(editId.value, {
+      platform: formData.platform,
       alias: formData.alias.trim(),
       baseUrl: formData.baseUrl.trim(),
-      apiKey: formData.apiKey.trim()
+      apiKey: formData.apiKey.trim(),
+      isDefault: formData.isDefault,
     })
     showSuccess('更新成功')
   } else {
     addKey({
+      platform: formData.platform,
       alias: formData.alias.trim(),
       baseUrl: formData.baseUrl.trim(),
-      apiKey: formData.apiKey.trim()
+      apiKey: formData.apiKey.trim(),
+      isDefault: formData.isDefault,
     })
     showSuccess('添加成功')
   }
@@ -428,6 +491,83 @@ function maskKey(key) {
   display: grid;
   grid-template-columns: 1fr;
   gap: 12px;
+}
+
+.key-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.key-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.group-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.group-count {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.key-card.is-default {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.04);
+}
+
+.key-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.default-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: #047857;
+  background: rgba(16, 185, 129, 0.12);
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.text-btn {
+  border: none;
+  background: none;
+  font-size: 11px;
+  color: var(--color-primary);
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.text-btn:hover {
+  text-decoration: underline;
+}
+
+.default-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+.form-select {
+  font-family: inherit;
 }
 
 .key-card {

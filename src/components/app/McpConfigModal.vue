@@ -11,38 +11,14 @@
           </div>
 
           <div class="dialog-body">
-            <div class="field">
-              <label class="field-label">端点 URL <span class="req">*</span></label>
-              <input
-                v-model="form.url"
-                class="field-input"
-                :class="{ error: errors.url }"
-                placeholder="https://example.com/mcp"
-              />
-              <span v-if="errors.url" class="field-error">{{ errors.url }}</span>
-            </div>
+            <McpSchemaFields
+              :template-key="templateKey"
+              mode="config"
+              v-model="configValues"
+              :errors="errors"
+              lock-name
+            />
 
-            <div class="field">
-              <div class="field-label-row">
-                <label class="field-label">自定义 Header</label>
-                <button class="btn-text" @click="addHeader">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  添加
-                </button>
-              </div>
-
-              <div class="headers-list">
-                <div v-for="(h, i) in form.headers" :key="i" class="header-row">
-                  <input v-model="h.key" class="field-input header-key" placeholder="Header 名 (如 X-Api-Key)" />
-                  <input v-model="h.value" class="field-input header-value" placeholder="Header 值" type="password" />
-                  <button class="icon-btn-danger" title="删除" @click="removeHeader(i)" :disabled="form.headers.length === 1 && !h.key && !h.value">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- 连接状态 -->
             <div class="conn-status" :class="connState">
               <template v-if="connState === 'idle'">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -54,7 +30,7 @@
               </template>
               <template v-else-if="connState === 'success'">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>连接成功，发现 {{ foundTools.length }} 个工具</span>
+                <span>连接成功</span>
               </template>
               <template v-else-if="connState === 'fail'">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
@@ -79,67 +55,66 @@
 <script setup>
 /**
  * 编辑已有 MCP 服务弹窗。
- * 可修改 URL/Header 并可选重新测试连接；保存时不要求必须测通。
+ * 按模板 config_schema 的 config 模式渲染可编辑字段。
  */
-import { ref, watch } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
 import * as mockApi from '@/api/mockApi'
+import McpSchemaFields from '@/components/app/McpSchemaFields.vue'
+import { DEFAULT_MCP_TEMPLATE } from '@/constants/mcpTemplates'
+import {
+  mcpRecordToConfigValues,
+  validateMcpConfig,
+  buildMcpPayload,
+  headersObjectToRows,
+} from '@/utils/mcpSchema'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
   appId: { type: String, required: true },
-  mcp: { type: Object, default: null }
+  mcp: { type: Object, default: null },
 })
 const emit = defineEmits(['update:visible', 'updated'])
 
-const form = ref({ url: '', headers: [{ key: '', value: '' }] })
-const errors = ref({ url: '' })
+const templateKey = computed(() => props.mcp?.template || DEFAULT_MCP_TEMPLATE)
+const configValues = reactive(mcpRecordToConfigValues(null, DEFAULT_MCP_TEMPLATE, 'config'))
+const errors = ref({})
 const connState = ref('idle')
 const connError = ref('')
-const foundTools = ref([])
 const testing = ref(false)
 
-/** 弹窗打开时用 mcp prop 回填表单 */
-watch(() => props.visible, (v) => {
-  if (v && props.mcp) {
-    form.value = {
-      url: props.mcp.url || '',
-      headers: props.mcp.headers?.length ? JSON.parse(JSON.stringify(props.mcp.headers)) : [{ key: '', value: '' }]
-    }
+watch(() => props.visible, (visible) => {
+  if (visible && props.mcp) {
+    Object.assign(configValues, mcpRecordToConfigValues(props.mcp, templateKey.value, 'config'))
     connState.value = 'idle'
-    errors.value = { url: '' }
-    foundTools.value = []
+    errors.value = {}
   }
 })
 
-/** 表单变更后清除上次测试成功状态 */
-watch(() => [form.value.url, form.value.headers], () => {
+watch(configValues, () => {
   if (connState.value !== 'idle') connState.value = 'idle'
 }, { deep: true })
 
-/** 追加一行自定义 Header */
-function addHeader() {
-  form.value.headers.push({ key: '', value: '' })
-}
-
-/** 删除指定 Header 行，至少保留一行空行 */
-function removeHeader(index) {
-  form.value.headers.splice(index, 1)
-  if (form.value.headers.length === 0) {
-    form.value.headers.push({ key: '', value: '' })
+function getTestPayload() {
+  const payload = buildMcpPayload(templateKey.value, configValues)
+  return {
+    url: payload.url,
+    authType: 'header',
+    headers: headersObjectToRows(payload.headers).filter(h => h.key.trim()),
   }
 }
 
-/** 测试 MCP 连接并更新 tool 列表展示 */
 async function testConn() {
-  if (!form.value.url.trim()) { errors.value.url = 'URL 不能为空'; return }
+  errors.value = validateMcpConfig(templateKey.value, 'config', configValues)
+  if (Object.keys(errors.value).length) return
+
   testing.value = true
   connState.value = 'testing'
   connError.value = ''
+
   try {
-    const res = await mockApi.testMcp(props.appId, { url: form.value.url, authType: 'header', headers: form.value.headers.filter(h => h.key.trim()) })
+    const res = await mockApi.testMcp(props.appId, getTestPayload())
     if (res.code === 0) {
       connState.value = 'success'
-      foundTools.value = res.data.tools || []
     } else {
       connState.value = 'fail'
       connError.value = res.message || '连接失败'
@@ -152,15 +127,16 @@ async function testConn() {
   }
 }
 
-/** 保存修改；若刚测通则同步更新 tool_count */
 async function handleSave() {
-  if (!form.value.url.trim()) { errors.value.url = 'URL 不能为空'; return }
+  errors.value = validateMcpConfig(templateKey.value, 'config', configValues)
+  if (Object.keys(errors.value).length) return
+
+  const payload = buildMcpPayload(templateKey.value, configValues)
   const updates = {
-    url: form.value.url.trim(),
+    ...payload,
     authType: 'header',
-    headers: form.value.headers.filter(h => h.key.trim()),
-    ...(connState.value === 'success' ? { tool_count: foundTools.value.length } : {}),
   }
+
   const res = await mockApi.updateMcp(props.appId, props.mcp.id, updates)
   if (res.code === 0) {
     emit('updated', res.data)
@@ -200,38 +176,6 @@ async function handleSave() {
 .close-btn:hover { background: var(--color-bg-secondary); color: var(--color-text); }
 
 .dialog-body { padding: 14px 20px 20px; display: flex; flex-direction: column; gap: 14px; }
-
-.field { display: flex; flex-direction: column; gap: 6px; }
-.field-label { font-size: 12px; font-weight: 600; color: var(--color-text-secondary); }
-.req { color: #ef4444; }
-.field-input {
-  padding: 8px 12px; font-size: 13px;
-  background: var(--color-bg); border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-md); color: var(--color-text); outline: none;
-  font-family: inherit; transition: border-color 0.15s;
-}
-.field-input:focus { border-color: var(--color-primary); }
-.field-input.error { border-color: #ef4444; }
-.field-error { font-size: 11px; color: #ef4444; }
-
-.field-label-row { display: flex; align-items: center; justify-content: space-between; }
-.btn-text {
-  background: none; border: none; font-size: 12px; color: var(--color-primary); cursor: pointer;
-  display: flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; font-weight: 500;
-}
-.btn-text:hover { background: var(--color-primary-soft); }
-
-.headers-list { display: flex; flex-direction: column; gap: 8px; }
-.header-row { display: flex; gap: 8px; align-items: center; }
-.header-key { flex: 1; min-width: 0; }
-.header-value { flex: 1; min-width: 0; }
-.icon-btn-danger {
-  width: 28px; height: 28px; border: none; background: none; color: var(--color-text-muted);
-  border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; transition: all 0.15s;
-}
-.icon-btn-danger:hover:not(:disabled) { color: #ef4444; background: rgba(239,68,68,0.1); }
-.icon-btn-danger:disabled { opacity: 0.3; cursor: not-allowed; }
 
 .conn-status {
   display: flex; align-items: center; gap: 7px;

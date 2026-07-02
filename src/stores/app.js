@@ -43,6 +43,7 @@ function defaultApp(data = {}) {
     name: data.name || '',
     description: data.description || '',
     platform: data.platform || 'claude',
+    credential_id: data.credential_id ?? null,
     model: data.model || '',
     system_prompt: data.system_prompt || '',
     tools: data.tools || defaultToolConfig(),
@@ -177,7 +178,7 @@ export const useAppStore = defineStore('appStore', () => {
     const spCount = Object.values(app.tools || {}).filter(t => t.enabled).length
     const specialCount = Object.values(app.special_tools || {}).filter(t => t.enabled).length
     const customCount = (app.custom_tools || []).filter(ct => ct.enabled).length
-    const mcpCount = (app.mcp_services || []).filter(m => m.enabled).reduce((s, m) => s + (m.tool_count || 0), 0)
+    const mcpCount = (app.mcp_services || []).filter(m => m.enabled).length
     return spCount + specialCount + customCount + mcpCount
   }
 

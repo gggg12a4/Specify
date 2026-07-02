@@ -7,7 +7,7 @@
           <header class="prompt-header">
             <div class="header-left">
               <span class="header-kicker">PROMPT</span>
-              <h2 id="prompt-modal-title" class="header-title">系统提示词</h2>
+              <h2 id="prompt-modal-title" class="header-title">{{ title }}</h2>
             </div>
 
             <div class="header-tabs">
@@ -88,7 +88,7 @@
                     v-model="draft"
                     class="editor-input"
                     spellcheck="false"
-                    placeholder="定义 App 的角色、行为边界以及如何使用工作区资源…"
+                    :placeholder="placeholder"
                     @input="onEditorInput"
                     @keydown="onEditorKeydown"
                     @click="onEditorInput"
@@ -124,7 +124,7 @@
                   v-model="draft"
                   class="editor-input editor-input-full"
                   spellcheck="false"
-                  placeholder="定义 App 的角色、行为边界以及如何使用工作区资源…"
+                  :placeholder="placeholder"
                   @input="onEditorInput"
                   @keydown="onEditorKeydown"
                   @click="onEditorInput"
@@ -184,6 +184,11 @@ const props = defineProps({
   modelValue: { type: String, default: '' },
   fileRefs: { type: Array, default: () => [] },
   toolRefs: { type: Array, default: () => [] },
+  title: { type: String, default: '系统提示词' },
+  placeholder: {
+    type: String,
+    default: '定义 App 的角色、行为边界以及如何使用工作区资源…',
+  },
 })
 
 const emit = defineEmits(['update:visible', 'update:modelValue', 'done', 'close'])
@@ -429,7 +434,7 @@ onUnmounted(() => {
 .prompt-overlay {
   position: fixed;
   inset: 0;
-  z-index: 10000;
+  z-index: 10050;
   display: flex;
   align-items: center;
   justify-content: center;

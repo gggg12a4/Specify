@@ -5,128 +5,90 @@
     <div class="group">
       <div class="group-label">平台工具</div>
 
-      <TransitionGroup name="list-anim" tag="div" class="card-grid">
-        <div
-          v-for="tool in visibleSpTools"
-          :key="tool.key"
-          class="tool-card group"
-          :class="{
-            'is-off': !tools[tool.key]?.enabled,
-            'is-unavailable': isToolError(tool.key),
-          }"
-        >
-          <div class="card-row">
-            <div class="card-icon-wrap">🔧</div>
-            <div class="card-info">
-              <div class="card-title-row">
-                <span class="card-title">{{ tool.name }}</span>
-                <ToolInfoIcon
-                  :label="tool.name"
-                  :tooltip="getToolTooltip(tool)"
-                  @click="$emit('show-info', tool)"
-                />
-              </div>
-              <div class="card-desc">{{ isToolError(tool.key) ? '平台工具已下架或失效' : tool.desc }}</div>
-            </div>
-            <div class="card-controls">
-              <button
-                v-if="isToolError(tool.key) && tools[tool.key]?.enabled"
-                type="button"
-                class="card-aux-btn warn"
-                @click="toggleSPTool(tool.key, false)"
-              >
-                关闭
-              </button>
-              <template v-else-if="!isToolError(tool.key)">
-                <ToolConfigBtn
-                  v-if="tool.hasConfig"
-                  title="配置参数"
-                  @click="$emit('show-config', { tool, disabledRules: disabledConfigs[tool.key] })"
-                />
-                <button
-                  type="button"
-                  class="card-toggle"
-                  :class="{ off: !tools[tool.key]?.enabled }"
-                  :aria-pressed="!!tools[tool.key]?.enabled"
-                  title="启用 / 禁用"
-                  @click="toggleSPTool(tool.key, !tools[tool.key]?.enabled)"
-                >
-                  <div class="card-toggle-knob"></div>
-                </button>
-              </template>
-            </div>
-          </div>
+      <div
+        v-for="section in platformToolSections"
+        :key="section.key"
+        class="platform-subgroup"
+      >
+        <div class="subgroup-label">{{ section.label }}</div>
 
+        <div v-if="!section.tools.length" class="subgroup-empty">
+          {{ section.empty }}
+        </div>
+
+        <TransitionGroup v-else name="platform-fade" tag="div" class="card-grid">
           <div
-            v-if="tool.key === 'SPSkillManager' && tools['SPSkillManager']?.enabled && skillManagerWarn"
-            class="dep-warn"
+            v-for="tool in section.tools"
+            :key="tool.key"
+            class="tool-card group"
+            :class="{
+              'is-off': !isPlatformToolEnabled(tool),
+              'is-unavailable': isToolError(tool.key),
+            }"
           >
-            需要同时启用 SPread、SPglob 才能正常工作
-          </div>
-
-          <span class="tool-type-badge type-basetool">基础工具</span>
-        </div>
-
-        <div
-          v-for="tool in visibleSpecialTools"
-          :key="tool.key"
-          class="tool-card group"
-          :class="{
-            'is-off': !specialTools[tool.key]?.enabled,
-            'is-unavailable': isToolError(tool.key),
-          }"
-        >
-          <div class="card-row">
-            <div class="card-icon-wrap">✨</div>
-            <div class="card-info">
-              <div class="card-title-row">
-                <span class="card-title">{{ tool.name }}</span>
-                <ToolInfoIcon
-                  :label="tool.name"
-                  :tooltip="getToolTooltip(tool)"
-                  @click="$emit('show-info', tool)"
-                />
-              </div>
-              <div class="card-desc">{{ isToolError(tool.key) ? '平台工具已下架或失效' : tool.desc }}</div>
-              <div
-                v-if="tool.hasSubModel && specialTools[tool.key]?.enabled && specialTools[tool.key]?.sub_model"
-                class="submodel-hint"
-              >
-                子模型: {{ specialTools[tool.key].sub_model }}
-              </div>
-            </div>
-            <div class="card-controls">
-              <button
-                v-if="isToolError(tool.key) && specialTools[tool.key]?.enabled"
-                type="button"
-                class="card-aux-btn warn"
-                @click="toggleSpecialTool(tool.key, false)"
-              >
-                关闭
-              </button>
-              <template v-else-if="!isToolError(tool.key)">
-                <ToolConfigBtn
-                  v-if="tool.hasSubModel"
-                  title="配置子模型"
-                  @click="openSubModel(tool)"
-                />
-                <button
-                  type="button"
-                  class="card-toggle"
-                  :class="{ off: !specialTools[tool.key]?.enabled }"
-                  :aria-pressed="!!specialTools[tool.key]?.enabled"
-                  title="启用 / 禁用"
-                  @click="toggleSpecialTool(tool.key, !specialTools[tool.key]?.enabled)"
+            <div class="card-row">
+              <div class="card-info">
+                <div class="card-title-row">
+                  <span class="card-title">{{ tool.name }}</span>
+                  <ToolInfoIcon
+                    :label="tool.name"
+                    :tooltip="getToolTooltip(tool)"
+                    @click="$emit('show-info', tool)"
+                  />
+                </div>
+                <div class="card-desc">{{ isToolError(tool.key) ? '平台工具已下架或失效' : tool.desc }}</div>
+                <div
+                  v-if="tool.kind === 'special' && tool.hasSubModel && isPlatformToolEnabled(tool) && specialTools[tool.key]?.sub_model"
+                  class="submodel-hint"
                 >
-                  <div class="card-toggle-knob"></div>
+                  子模型: {{ specialTools[tool.key].sub_model }}
+                </div>
+              </div>
+              <div class="card-controls">
+                <button
+                  v-if="isToolError(tool.key) && isPlatformToolEnabled(tool)"
+                  type="button"
+                  class="card-aux-btn warn"
+                  @click="togglePlatformTool(tool, false)"
+                >
+                  关闭
                 </button>
-              </template>
+                <template v-else-if="!isToolError(tool.key)">
+                  <ToolConfigBtn
+                    v-if="tool.kind === 'sp' && tool.hasConfig"
+                    title="配置参数"
+                    @click="$emit('show-config', { tool, disabledRules: disabledConfigs[tool.key] })"
+                  />
+                  <ToolConfigBtn
+                    v-else-if="tool.kind === 'special' && tool.hasSubModel"
+                    title="配置子模型"
+                    @click="openSubModel(tool)"
+                  />
+                  <button
+                    type="button"
+                    class="card-toggle"
+                    :class="{ off: !isPlatformToolEnabled(tool) }"
+                    :aria-pressed="isPlatformToolEnabled(tool)"
+                    title="启用 / 禁用"
+                    @click="togglePlatformTool(tool, !isPlatformToolEnabled(tool))"
+                  >
+                    <div class="card-toggle-knob"></div>
+                  </button>
+                </template>
+              </div>
             </div>
-          </div>
 
-          <span class="tool-type-badge type-basetool">基础工具</span>
-        </div>
-      </TransitionGroup>
+            <div
+              v-if="tool.kind === 'sp' && tool.key === 'SPSkillManager' && tools['SPSkillManager']?.enabled && skillManagerWarn"
+              class="dep-warn"
+            >
+              需要同时启用 SPread、SPglob 才能正常工作
+            </div>
+
+            <span class="tool-type-badge type-basetool">基础工具</span>
+          </div>
+        </TransitionGroup>
+      </div>
     </div>
 
     <div class="divider"></div>
@@ -146,70 +108,82 @@
         <div
           v-for="ct in sortedCustomTools"
           :key="ct.id"
-          class="tool-card group"
+          class="tool-card tool-card-agent"
           :class="{
             'is-off': !ct.enabled,
-            'is-unavailable': isToolError(ct.id) || isActiveError(ct),
+            'is-warn-agent': isToolOrDepError(ct),
           }"
         >
-          <div class="card-row">
-            <div class="card-icon-wrap">🤖</div>
+          <div class="agent-card-row">
             <div class="card-info">
-              <div class="card-title-row">
-                <span class="card-title">{{ ct.name || '(未命名)' }}</span>
-                <ToolInfoIcon
-                  :label="ct.name || '自定义工具'"
-                  :tooltip="getCustomToolTooltip(ct)"
-                  @click="openCustomToolInfo(ct)"
-                />
+              <div class="agent-card-head">
+                <div class="card-title-row">
+                  <span class="card-title">{{ ct.name || '(未命名)' }}</span>
+                  <ToolInfoIcon
+                    :label="ct.name || '自定义工具'"
+                    :tooltip="getCustomToolTooltip(ct)"
+                    @click="openCustomToolInfo(ct)"
+                  />
+                </div>
+                <div class="card-controls">
+                  <ToolConfigBtn
+                    :title="isToolOrDepError(ct) ? '修复工具' : '编辑工具'"
+                    @click="openEdit(ct)"
+                  />
+                  <button
+                    type="button"
+                    class="card-aux-btn icon-only"
+                    title="移除"
+                    @click="removeCustomTool(ct.id)"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6l-1 14H6L5 6"/>
+                      <path d="M10 11v6M14 11v6"/>
+                      <path d="M9 6V4h6v2"/>
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="card-toggle"
+                    :class="{ off: !ct.enabled }"
+                    :aria-pressed="!!ct.enabled"
+                    title="启用 / 禁用"
+                    @click="toggleCustomTool(ct, !ct.enabled)"
+                  >
+                    <div class="card-toggle-knob"></div>
+                  </button>
+                </div>
               </div>
+
               <div class="card-desc">
-                <span v-if="ct.sub_tools?.length" class="nested-badge" title="此工具内部调用了其他工具">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 12h8"/><path d="M12 2v20"/><path d="M22 12h-8"/></svg>
-                  嵌套
-                </span>
-                {{ ct.description || '暂无描述' }}
+                <template v-if="isToolOrDepError(ct)">
+                  <span class="desc-error-hint">依赖异常</span>
+                  <span v-if="!ct.enabled" class="desc-muted-hint">· 未启用，暂不影响</span>
+                </template>
+                <template v-else>
+                  <span v-if="getCustomSubTools(ct).length" class="nested-badge" title="此工具内部调用了其他工具">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 12h8"/><path d="M12 2v20"/><path d="M22 12h-8"/></svg>
+                    嵌套
+                  </span>
+                  {{ ct.description || '暂无描述' }}
+                </template>
               </div>
-              <div v-if="ct.sub_tools?.length" class="nested-chips">
-                <span v-for="sub in ct.sub_tools" :key="sub.name || sub.custom_tool_id" class="chip-item">
-                  <template v-if="isPlatformTool(sub) && isToolError(sub.name || sub.custom_tool_id)">❌ </template>
-                  <template v-else-if="!isPlatformTool(sub) && isToolError(sub.name || sub.custom_tool_id)">⚠️ </template>
+
+              <div v-if="getCustomSubTools(ct).length" class="nested-chips">
+                <span
+                  v-for="sub in getVisibleSubTools(ct)"
+                  :key="getSubToolRefKey(sub)"
+                  class="chip-item"
+                  :class="{ 'chip-error-agent': isSubToolError(sub) }"
+                >
+                  <span v-if="isSubToolError(sub)" class="chip-icon">⚠️</span>
                   {{ getToolDisplayName(sub) }}
                 </span>
-                <span v-if="!ct.enabled && isToolOrDepError(ct)" class="chip-item-hint">（未启用，暂不影响）</span>
+                <span v-if="getHiddenSubToolCount(ct) > 0" class="chip-item chip-more">
+                  +{{ getHiddenSubToolCount(ct) }}
+                </span>
               </div>
-            </div>
-            <div
-              v-if="!isToolError(ct.id)"
-              class="card-controls"
-            >
-              <ToolConfigBtn
-                :title="isToolOrDepError(ct) ? '修复工具' : '编辑工具'"
-                @click="openEdit(ct)"
-              />
-              <button
-                type="button"
-                class="card-aux-btn icon-only"
-                title="移除"
-                @click="removeCustomTool(ct.id)"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="3 6 5 6 21 6"/>
-                  <path d="M19 6l-1 14H6L5 6"/>
-                  <path d="M10 11v6M14 11v6"/>
-                  <path d="M9 6V4h6v2"/>
-                </svg>
-              </button>
-              <button
-                type="button"
-                class="card-toggle"
-                :class="{ off: !ct.enabled }"
-                :aria-pressed="!!ct.enabled"
-                title="启用 / 禁用"
-                @click="toggleCustomTool(ct, !ct.enabled)"
-              >
-                <div class="card-toggle-knob"></div>
-              </button>
             </div>
           </div>
 
@@ -226,6 +200,8 @@
       :platform="platform"
       :enabled-tools="tools"
       :enabled-special-tools="specialTools"
+      :file-refs="fileRefs"
+      :tool-refs="toolRefs"
       @confirm="handleCreateTool"
     />
 
@@ -237,6 +213,8 @@
       :platform="platform"
       :enabled-tools="tools"
       :enabled-special-tools="specialTools"
+      :file-refs="fileRefs"
+      :tool-refs="toolRefs"
       @confirm="handleEditTool"
     />
 
@@ -260,6 +238,14 @@
  */
 import { ref, computed, watch } from 'vue'
 import { SP_TOOLS, SPECIAL_TOOLS, isToolError, getToolErrorMsg } from '@/constants/spTools'
+import {
+  normalizeSubTools,
+  getSubToolRefKey,
+  isPlatformSubTool,
+  findCustomToolRef,
+  isSubToolError as isSubToolErrorUtil,
+  isCustomToolOrDepError,
+} from '@/utils/customToolErrors'
 import ToolCreateModal from './ToolCreateModal.vue'
 import ToolSubModelModal from './ToolSubModelModal.vue'
 import ToolInfoIcon from './ToolInfoIcon.vue'
@@ -272,7 +258,9 @@ const props = defineProps({
   tools: { type: Object, required: true },
   customTools: { type: Array, required: true },
   specialTools: { type: Object, default: () => ({}) },
-  platform: { type: String, default: 'claude' }
+  platform: { type: String, default: 'claude' },
+  fileRefs: { type: Array, default: () => [] },
+  toolRefs: { type: Array, default: () => [] },
 })
 const emit = defineEmits(['update:tools', 'update:customTools', 'update:specialTools', 'show-info', 'show-config'])
 
@@ -316,19 +304,35 @@ function openCustomToolInfo(ct) {
 
 /** 解析子工具引用的人类可读名称（内置工具名或自定义工具名） */
 function getToolDisplayName(sub) {
-  if (sub.name) {
-    const builtin = [...SP_TOOLS, ...SPECIAL_TOOLS].find(t => t.key === sub.name)
-    if (builtin) return builtin.name
-    return sub.name
-  }
-  const ct = props.customTools.find(t => t.id === sub.custom_tool_id)
-  return ct?.name || sub.custom_tool_id || '未知工具'
+  const key = getSubToolRefKey(sub)
+  const builtin = [...SP_TOOLS, ...SPECIAL_TOOLS].find(t => t.key === key)
+  if (builtin) return builtin.name
+  if (isPlatformSubTool(sub)) return key
+  const ct = findCustomToolRef(key, props.customTools)
+  return ct?.name || sub.name || key || '未知工具'
 }
 
-/** 判断子工具引用是否指向平台内置工具（SP 或特殊工具） */
-function isPlatformTool(sub) {
-  const key = sub.name || sub.custom_tool_id
-  return [...SP_TOOLS, ...SPECIAL_TOOLS].some(t => t.key === key)
+function getCustomSubTools(ct) {
+  return normalizeSubTools(ct, props.customTools)
+}
+
+const MAX_VISIBLE_SUB_TOOLS = 3
+
+function getVisibleSubTools(ct) {
+  const subs = getCustomSubTools(ct)
+  if (subs.length <= MAX_VISIBLE_SUB_TOOLS) return subs
+  const errorSubs = subs.filter(sub => isSubToolError(sub))
+  const normalSubs = subs.filter(sub => !isSubToolError(sub))
+  const picked = [...errorSubs, ...normalSubs].slice(0, MAX_VISIBLE_SUB_TOOLS)
+  return picked
+}
+
+function getHiddenSubToolCount(ct) {
+  return Math.max(0, getCustomSubTools(ct).length - MAX_VISIBLE_SUB_TOOLS)
+}
+
+function isSubToolError(sub) {
+  return isSubToolErrorUtil(sub, props.customTools)
 }
 
 /** 平台切换时拉取该平台允许的工具列表与禁用配置项 */
@@ -345,41 +349,49 @@ watch(() => props.platform, async (newPlatform) => {
   }
 }, { immediate: true })
 
-/** 当前平台可用的 SP 工具列表，已启用的排在前面 */
-const visibleSpTools = computed(() => {
-  const allowed = SP_TOOLS.filter(t => allowedTools.value.includes(t.key))
-
-  const listWithIndex = allowed.map((tool, index) => ({
-    ...tool,
-    _originalIndex: index,
-    _enabled: !!props.tools[tool.key]?.enabled
-  }))
-
-  return listWithIndex.sort((a, b) => {
-    const aTop = a._enabled ? 1 : 0
-    const bTop = b._enabled ? 1 : 0
-    if (aTop !== bTop) return bTop - aTop
-    return a._originalIndex - b._originalIndex
-  })
+/** 当前平台可用的全部平台工具（SP + 特殊） */
+const allPlatformTools = computed(() => {
+  const sp = SP_TOOLS
+    .filter(t => allowedTools.value.includes(t.key))
+    .map(t => ({ ...t, kind: 'sp' }))
+  const special = SPECIAL_TOOLS
+    .filter(t => allowedTools.value.includes(t.key))
+    .map(t => ({ ...t, kind: 'special' }))
+  return [...sp, ...special]
 })
 
-/** 当前平台可用的特殊工具列表，已启用的排在前面 */
-const visibleSpecialTools = computed(() => {
-  const allowed = SPECIAL_TOOLS.filter(t => allowedTools.value.includes(t.key))
+function isPlatformToolEnabled(tool) {
+  if (tool.kind === 'sp') return !!props.tools[tool.key]?.enabled
+  return !!props.specialTools[tool.key]?.enabled
+}
 
-  const listWithIndex = allowed.map((tool, index) => ({
-    ...tool,
-    _originalIndex: index,
-    _enabled: !!props.specialTools[tool.key]?.enabled
-  }))
+const enabledPlatformTools = computed(() =>
+  allPlatformTools.value.filter(t => isPlatformToolEnabled(t)),
+)
 
-  return listWithIndex.sort((a, b) => {
-    const aTop = a._enabled ? 1 : 0
-    const bTop = b._enabled ? 1 : 0
-    if (aTop !== bTop) return bTop - aTop
-    return a._originalIndex - b._originalIndex
-  })
-})
+const morePlatformTools = computed(() =>
+  allPlatformTools.value.filter(t => !isPlatformToolEnabled(t)),
+)
+
+const platformToolSections = computed(() => [
+  {
+    key: 'enabled',
+    label: '已启用',
+    tools: enabledPlatformTools.value,
+    empty: '暂未启用任何平台工具',
+  },
+  {
+    key: 'more',
+    label: '更多工具',
+    tools: morePlatformTools.value,
+    empty: '当前平台工具已全部启用',
+  },
+])
+
+function togglePlatformTool(tool, enabled) {
+  if (tool.kind === 'sp') toggleSPTool(tool.key, enabled)
+  else toggleSpecialTool(tool.key, enabled)
+}
 
 /** 自定义 Agent 工具列表，已启用的排在前面 */
 const sortedCustomTools = computed(() => {
@@ -404,22 +416,18 @@ const skillManagerWarn = computed(() => {
 
 /** 切换 SP 平台工具开关；启用 SPSkillManager 时自动弹出配置 */
 function toggleSPTool(key, enabled) {
-  setTimeout(() => {
-    const updated = { ...props.tools, [key]: { ...props.tools[key], enabled } }
-    emit('update:tools', updated)
-    if (key === 'SPSkillManager' && enabled) {
-      const tool = SP_TOOLS.find(t => t.key === 'SPSkillManager')
-      if (tool?.hasConfig) emit('show-config', { tool, disabledRules: disabledConfigs.value[tool.key] })
-    }
-  }, 100)
+  const updated = { ...props.tools, [key]: { ...props.tools[key], enabled } }
+  emit('update:tools', updated)
+  if (key === 'SPSkillManager' && enabled) {
+    const tool = SP_TOOLS.find(t => t.key === 'SPSkillManager')
+    if (tool?.hasConfig) emit('show-config', { tool, disabledRules: disabledConfigs.value[tool.key] })
+  }
 }
 
 /** 切换特殊工具（如多模态）的启用状态 */
 function toggleSpecialTool(key, enabled) {
-  setTimeout(() => {
-    const current = props.specialTools[key] || {}
-    emit('update:specialTools', { ...props.specialTools, [key]: { ...current, enabled } })
-  }, 100)
+  const current = props.specialTools[key] || {}
+  emit('update:specialTools', { ...props.specialTools, [key]: { ...current, enabled } })
 }
 
 /** 打开特殊工具的子模型选择弹窗 */
@@ -459,15 +467,17 @@ function updateCustomTool(id, updates) {
 function removeCustomTool(id) {
   if (!confirm('确认删除此工具？该工具被引用的地方将一并取消引用。')) return
 
+  const deleted = props.customTools.find(t => t.id === id)
+
   const updatedList = props.customTools.filter(t => t.id !== id).map(t => {
-    if (t.sub_tools && t.sub_tools.length) {
-      const filteredSubs = t.sub_tools.filter(sub => {
-        const subId = sub.custom_tool_id || sub.name
-        return subId !== id
-      })
-      if (filteredSubs.length !== t.sub_tools.length) {
-        return { ...t, sub_tools: filteredSubs }
-      }
+    const subs = normalizeSubTools(t, props.customTools)
+    if (!subs.length) return t
+    const filteredSubs = subs.filter(sub => {
+      const key = getSubToolRefKey(sub)
+      return key !== id && key !== deleted?.name
+    })
+    if (filteredSubs.length !== subs.length) {
+      return { ...t, sub_tools: filteredSubs }
     }
     return t
   })
@@ -502,16 +512,7 @@ function handleEditTool(data) {
 
 /** 判断自定义工具自身或其子工具依赖是否存在平台失效 */
 function isToolOrDepError(ct) {
-  if (isToolError(ct.id)) return true
-  if (ct.sub_tools && ct.sub_tools.length) {
-    return ct.sub_tools.some(sub => isToolError(sub.name || sub.custom_tool_id))
-  }
-  return false
-}
-
-/** 判断已启用的自定义工具是否处于失效状态 */
-function isActiveError(ct) {
-  return ct.enabled && isToolOrDepError(ct)
+  return isCustomToolOrDepError(ct, props.customTools)
 }
 
 /** 收集所有已启用但平台侧已失效的工具名称，供顶部警告条与调试拦截使用 */
@@ -533,19 +534,14 @@ function checkEnabledToolsErrors() {
   })
 
   props.customTools.forEach(ct => {
-    if (ct.enabled) {
-      if (isToolError(ct.id)) {
-        errors.push(`【自建Agent】${ct.name || ct.id}: ${getToolErrorMsg(ct.id)}`)
-      }
-
-      if (ct.sub_tools && ct.sub_tools.length) {
-        ct.sub_tools.forEach(sub => {
-          const subKey = sub.name || sub.custom_tool_id
-          if (isToolError(subKey)) {
-            errors.push(`【自建Agent】${ct.name || ct.id} 的依赖项 [${getToolDisplayName(sub)}] 存在异常`)
-          }
-        })
-      }
+    if (!ct.enabled || !isToolOrDepError(ct)) return
+    const brokenSubs = getCustomSubTools(ct).filter(sub => isSubToolError(sub))
+    if (brokenSubs.length) {
+      brokenSubs.forEach(sub => {
+        errors.push(`【自建Agent】${ct.name || ct.id} 的依赖 [${getToolDisplayName(sub)}] 存在异常`)
+      })
+    } else if (isToolError(ct.id)) {
+      errors.push(`【自建Agent】${ct.name || ct.id}: ${getToolErrorMsg(ct.id)}`)
     }
   })
 
@@ -578,6 +574,32 @@ function checkEnabledToolsErrors() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.platform-subgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.platform-subgroup + .platform-subgroup {
+  margin-top: 16px;
+}
+
+.subgroup-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.subgroup-empty {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  padding: 14px 16px;
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-secondary);
+  text-align: center;
 }
 
 .btn-add {
@@ -638,12 +660,22 @@ function checkEnabledToolsErrors() {
 .tool-card.is-off:not(.is-unavailable) {
   opacity: 0.88;
 }
-.tool-card.is-unavailable {
-  opacity: 0.7;
+.tool-card.is-unavailable,
+.tool-card.is-error-platform {
+  opacity: 0.85;
   background: #fef2f2;
   border-color: #fecaca;
 }
-.tool-card.is-unavailable:hover {
+.tool-card.is-unavailable:hover,
+.tool-card.is-error-platform:hover {
+  box-shadow: none;
+}
+.tool-card.is-warn-agent {
+  opacity: 0.9;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+.tool-card.is-warn-agent:hover {
   box-shadow: none;
 }
 
@@ -651,19 +683,6 @@ function checkEnabledToolsErrors() {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.card-icon-wrap {
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  border-radius: 6px;
-  background: #f3f4f6;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
 }
 
 .card-info {
@@ -729,6 +748,44 @@ function checkEnabledToolsErrors() {
   text-overflow: ellipsis;
   min-width: 0;
   flex: 0 1 auto;
+}
+
+/* ── Agent 工具卡片 ── */
+.tool-card-agent {
+  min-height: 0;
+}
+
+.agent-card-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.agent-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.agent-card-head .card-title-row {
+  flex: 1;
+  min-width: 0;
+}
+
+.agent-card-head .card-controls {
+  flex-shrink: 0;
+  margin-top: -1px;
+}
+
+.desc-error-hint {
+  color: #b45309;
+  font-weight: 500;
+}
+
+.desc-muted-hint {
+  color: #9ca3af;
 }
 
 .card-desc {
@@ -828,7 +885,65 @@ function checkEnabledToolsErrors() {
 }
 
 .nested-chips {
-  display: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  max-height: 22px;
+  overflow: hidden;
+}
+
+.chip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+  line-height: 1.4;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip-item.chip-more {
+  background: #eef2ff;
+  color: #6366f1;
+  border-color: #c7d2fe;
+  flex-shrink: 0;
+}
+
+.chip-item.chip-error-agent {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+.chip-icon {
+  font-size: 9px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.tool-card-agent .tool-type-badge {
+  margin-top: 10px;
+}
+
+/* ── 平台工具：跨区切换时的轻量淡入淡出 ── */
+.platform-fade-enter-active,
+.platform-fade-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.platform-fade-enter-from,
+.platform-fade-leave-to {
+  opacity: 0;
 }
 
 /* ── List animation ── */

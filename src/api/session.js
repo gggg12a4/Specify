@@ -107,17 +107,17 @@ export function createSession(sessionData = {}) {
   }
 
   // 真实 API: POST /api/sessions
-  const { getKeys } = useApiConfig()
-  const keys = getKeys() || []
-  // For backwards compatibility in this file, try to find a key or just pass nulls if none.
-  // The actual app logic usually picks the key before calling this, or the backend handles it.
-  const firstKey = keys.length > 0 ? keys[0] : {}
+  const { resolveKeyForApp } = useApiConfig()
+  const resolvedKey = resolveKeyForApp(
+    sessionData.platform || 'claude',
+    sessionData.credential_id || null,
+  ) || {}
 
   const requestBody = {
     system_prompt: sessionData.system_prompt || null,
-    model: firstKey.model || null,
-    api_key: firstKey.apiKey || null,
-    api_base: firstKey.baseUrl || null,
+    model: sessionData.model || resolvedKey.model || null,
+    api_key: resolvedKey.apiKey || null,
+    api_base: resolvedKey.baseUrl || null,
     sp_api_key: null,
     sp_base_url: null,
     sp_app: null,

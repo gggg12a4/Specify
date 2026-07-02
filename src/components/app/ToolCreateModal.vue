@@ -29,7 +29,18 @@
 
             <div class="field">
               <label class="field-label">系统提示词（这个工具被调用时的执行指令）<span class="req">*</span></label>
-              <textarea v-model="form.system_prompt" class="textarea" rows="4" placeholder="你是一个文档检索专家，用户会给你一个问题和文档目录，你需要：&#10;1. 浏览目录找到相关文件&#10;2. 读取文件内容&#10;3. 提取关键信息回答问题"></textarea>
+              <div
+                class="prompt-box prompt-trigger"
+                role="button"
+                tabindex="0"
+                @click="openPromptModal"
+                @keydown.enter.prevent="openPromptModal"
+                @keydown.space.prevent="openPromptModal"
+              >
+                <div v-if="form.system_prompt.trim()" class="prompt-preview">{{ form.system_prompt }}</div>
+                <div v-else class="prompt-placeholder">定义该工具被调用时的角色、行为与执行步骤…</div>
+                <span class="prompt-open-hint">点击展开编辑</span>
+              </div>
             </div>
 
             <div class="field">
@@ -75,13 +86,13 @@
               <div v-if="otherCustomTools.length" class="tools-group tools-group-sep">
                 <div class="tools-group-label">你创建的工具</div>
                 <div class="tools-list">
-                  <div v-for="t in otherCustomTools" :key="t.id" class="check-item" :class="{ 'is-circular': isCircularDependency(t.id), 'is-error-agent': isToolError(t.id) }">
-                    <label class="check-inner" :title="isCircularDependency(t.id) ? '无法挂载。因为该工具内部已经（直接或间接）依赖了当前工具，挂载将导致死循环。' : ''">
+                  <div v-for="t in otherCustomTools" :key="t.id" class="check-item" :class="{ 'is-circular': isCircularDependency(t.id), 'is-error-agent': isCustomToolInError(t) }">
+                    <label class="check-inner" :title="isCircularDependency(t.id) ? '无法挂载。因为该工具内部已经（直接或间接）依赖了当前工具，挂载将导致死循环。' : (isCustomToolInError(t) ? '建议修改该创建的工具，或移除引用' : '')">
                       <input type="checkbox" :value="t.id" v-model="form.tools" :disabled="isCircularDependency(t.id)" />
+                      <span v-if="isCustomToolInError(t)" class="error-icon warn">⚠️</span>
                       <span class="check-name">{{ t.name }}</span>
-                      <span class="check-desc">{{ t.description }}</span>
+                      <span class="check-desc">{{ isCustomToolInError(t) ? '该创建工具存在异常，建议修改或移除引用' : t.description }}</span>
                       <span v-if="isCircularDependency(t.id)" class="circular-badge">🚫 循环引用</span>
-                      <span v-if="isToolError(t.id)" class="agent-error-badge" title="建议修改该创建的工具，或移除引用">⚠️</span>
                     </label>
                   </div>
                 </div>
@@ -97,6 +108,15 @@
       </div>
     </Transition>
   </Teleport>
+
+  <SystemPromptModal
+    v-model:visible="showPromptModal"
+    v-model="form.system_prompt"
+    :file-refs="fileRefs"
+    :tool-refs="toolRefs"
+    title="工具系统提示词"
+    placeholder="定义该工具被调用时的角色、行为边界以及如何使用嵌套工具…"
+  />
 
   <!-- 工具配置弹窗（z-index 需高于主弹窗） -->
   <Teleport to="body">
@@ -138,7 +158,9 @@
  */
 import { reactive, ref, watch, computed } from 'vue'
 import { SP_TOOLS, SPECIAL_TOOLS, isToolError, getToolErrorMsg } from '@/constants/spTools'
+import { isCustomToolOrDepError } from '@/utils/customToolErrors'
 import { showError } from '@/composables/useNotification'
+import SystemPromptModal from './SystemPromptModal.vue'
 
 const props = defineProps({
   visible:             { type: Boolean, default: false },
@@ -148,12 +170,19 @@ const props = defineProps({
   platform:            { type: String,  default: 'claude' },
   enabledTools:        { type: Object,  default: () => ({}) },
   enabledSpecialTools: { type: Object,  default: () => ({}) },
+  fileRefs:            { type: Array,   default: () => [] },
+  toolRefs:            { type: Array,   default: () => [] },
 })
 const emit = defineEmits(['update:visible', 'confirm', 'cancel'])
 
 const form = reactive({ name: '', description: '', system_prompt: '', tools: [], toolConfigs: {} })
 const configTool = ref(null)
 const pendingConfig = reactive({})
+const showPromptModal = ref(false)
+
+function openPromptModal() {
+  showPromptModal.value = true
+}
 
 /** 可选推荐工具：SP 工具 + 当前平台特殊工具 */
 const availableRecommendedTools = computed(() => {
@@ -165,6 +194,10 @@ const availableRecommendedTools = computed(() => {
 const otherCustomTools = computed(() =>
   props.existingCustomTools.filter(t => t.id !== props.initial?.id)
 )
+
+function isCustomToolInError(tool) {
+  return isCustomToolOrDepError(tool, props.existingCustomTools)
+}
 
 /**
  * DFS 检测嵌套 Agent 工具是否形成循环依赖。
@@ -260,12 +293,17 @@ watch(() => props.visible, v => {
       form.name = ''; form.description = ''; form.system_prompt = ''
       form.tools = []; form.toolConfigs = {}
     }
+  } else {
+    showPromptModal.value = false
   }
 })
 
 /** 将 sub_tools 对象数组转为扁平 id/key 列表供 checkbox 绑定 */
 function subToolsToFlat(subTools = []) {
-  return subTools.map(t => t.type === 'recommended' ? t.name : t.custom_tool_id)
+  return subTools.map(t => {
+    if (typeof t === 'string') return t
+    return t.type === 'recommended' ? t.name : t.custom_tool_id
+  }).filter(Boolean)
 }
 
 /** 将扁平 id 列表转回 sub_tools 引用结构（区分推荐工具与自定义工具） */
@@ -275,7 +313,8 @@ function flatToSubTools(ids = []) {
   return ids.map(id => {
     if (spKeys.has(id) || specialKeys.has(id)) return { type: 'recommended', name: id }
     const ct = props.existingCustomTools.find(t => t.id === id)
-    return { type: 'custom', custom_tool_id: id, name: ct?.name || id }
+      || props.existingCustomTools.find(t => t.name === id)
+    return { type: 'custom', custom_tool_id: ct?.id || id, name: ct?.name || id }
   })
 }
 
@@ -402,7 +441,8 @@ function markDirty() {
   cursor: not-allowed !important;
   opacity: 0.8;
 }
-.error-icon { font-size: 12px; margin-right: 2px; }
+.error-icon { font-size: 12px; margin-right: 2px; flex-shrink: 0; }
+.error-icon.warn { color: #b45309; }
 .btn-close-error {
   padding: 4px 10px;
   font-size: 11px;
@@ -419,12 +459,11 @@ function markDirty() {
 
 /* 子 Agent 异常状态 */
 .is-error-agent {
-  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.35);
 }
-.agent-error-badge {
-  margin-left: auto;
-  font-size: 14px;
-  cursor: help;
+.is-error-agent .check-desc {
+  color: #b45309;
 }
 
 /* App 配置锁定标签 */
@@ -488,6 +527,72 @@ function markDirty() {
   display: flex; justify-content: flex-end; gap: 8px;
   padding: 12px 20px; border-top: 1px solid var(--color-border);
   background: var(--color-bg-secondary); flex-shrink: 0;
+}
+
+.prompt-box {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.prompt-trigger {
+  position: relative;
+  cursor: pointer;
+}
+
+.prompt-trigger:hover {
+  border-color: #cbd5e1;
+  background: #fafafa;
+}
+
+.prompt-trigger:focus-visible {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px #dbeafe;
+}
+
+.prompt-preview {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text);
+  max-height: 120px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+  -webkit-box-orient: vertical;
+}
+
+.prompt-placeholder {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+.prompt-open-hint {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.prompt-trigger:hover .prompt-open-hint,
+.prompt-trigger:focus-visible .prompt-open-hint {
+  opacity: 1;
 }
 
 .modal-enter-active, .modal-leave-active { transition: opacity 0.2s; }

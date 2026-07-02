@@ -9,10 +9,35 @@
         </router-link>
         <div class="bar-title">
           <span class="bar-label">App 开发</span>
-          <span class="bar-sep">：</span>
-          <span class="bar-app">{{ app?.name }}</span>
-          <span v-if="platformLabel" class="bar-platform">{{ platformLabel }}</span>
-          <span v-if="isDirty" class="unsaved-dot" title="有未保存的修改"></span>
+          <!-- <span class="bar-sep">：</span> -->
+          <div class="bar-app-row">
+            <span class="bar-app-wrap">
+              <span class="bar-app">{{ app?.name }}</span>
+              <button v-if="app" type="button" class="bar-app-edit" aria-label="编辑 App 名称与描述" title="编辑 App 信息"
+                @click="showMetaEditModal = true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+              </button>
+            </span>
+            <button v-if="platformLabel" type="button" class="bar-platform" :class="{ active: showPlatformModal }"
+              :aria-label="`当前平台 ${platformLabel}，点击切换 AI 平台`" title="点击切换 AI 平台" @click="showPlatformModal = true">
+              <span class="bar-platform-label">{{ platformLabel }}</span>
+              <span class="bar-platform-hint">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <polyline points="17 1 21 5 17 9" />
+                  <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                  <polyline points="7 23 3 19 7 15" />
+                  <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                </svg>
+                切换平台
+              </span>
+            </button>
+          </div>
+          <span v-if="showAutoSavedHint" class="save-status saved">已自动保存</span>
+          <span v-else-if="autoSavePending" class="save-status pending">{{ autoSaveCountdown }}s 后自动保存</span>
+          <span v-else-if="isDirty" class="unsaved-dot" title="有未保存的修改"></span>
         </div>
       </div>
       <div class="bar-right">
@@ -70,7 +95,7 @@
                   <p class="section-desc">选择该平台（{{ platformLabel }}）下用于调试与运行的模型。</p>
                 </div>
               </div>
-              <AppModelSection :platform="app.platform || 'claude'" :model-value="form.model"
+              <AppModelSection :platform="form.platform || 'claude'" :model-value="form.model"
                 @update:model-value="(v) => { form.model = v; markDirty() }" />
             </section>
 
@@ -99,8 +124,8 @@
                 </div>
               </div>
               <AppToolsSection ref="toolsSectionRef" :tools="form.tools" :custom-tools="form.custom_tools"
-                :special-tools="form.special_tools" :platform="app.platform || 'claude'"
-                @update:tools="(v) => { form.tools = v; markDirty() }"
+                :special-tools="form.special_tools" :platform="form.platform || 'claude'" :file-refs="promptFileRefs"
+                :tool-refs="promptToolRefs" @update:tools="(v) => { form.tools = v; markDirty() }"
                 @update:custom-tools="(v) => { form.custom_tools = v; markDirty() }"
                 @update:special-tools="(v) => { form.special_tools = v; markDirty() }" @show-info="infoTool = $event"
                 @show-config="configTool = $event" />
@@ -120,23 +145,46 @@
                 还没有添加 MCP 服务，点击「添加服务」接入外部工具
               </div>
 
-              <div v-else class="card-grid">
-                <div v-for="mcp in form.mcp_services" :key="mcp.id" class="tool-card"
-                  :class="{ disabled: !mcp.enabled }">
-                  <div class="card-top">
-                    <div class="card-icon-wrap">🔌</div>
-                    <button type="button" class="card-toggle" :class="{ off: !mcp.enabled }" :aria-pressed="mcp.enabled"
-                      title="启用 / 禁用" @click="toggleMcp(mcp.id, !mcp.enabled)">
-                      <div class="card-toggle-knob"></div>
-                    </button>
-                  </div>
-                  <div>
-                    <div class="card-title">{{ mcp.name }}</div>
-                    <div class="card-meta">{{ mcp.tool_count || 0 }} tools · {{ truncateUrl(mcp.url) }}</div>
-                  </div>
-                  <div class="card-actions">
-                    <button type="button" class="action-link" @click="openMcpConfig(mcp)">配置参数</button>
-                    <button type="button" class="action-link action-remove" @click="removeMcp(mcp.id)">移除</button>
+              <div v-else class="mcp-card-grid">
+                <div
+                  v-for="mcp in form.mcp_services"
+                  :key="mcp.id"
+                  class="mcp-card"
+                  :class="{ 'is-off': !mcp.enabled }"
+                >
+                  <div class="mcp-card-row">
+                    <div class="mcp-card-info">
+                      <div class="mcp-card-title">{{ mcp.name }}</div>
+                      <div v-if="mcp.url" class="mcp-card-meta">
+                        <span class="mcp-url" :title="mcp.url">{{ mcp.url }}</span>
+                      </div>
+                    </div>
+                    <div class="mcp-card-controls">
+                      <ToolConfigBtn title="配置参数" @click="openMcpConfig(mcp)" />
+                      <button
+                        type="button"
+                        class="mcp-remove-btn"
+                        title="移除"
+                        @click="removeMcp(mcp.id)"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <polyline points="3 6 5 6 21 6"/>
+                          <path d="M19 6l-1 14H6L5 6"/>
+                          <path d="M10 11v6M14 11v6"/>
+                          <path d="M9 6V4h6v2"/>
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        class="card-toggle"
+                        :class="{ off: !mcp.enabled }"
+                        :aria-pressed="mcp.enabled"
+                        title="启用 / 禁用"
+                        @click="toggleMcp(mcp.id, !mcp.enabled)"
+                      >
+                        <div class="card-toggle-knob"></div>
+                      </button>
+                    </div>
                   </div>
                   <span class="tool-type-badge type-mcp">MCP工具</span>
                 </div>
@@ -158,6 +206,22 @@
 
     <SystemPromptModal v-model:visible="showPromptModal" v-model="form.system_prompt" :file-refs="promptFileRefs"
       :tool-refs="promptToolRefs" @done="markDirty" />
+
+    <AppPlatformModal v-model:visible="showPlatformModal" :model-value="form.platform" @select="handlePlatformChange"
+      @configure-api-key="openApiKeyModal" />
+
+    <RunConfigModal
+      v-if="app"
+      v-model:visible="showApiKeyModal"
+      :app-id="app.id"
+      :platform="apiKeyModalPlatform"
+      :credential-id="form.credential_id"
+      :confirm-text="apiKeyModalConfirmText"
+      @confirm="onApiKeyConfigured"
+    />
+
+    <AppMetaEditModal v-if="app" v-model:visible="showMetaEditModal" :name="app.name"
+      :description="app.description || ''" @save="handleMetaSave" />
   </div>
 </template>
 
@@ -166,10 +230,10 @@
  * App 开发编辑页（/developer/app/:id/edit）。
  *
  * 左侧为工作区文件面板，右侧编辑模型、系统提示词、工具与 MCP 服务。
- * form 为本地草稿，通过 isDirty 跟踪未保存修改；离开页面前会弹窗确认。
+ * form 为本地草稿，通过 isDirty 跟踪未保存修改；修改后 3 秒自动保存。
  * 调试入口会先校验已启用工具的失效状态，必要时静默保存后再跳转运行页。
  */
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onUnmounted } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { PLATFORM_LABELS } from '@/constants/spTools'
@@ -179,8 +243,18 @@ import ToolInfoModal from '@/components/app/ToolInfoModal.vue'
 import ToolConfigModal from '@/components/app/ToolConfigModal.vue'
 import AddMcpModal from '@/components/app/AddMcpModal.vue'
 import McpConfigModal from '@/components/app/McpConfigModal.vue'
+import ToolConfigBtn from '@/components/app/ToolConfigBtn.vue'
 import SystemPromptModal from '@/components/app/SystemPromptModal.vue'
 import AppModelSection from '@/components/app/AppModelSection.vue'
+import AppPlatformModal from '@/components/app/AppPlatformModal.vue'
+import AppMetaEditModal from '@/components/app/AppMetaEditModal.vue'
+import RunConfigModal from '@/components/common/RunConfigModal.vue'
+import { useApiConfig } from '@/composables/useApiConfig'
+import {
+  analyzePlatformMigration,
+  applyPlatformMigration,
+  buildPlatformSwitchMessage,
+} from '@/utils/platformMigration'
 import { SP_TOOLS } from '@/constants/spTools'
 import { resolveAppModel, getDefaultModelForPlatform } from '@/constants/platformModels'
 import { showSuccess, showConfirm } from '@/composables/useNotification'
@@ -188,15 +262,20 @@ import { showSuccess, showConfirm } from '@/composables/useNotification'
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
+const { hasKeyForPlatform, hasKeyForApp } = useApiConfig()
 /** 从路由 id 获取当前编辑的 App */
 const app = computed(() => appStore.getApp(route.params.id))
 /** 平台中文展示名 */
-const platformLabel = computed(() => PLATFORM_LABELS[app.value?.platform] || '')
+const platformLabel = computed(() => PLATFORM_LABELS[form.platform] || '')
 
 const toolsSectionRef = ref(null)
 const filePanelRef = ref(null)
+const showPlatformModal = ref(false)
+const showMetaEditModal = ref(false)
 
 const form = reactive({
+  platform: 'claude',
+  credential_id: null,
   system_prompt: '',
   model: '',
   tools: {},
@@ -213,8 +292,67 @@ const showAddMcp = ref(false)
 const showMcpConfig = ref(false)
 const mcpConfigTarget = ref(null)
 const showPromptModal = ref(false)
+const showApiKeyModal = ref(false)
+const apiKeyModalPlatform = ref('claude')
+const apiKeyModalConfirmText = ref('保存凭证')
+const pendingDebug = ref(false)
 const hasAnyEnabledError = ref(false)
 let pendingNav = null
+
+const AUTO_SAVE_SECONDS = 3
+const AUTO_SAVE_DELAY_MS = AUTO_SAVE_SECONDS * 1000
+let autoSaveTimer = null
+let autoSaveCountdownTimer = null
+let autoSavedHintTimer = null
+let suppressDirtyUntil = 0
+
+const autoSavePending = ref(false)
+const autoSaveCountdown = ref(0)
+const showAutoSavedHint = ref(false)
+
+function clearAutoSaveTimer() {
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+    autoSaveTimer = null
+  }
+  if (autoSaveCountdownTimer) {
+    clearInterval(autoSaveCountdownTimer)
+    autoSaveCountdownTimer = null
+  }
+  autoSavePending.value = false
+  autoSaveCountdown.value = 0
+}
+
+function flashAutoSavedHint() {
+  showAutoSavedHint.value = true
+  if (autoSavedHintTimer) clearTimeout(autoSavedHintTimer)
+  autoSavedHintTimer = setTimeout(() => {
+    showAutoSavedHint.value = false
+    autoSavedHintTimer = null
+  }, 2000)
+}
+
+/** 有未保存修改时，3 秒后静默自动保存 */
+function scheduleAutoSave() {
+  clearAutoSaveTimer()
+  if (!app.value || !isDirty.value || isSaving.value) return
+
+  autoSavePending.value = true
+  autoSaveCountdown.value = AUTO_SAVE_SECONDS
+
+  autoSaveCountdownTimer = setInterval(() => {
+    if (autoSaveCountdown.value > 1) {
+      autoSaveCountdown.value -= 1
+    }
+  }, 1000)
+
+  autoSaveTimer = setTimeout(async () => {
+    autoSaveTimer = null
+    clearAutoSaveTimer()
+    if (!isDirty.value || isSaving.value) return
+    await handleSave(true, { auto: true })
+  }, AUTO_SAVE_DELAY_MS)
+}
 
 /** 系统提示词 @ 引用：合并面板内真实路径与用户网盘虚拟路径 */
 const promptFileRefs = computed(() => {
@@ -252,6 +390,61 @@ const promptToolRefs = computed(() => {
   return items
 })
 
+/** 保存 App 名称与描述（独立于 form 草稿，立即写入 store） */
+function handleMetaSave({ name, description }) {
+  appStore.updateApp(app.value.id, { name, description })
+  showSuccess('App 信息已更新')
+}
+
+function openApiKeyModal(platform = form.platform) {
+  apiKeyModalPlatform.value = platform
+  apiKeyModalConfirmText.value = hasKeyForApp(platform, form.credential_id) ? '完成' : '保存凭证'
+  showApiKeyModal.value = true
+}
+
+function onApiKeyConfigured(payload = {}) {
+  showApiKeyModal.value = false
+  if (payload.credentialId !== undefined) {
+    form.credential_id = payload.credentialId
+    markDirty()
+  }
+  if (pendingDebug.value) {
+    pendingDebug.value = false
+    proceedDebug()
+  }
+}
+
+/** 切换平台：先确认影响范围，确认后再迁移并视情况提示配置 API Key */
+async function handlePlatformChange(newPlatform) {
+  if (newPlatform === form.platform) return
+
+  const analysis = analyzePlatformMigration(form, form.platform, newPlatform)
+  const message = buildPlatformSwitchMessage(analysis)
+
+  showPlatformModal.value = false
+
+  const confirmed = await showConfirm({
+    title: `切换到 ${PLATFORM_LABELS[newPlatform] || newPlatform}？`,
+    message,
+    confirmText: '确认切换',
+    cancelText: '取消',
+  })
+  if (!confirmed) {
+    showPlatformModal.value = true
+    return
+  }
+
+  applyPlatformMigration(form, newPlatform)
+  markDirty()
+  checkGlobalErrors()
+
+  if (!hasKeyForPlatform(newPlatform)) {
+    apiKeyModalPlatform.value = newPlatform
+    apiKeyModalConfirmText.value = '保存凭证'
+    showApiKeyModal.value = true
+  }
+}
+
 /** 打开系统提示词全屏编辑弹窗 */
 function openPromptModal() {
   showPromptModal.value = true
@@ -260,7 +453,13 @@ function openPromptModal() {
 /** App 数据加载后：深拷贝到 form 并重置 isDirty */
 watch(app, (a) => {
   if (!a) return
+  suppressDirtyUntil = Date.now() + 100
+  clearAutoSaveTimer()
+  showAutoSavedHint.value = false
+  showPlatformModal.value = false
   form.system_prompt = a.system_prompt || ''
+  form.platform = a.platform || 'claude'
+  form.credential_id = a.credential_id ?? null
   form.model = resolveAppModel(a)
   form.tools = JSON.parse(JSON.stringify(a.tools || {}))
   form.custom_tools = JSON.parse(JSON.stringify(a.custom_tools || []))
@@ -271,14 +470,17 @@ watch(app, (a) => {
 
 /** form 任意字段变更时标记为未保存（跳过 App 尚未就绪的初始阶段） */
 watch(() => form, () => {
-  if (!app.value) return // Don't trigger save on initial load if app is not ready
+  if (!app.value || Date.now() < suppressDirtyUntil) return
   isDirty.value = true
+  scheduleAutoSave()
 }, { deep: true })
 
 /** 标记草稿已修改，并刷新顶部「工具失效」警告条 */
 function markDirty() {
+  if (!app.value || Date.now() < suppressDirtyUntil) return
   isDirty.value = true
   checkGlobalErrors()
+  scheduleAutoSave()
 }
 
 /** 调用子组件检查已启用工具的失效项，更新 hasAnyEnabledError */
@@ -295,18 +497,21 @@ watch(() => [form.tools, form.special_tools, form.custom_tools], () => {
   setTimeout(checkGlobalErrors, 150)
 }, { deep: true })
 
-/** 将 form 写回 appStore；silent 为 true 时不弹成功提示（调试前自动保存用） */
-function handleSave(silent = false) {
+/** 将 form 写回 appStore；silent 为 true 时不弹成功提示 */
+function handleSave(silent = false, options = {}) {
   if (!isDirty.value) return Promise.resolve()
+
+  clearAutoSaveTimer()
 
   return new Promise((resolve) => {
     isSaving.value = true
 
-    // Simulate network request using async
     setTimeout(() => {
       appStore.updateApp(app.value.id, {
+        platform: form.platform,
+        credential_id: form.credential_id,
         system_prompt: form.system_prompt,
-        model: form.model || getDefaultModelForPlatform(app.value.platform),
+        model: form.model || getDefaultModelForPlatform(form.platform),
         tools: form.tools,
         custom_tools: form.custom_tools,
         special_tools: form.special_tools,
@@ -314,13 +519,20 @@ function handleSave(silent = false) {
       })
       isDirty.value = false
       isSaving.value = false
-      if (!silent) {
+      if (options.auto) {
+        flashAutoSavedHint()
+      } else if (!silent) {
         showSuccess('保存成功')
       }
       resolve()
-    }, 300) // Small delay to show the saving animation
+    }, 300)
   })
 }
+
+onUnmounted(() => {
+  clearAutoSaveTimer()
+  if (autoSavedHintTimer) clearTimeout(autoSavedHintTimer)
+})
 
 /** 保存平台工具参数配置到 form.tools[key].config */
 function handleToolConfigSave(config) {
@@ -335,17 +547,6 @@ function handleToolConfigSave(config) {
 function toggleMcp(id, enabled) {
   form.mcp_services = form.mcp_services.map(m => m.id === id ? { ...m, enabled } : m)
   markDirty()
-}
-
-/** 将 MCP URL 截断为「主机名 + 路径」用于卡片展示 */
-function truncateUrl(url) {
-  if (!url) return ''
-  try {
-    const u = new URL(url)
-    return u.hostname + (u.pathname !== '/' ? u.pathname : '')
-  } catch {
-    return url.length > 30 ? url.slice(0, 30) + '…' : url
-  }
 }
 
 /** 打开 MCP 服务编辑弹窗 */
@@ -379,7 +580,7 @@ function handleBack() {
   router.push('/workspace')
 }
 
-/** 进入调试运行页：先拦截失效工具，再处理未保存修改 */
+/** 进入调试运行页：先拦截失效工具，再处理未保存修改与 API Key */
 async function handleDebug() {
   if (toolsSectionRef.value) {
     const errors = toolsSectionRef.value.checkEnabledToolsErrors()
@@ -392,37 +593,35 @@ async function handleDebug() {
         cancelText: '取消',
         danger: true
       })
-      if (!isConfirmed) return // 用户取消，阻断进入调试
+      if (!isConfirmed) return
     }
   }
 
+  if (!hasKeyForApp(form.platform, form.credential_id)) {
+    pendingDebug.value = true
+    apiKeyModalPlatform.value = form.platform
+    apiKeyModalConfirmText.value = '保存并开始调试'
+    showApiKeyModal.value = true
+    return
+  }
+
+  await proceedDebug()
+}
+
+async function proceedDebug() {
   if (isDirty.value) {
-    // 方案 A: 发现有未保存修改，先静默执行保存
     await handleSave(true)
   }
-  // 跳转到运行/调试页面 (AppDevRun 是带开发者视图侧边栏的运行页，或者是 AppRun，取决于你的路由设计。按照文档，从开发页面去运行应该是 AppRunView。如果是专门的调试模式，可能带 query 参数)
   router.push({ name: 'AppDevRun', params: { id: app.value.id }, query: { mode: 'debug' } })
 }
 
-/** 路由离开守卫：有未保存修改时弹窗确认，取消则阻断导航 */
+/** 路由离开守卫：有未保存修改时先静默保存再离开 */
 onBeforeRouteLeave(async (to, from, next) => {
+  clearAutoSaveTimer()
   if (isDirty.value) {
-    const isConfirmed = await showConfirm({
-      title: '未保存的修改',
-      message: '有未保存的修改，确定要离开吗？未保存的修改将丢失。',
-      confirmText: '离开',
-      cancelText: '取消',
-      danger: true
-    })
-
-    if (isConfirmed) {
-      next()
-    } else {
-      next(false)
-    }
-  } else {
-    next()
+    await handleSave(true)
   }
+  next()
 })
 </script>
 
@@ -493,21 +692,113 @@ onBeforeRouteLeave(async (to, from, next) => {
   color: var(--color-text-muted);
 }
 
+.bar-app-row {
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.bar-app-wrap {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  max-width: 240px;
+}
+
 .bar-app {
   font-size: 15px;
   font-weight: 600;
   color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-app-edit {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0.5;
+  transform: translateY(2px);
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.bar-app-edit svg {
+  display: block;
+}
+
+.bar-app-edit:hover {
+  opacity: 1;
+  color: var(--color-text-secondary);
 }
 
 .bar-platform {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
   font-size: 11px;
   font-weight: 500;
-  color: var(--color-text-muted);
-  padding: 2px 8px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
+  color: var(--color-primary-hover);
+  padding: 3px 8px 3px 10px;
+  background: var(--color-primary-soft);
+  border: 1px solid var(--color-primary);
   border-radius: 10px;
-  margin-left: 4px;
+  margin-left: 6px;
+  flex-shrink: 0;
+  transform: translateY(1px);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.bar-platform-label {
+  font-weight: 600;
+  color: var(--color-primary-hover);
+}
+
+.bar-platform-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-primary);
+  padding-left: 6px;
+  border-left: 1px solid var(--color-primary);
+  opacity: 0.85;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.bar-platform:hover {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-hover);
+  box-shadow: 0 2px 8px var(--color-primary-glow);
+}
+
+.bar-platform:hover .bar-platform-hint {
+  color: var(--color-primary-hover);
+  opacity: 1;
+}
+
+.bar-platform.active {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-hover);
+  box-shadow: 0 0 0 2px var(--color-primary-muted);
+}
+
+.bar-platform.active .bar-platform-hint {
+  color: var(--color-primary-hover);
+  opacity: 1;
 }
 
 .unsaved-dot {
@@ -517,6 +808,22 @@ onBeforeRouteLeave(async (to, from, next) => {
   background: var(--color-warning, #f59e0b);
   margin-left: 4px;
   flex-shrink: 0;
+}
+
+.save-status {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.save-status.pending {
+  color: #b45309;
+}
+
+.save-status.saved {
+  color: #059669;
 }
 
 .bar-right {
@@ -796,35 +1103,113 @@ onBeforeRouteLeave(async (to, from, next) => {
 .mcp-empty {
   font-size: 13px;
   color: var(--color-text-muted);
-  padding: 24px 20px;
+  padding: 20px 16px;
   border: 1px dashed var(--color-border);
-  border-radius: 12px;
+  border-radius: 8px;
   text-align: center;
-  background: var(--color-surface);
+  background: var(--color-bg-secondary);
 }
 
-.card-grid {
+.mcp-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
 }
 
-.tool-card {
+.mcp-card {
   position: relative;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: 8px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  transition: all 0.2s;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.15s;
+}
+
+.mcp-card:hover {
+  border-color: var(--color-text-muted);
+}
+
+.mcp-card.is-off {
+  opacity: 0.88;
+}
+
+.mcp-card-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.mcp-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mcp-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mcp-card.is-off .mcp-card-title {
+  color: var(--color-text-muted);
+}
+
+.mcp-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.mcp-url {
+  font-family: var(--font-mono, monospace);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.mcp-card-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.mcp-remove-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.mcp-remove-btn:hover {
+  color: #dc2626;
+  background: #fef2f2;
 }
 
 .tool-type-badge {
-  margin-top: auto;
-  padding-top: 4px;
+  margin-top: 8px;
   font-size: 10px;
   font-weight: 500;
   line-height: 1;
@@ -836,64 +1221,9 @@ onBeforeRouteLeave(async (to, from, next) => {
   color: #059669;
 }
 
-.tool-card:hover {
-  border-color: var(--color-text-muted);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-  transform: translateY(-2px);
-}
-
-.tool-card.disabled {
-  background: var(--color-bg);
-  border-style: dashed;
-  box-shadow: none;
-}
-
-.tool-card.disabled:hover {
-  transform: none;
-}
-
-.tool-card.disabled .card-title {
-  color: var(--color-text-muted);
-}
-
-.card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.card-icon-wrap {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-}
-
-.tool-card.disabled .card-icon-wrap {
-  opacity: 0.5;
-}
-
-.card-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.card-meta {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  font-family: var(--font-mono, monospace);
-  margin-top: 6px;
-}
-
 .card-toggle {
-  width: 36px;
-  height: 20px;
+  width: 34px;
+  height: 18px;
   background: var(--color-text);
   border: none;
   border-radius: 10px;
@@ -912,46 +1242,18 @@ onBeforeRouteLeave(async (to, from, next) => {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   background: white;
   border-radius: 50%;
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   transform: translateX(16px);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
   pointer-events: none;
 }
 
 .card-toggle.off .card-toggle-knob {
   transform: translateX(0);
-}
-
-.card-actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: auto;
-  padding-top: 16px;
-  border-top: 1px solid var(--color-border);
-}
-
-.action-link {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  background: none;
-  border: none;
-  font-weight: 500;
-  cursor: pointer;
-  transition: color 0.15s;
-  padding: 0;
-}
-
-.action-link:hover {
-  color: var(--color-text);
-}
-
-.action-remove:hover {
-  color: var(--color-error, #ef4444);
 }
 
 /* ── Confirm dialog ── */

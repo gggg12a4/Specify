@@ -62,7 +62,7 @@
 
     <!-- 强制添加 API Key 弹窗 (JIT Interception) -->
     <RunConfigModal v-if="pendingApp" v-model:visible="showApiConfigModal" :app-id="pendingApp.id"
-      :platform="pendingApp.platform" @confirm="onApiKeyAdded" />
+      :platform="pendingApp.platform" :credential-id="pendingApp.credential_id" @confirm="onApiKeyAdded" />
 
     <!-- 删除 App 确认弹窗 -->
     <DeleteAppModal v-if="deleteTarget" :app="deleteTarget" @confirm="confirmDeleteApp" @cancel="deleteTarget = null" />
@@ -95,7 +95,7 @@ import RunConfigModal from '@/components/common/RunConfigModal.vue'
 const router = useRouter()
 const authStore = useAuthStore()
 const appStore = useAppStore()
-const { hasKeyForPlatform } = useApiConfig()
+const { hasKeyForApp } = useApiConfig()
 
 const PAGE_SIZE = 11       // 我创建的 App 每页条数 (留一个位置给创建卡片)
 
@@ -218,18 +218,21 @@ function handleRunApp(appId) {
   if (!app) return
 
   // 检查是否配置了该平台模型
-  if (!hasKeyForPlatform(app.platform)) {
+  if (!hasKeyForApp(app.platform, app.credential_id)) {
     pendingRunAppId.value = appId
-    showApiConfigModal.value = true // 这里弹出RunConfigModal
+    showApiConfigModal.value = true
   } else {
     executeRunApp(appId)
   }
 }
 
 /** RunConfigModal 配置完成后继续执行待运行的 App */
-function onApiKeyAdded(payload) {
+function onApiKeyAdded(payload = {}) {
   if (pendingRunAppId.value) {
     const appId = pendingRunAppId.value
+    if (payload.credentialId !== undefined) {
+      appStore.updateApp(appId, { credential_id: payload.credentialId })
+    }
     pendingRunAppId.value = null
     executeRunApp(appId)
   }

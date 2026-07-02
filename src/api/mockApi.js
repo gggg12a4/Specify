@@ -184,18 +184,18 @@ export async function downloadFile(appId, path) {
 
 export async function testMcp(appId, config) {
   if (!config?.url?.trim()) return fail('URL 不能为空')
-  return ok({
-    tools: [
-      { name: 'search', description: '搜索工具' },
-      { name: 'fetch', description: '获取网页内容' },
-    ],
-  })
+  return ok({})
 }
 
 export async function createMcp(appId, data) {
   const key = MCP_PREFIX + appId
   const list = readJson(key, [])
-  const mcp = { id: genId('mcp'), ...data, name: data.url?.split('/').pop() || 'MCP 服务' }
+  const mcp = {
+    id: genId('mcp'),
+    template: data.template || 'MCPServerStreamable',
+    ...data,
+    name: data.name || data.url?.split('/').pop() || 'MCP 服务',
+  }
   list.push(mcp)
   writeJson(key, list)
   return ok(mcp)

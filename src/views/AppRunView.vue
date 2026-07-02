@@ -245,6 +245,7 @@
   <RunConfigModal
     v-model:visible="showRunConfig"
     :platform="app?.platform || 'claude'"
+    :credential-id="app?.credential_id || null"
     :app-id="app?.id || ''"
     :can-close="runConfigured"
     @confirm="onRunConfigConfirm"
@@ -277,7 +278,7 @@ import * as sessionApi from '@/api/session'
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
-const { hasKeyForPlatform } = useApiConfig()
+const { hasKeyForApp } = useApiConfig()
 
 /** 从路由 id 获取当前运行的 App */
 const app = computed(() => appStore.getApp(route.params.id))
@@ -418,7 +419,7 @@ onMounted(async () => {
   if (!app.value) return
 
   // double check logic for JIT API Validation
-  if (!hasKeyForPlatform(app.value.platform)) {
+  if (!hasKeyForApp(app.value.platform, app.value.credential_id)) {
     runConfigured.value = false
     showRunConfig.value = true
   } else {
@@ -427,8 +428,12 @@ onMounted(async () => {
 })
 
 /** 运行配置确认后标记已配置；若输入框有待发内容则自动发送 */
-function onRunConfigConfirm(cfg) {
+function onRunConfigConfirm(payload = {}) {
   runConfigured.value = true
+
+  if (payload.credentialId !== undefined && app.value) {
+    appStore.updateApp(app.value.id, { credential_id: payload.credentialId })
+  }
 
   if (inputText.value.trim() || uploadedFiles.value.length) {
     send()

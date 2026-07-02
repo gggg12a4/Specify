@@ -46,7 +46,7 @@ function handleCancel() { emit('cancel'); emit('update:visible', false) }
   background: rgba(0,0,0,0.35);
   backdrop-filter: blur(4px);
   display: flex; align-items: center; justify-content: center;
-  z-index: 9999; padding: 20px;
+  z-index: 10001; padding: 20px;
 }
 
 .dialog {
