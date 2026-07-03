@@ -60,10 +60,7 @@
       </section>
     </main>
 
-    <!-- 强制添加 API Key 弹窗 (JIT Interception) -->
-    <RunConfigModal v-if="pendingApp" v-model:visible="showApiConfigModal" :app-id="pendingApp.id"
-      :platform="pendingApp.platform" :credential-id="pendingApp.credential_id" @confirm="onApiKeyAdded" />
-
+    <!-- JIT：无 API Key 时打开全局 API 密钥配置（含 App 选用） -->
     <!-- 删除 App 确认弹窗 -->
     <DeleteAppModal v-if="deleteTarget" :app="deleteTarget" @confirm="confirmDeleteApp" @cancel="deleteTarget = null" />
 
@@ -80,7 +77,7 @@
  * 展示「我的创作」App 列表与官方模板；未登录时引导登录。
  * 运行 App 前通过 JIT 拦截检查 API Key，缺失时弹出 RunConfigModal。
  */
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
@@ -90,12 +87,13 @@ import { PLATFORM_LABELS } from '@/constants/spTools'
 import AgentCard from '@/components/agent/AgentCard.vue'
 import DeleteAppModal from '@/components/app/DeleteAppModal.vue'
 import AuthModal from '@/components/common/AuthModal.vue'
-import RunConfigModal from '@/components/common/RunConfigModal.vue'
+import { API_CONFIG_MODAL_KEY } from '@/composables/useApiConfigModal'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const appStore = useAppStore()
 const { hasKeyForApp } = useApiConfig()
+const apiConfigModal = inject(API_CONFIG_MODAL_KEY, null)
 
 const PAGE_SIZE = 11       // 我创建的 App 每页条数 (留一个位置给创建卡片)
 
@@ -142,13 +140,10 @@ const officialTemplates = [
 // ── 弹窗 / 面板状态 ──
 const deleteTarget = ref(null)
 const showAuthModal = ref(false)
-const showApiConfigModal = ref(false)
 const currentPage = ref(1)
 
 // JIT 拦截：记录待运行 App id，供 RunConfigModal 使用
 const pendingRunAppId = ref(null)
-/** 根据 pendingRunAppId 解析完整 App 对象 */
-const pendingApp = computed(() => pendingRunAppId.value ? appStore.getApp(pendingRunAppId.value) : null)
 
 /** 当前页 App 列表切片（每页 PAGE_SIZE 条，留一格给创建卡片） */
 const pagedApps = computed(() => {
@@ -212,30 +207,38 @@ function handleCreateApp() {
   router.push({ name: 'AppCreate' })
 }
 
-/** JIT 拦截运行：无 API Key 时弹 RunConfigModal，否则直接跳转 */
+/** JIT 拦截运行：无 API Key 时打开 API 密钥配置，否则直接跳转 */
 function handleRunApp(appId) {
   const app = appStore.getApp(appId)
   if (!app) return
 
-  // 检查是否配置了该平台模型
   if (!hasKeyForApp(app.platform, app.credential_id)) {
     pendingRunAppId.value = appId
-    showApiConfigModal.value = true
-  } else {
-    executeRunApp(appId)
+    openAppApiConfig(app)
+    return
   }
+  executeRunApp(appId)
 }
 
-/** RunConfigModal 配置完成后继续执行待运行的 App */
-function onApiKeyAdded(payload = {}) {
-  if (pendingRunAppId.value) {
-    const appId = pendingRunAppId.value
-    if (payload.credentialId !== undefined) {
-      appStore.updateApp(appId, { credential_id: payload.credentialId })
-    }
-    pendingRunAppId.value = null
-    executeRunApp(appId)
-  }
+/** 打开全局 API 密钥配置并带上 App 选用上下文 */
+function openAppApiConfig(app) {
+  if (!apiConfigModal) return
+  apiConfigModal.open({
+    appContext: {
+      appId: app.id,
+      appName: app.name,
+      platform: app.platform,
+      credentialId: app.credential_id,
+      onSelect: (credentialId) => {
+        appStore.updateApp(app.id, { credential_id: credentialId })
+        if (pendingRunAppId.value === app.id) {
+          const id = pendingRunAppId.value
+          pendingRunAppId.value = null
+          executeRunApp(id)
+        }
+      },
+    },
+  })
 }
 
 /** 跳转到 App 调试运行页（debug 模式） */

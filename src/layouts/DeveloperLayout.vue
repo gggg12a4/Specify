@@ -59,7 +59,12 @@
     </main>
 
     <!-- Modals that are global to Developer Workspace -->
-    <ApiConfigModal v-model:visible="showMyModels" />
+    <ApiConfigModal
+      :visible="apiConfigModal.state.visible"
+      :app-context="apiConfigModal.state.appContext"
+      @update:visible="onApiConfigVisibleChange"
+      @app-credential-selected="apiConfigModal.handleAppCredentialSelected"
+    />
 
     <!-- Logout Confirm -->
     <Teleport to="body">
@@ -82,15 +87,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, provide } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import ApiConfigModal from '@/components/common/ApiConfigModal.vue'
+import { createApiConfigModalApi, API_CONFIG_MODAL_KEY } from '@/composables/useApiConfigModal'
 import { showInfo } from '@/composables/useNotification'
 
 const route = useRoute()
 const authStore = useAuthStore()
-const showMyModels = ref(false)
+const apiConfigModal = createApiConfigModalApi()
+provide(API_CONFIG_MODAL_KEY, apiConfigModal)
 const showLogoutConfirm = ref(false)
 const showDropdown = ref(false)
 
@@ -144,8 +151,16 @@ function closeDropdown() {
 }
 
 function openApiConfig() {
-  showMyModels.value = true
+  apiConfigModal.open()
   closeDropdown()
+}
+
+function onApiConfigVisibleChange(visible) {
+  if (visible) {
+    apiConfigModal.state.visible = true
+  } else {
+    apiConfigModal.close()
+  }
 }
 
 function openAccountSettings() {

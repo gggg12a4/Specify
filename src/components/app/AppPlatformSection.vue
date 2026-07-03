@@ -22,16 +22,6 @@
         <span class="detail-label">可用模型</span>
         <span class="detail-value">{{ currentInfo.models }}</span>
       </div>
-
-      <div class="api-key-row" :class="{ ok: apiKeyConfigured, warn: !apiKeyConfigured }">
-        <span class="api-key-icon">{{ apiKeyConfigured ? '✓' : '!' }}</span>
-        <span class="api-key-text">
-          {{ apiKeyConfigured ? `已配置 ${platformLabel} API Key` : `尚未配置 ${platformLabel} API Key` }}
-        </span>
-        <button type="button" class="api-key-btn" @click="$emit('configure-api-key')">
-          {{ apiKeyConfigured ? '管理凭证' : '去配置' }}
-        </button>
-      </div>
     </div>
   </div>
 </template>
@@ -39,17 +29,14 @@
 <script setup>
 import { computed } from 'vue'
 import { PLATFORMS, getPlatformInfo } from '@/constants/platforms'
-import { PLATFORM_LABELS } from '@/constants/spTools'
 
 const props = defineProps({
   modelValue: { type: String, default: 'claude' },
-  apiKeyConfigured: { type: Boolean, default: false },
 })
 
-defineEmits(['update:modelValue', 'configure-api-key'])
+defineEmits(['update:modelValue'])
 
 const currentInfo = computed(() => getPlatformInfo(props.modelValue))
-const platformLabel = computed(() => PLATFORM_LABELS[props.modelValue] || props.modelValue)
 </script>
 
 <style scoped>
@@ -114,55 +101,5 @@ const platformLabel = computed(() => PLATFORM_LABELS[props.modelValue] || props.
 
 .detail-value {
   color: var(--color-text-secondary);
-}
-
-.api-key-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  font-size: 12px;
-}
-
-.api-key-row.ok {
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  color: #047857;
-}
-
-.api-key-row.warn {
-  background: rgba(245, 158, 11, 0.08);
-  border: 1px solid rgba(245, 158, 11, 0.25);
-  color: #b45309;
-}
-
-.api-key-icon {
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.api-key-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.api-key-btn {
-  flex-shrink: 0;
-  padding: 4px 10px;
-  font-size: 11px;
-  font-weight: 500;
-  color: inherit;
-  background: rgba(255, 255, 255, 0.65);
-  border: 1px solid currentColor;
-  border-radius: 6px;
-  cursor: pointer;
-  opacity: 0.9;
-  transition: opacity 0.15s;
-}
-
-.api-key-btn:hover {
-  opacity: 1;
 }
 </style>

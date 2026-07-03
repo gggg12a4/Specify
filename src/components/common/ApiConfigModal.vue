@@ -2,7 +2,7 @@
   <Teleport to="body">
     <Transition name="modal">
       <div v-if="visible" class="modal-overlay" @click="handleCancel">
-        <div class="modal-container" @click.stop>
+        <div class="modal-container" :class="{ 'is-app-pick': appContext && !isEditing }" @click.stop>
           <!-- 标题栏 -->
           <div class="modal-header">
             <div class="modal-title-wrapper">
@@ -10,10 +10,14 @@
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
               </svg>
-              <h2 class="modal-title">{{ isEditing ? (editId ? '编辑 API 密钥' : '添加 API 密钥') : 'API 密钥配置' }}</h2>
+              <h2 class="modal-title">{{ isEditing ? (editId ? '编辑 API 密钥' : '添加 API 密钥') : (appContext ? '选择 API 凭证' : 'API 密钥配置') }}</h2>
             </div>
             <p class="modal-subtitle">
-              {{ isEditing ? '配置指定平台的大模型 API 凭证' : '按平台管理 API 凭证池。每个平台可配置多条密钥，并指定一条默认凭证。' }}
+              {{ isEditing
+                ? '配置指定平台的大模型 API 凭证'
+                : appContext
+                  ? `为「${appContext.appName || '当前 App'}」选择 ${appPlatformLabel} 平台凭证；未指定时将跟随平台默认。`
+                  : '管理全局 API 凭证池。每个平台可配置多条密钥并指定默认。' }}
             </p>
           </div>
 
@@ -21,6 +25,46 @@
           <div class="modal-content">
             <!-- 列表模式 -->
             <div v-if="!isEditing" class="key-list-view">
+              <!-- App 选用模式：仅展示选用区，不显示全局密钥池 -->
+              <template v-if="appContext">
+                <div class="app-bind-section app-bind-only">
+                  <p class="app-bind-intro app-bind-status">
+                    当前：{{ appCredentialSummary.label }}
+                  </p>
+
+                  <div v-if="appPlatformKeys.length" class="app-key-picker">
+                    <label
+                      v-if="appDefaultKey"
+                      class="app-key-option"
+                      :class="{ active: appSelectedKeyId === DEFAULT_OPTION }"
+                    >
+                      <input v-model="appSelectedKeyId" type="radio" :value="DEFAULT_OPTION" />
+                      <div class="app-key-option-body">
+                        <span class="app-key-alias">使用平台默认</span>
+                        <span class="app-key-badge">{{ appDefaultKey.alias }}</span>
+                      </div>
+                    </label>
+                    <label
+                      v-for="key in appAlternateKeys"
+                      :key="key.id"
+                      class="app-key-option"
+                      :class="{ active: appSelectedKeyId === key.id }"
+                    >
+                      <input v-model="appSelectedKeyId" type="radio" :value="key.id" />
+                      <div class="app-key-option-body">
+                        <span class="app-key-alias">{{ key.alias }}</span>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div v-else class="app-bind-empty">
+                    该平台尚无可用凭证，请先在顶部「API 密钥配置」中添加后再选用。
+                  </div>
+                </div>
+              </template>
+
+              <!-- 全局密钥池管理 -->
+              <template v-else>
               <div v-if="keys.length === 0" class="empty-state">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-icon">
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
@@ -96,6 +140,7 @@
                   <span>添加新密钥</span>
                 </button>
               </div>
+              </template>
             </div>
 
             <!-- 编辑/添加模式 -->
@@ -153,7 +198,17 @@
 
           <!-- 底部操作按钮 -->
           <div class="modal-footer">
-            <template v-if="!isEditing">
+            <template v-if="!isEditing && appContext">
+              <button class="btn btn-ghost" @click="handleCancel">取消</button>
+              <button
+                class="btn btn-primary"
+                :disabled="!appSelectedKeyId"
+                @click="confirmAppCredential"
+              >
+                确认选用
+              </button>
+            </template>
+            <template v-else-if="!isEditing">
               <button class="btn btn-ghost" @click="handleCancel">关闭</button>
             </template>
             <template v-else>
@@ -173,13 +228,17 @@
 
 <script setup>
 /**
- * API 密钥池管理弹窗。
- * 列表查看/增删改 BYOK 密钥；addMode 为 true 时添加完自动关闭并触发 saved。
+ * API 密钥配置弹窗。
+ * - 无 appContext：全局密钥池管理
+ * - 有 appContext：仅为当前 App 选用凭证（不展示密钥池）
  */
 import { ref, reactive, watch, computed } from 'vue'
 import { useApiConfig } from '@/composables/useApiConfig'
 import { PLATFORMS } from '@/constants/platforms'
+import { PLATFORM_NAMES } from '@/constants/platformModels'
 import { showSuccess, showConfirm } from '@/composables/useNotification'
+
+const DEFAULT_OPTION = '__default__'
 
 const props = defineProps({
   visible: {
@@ -189,16 +248,52 @@ const props = defineProps({
   addMode: {
     type: Boolean,
     default: false
-  }
+  },
+  /** 传入时展示 App 选用区：{ appId, appName, platform, credentialId } */
+  appContext: {
+    type: Object,
+    default: null,
+  },
 })
 
-const emit = defineEmits(['update:visible', 'saved'])
+const emit = defineEmits(['update:visible', 'saved', 'app-credential-selected'])
 
-const { getKeys, addKey, updateKey, deleteKey, setDefaultKey } = useApiConfig()
+const {
+  getKeys,
+  addKey,
+  updateKey,
+  deleteKey,
+  setDefaultKey,
+  getKeysForPlatform,
+  getDefaultKeyForPlatform,
+  getKeyById,
+  getAppCredentialSummary,
+} = useApiConfig()
 
 const keys = ref([])
 const isEditing = ref(false)
 const editId = ref(null)
+const appSelectedKeyId = ref('')
+
+const appPlatformLabel = computed(() =>
+  PLATFORM_NAMES[props.appContext?.platform] || props.appContext?.platform || '',
+)
+const appPlatformKeys = computed(() =>
+  props.appContext ? getKeysForPlatform(props.appContext.platform) : [],
+)
+const appDefaultKey = computed(() =>
+  props.appContext ? getDefaultKeyForPlatform(props.appContext.platform) : null,
+)
+/** 除平台默认外的其他可选密钥（避免与「使用平台默认」重复展示） */
+const appAlternateKeys = computed(() => {
+  const defaultId = appDefaultKey.value?.id
+  return appPlatformKeys.value.filter(k => k.id !== defaultId)
+})
+const appCredentialSummary = computed(() =>
+  props.appContext
+    ? getAppCredentialSummary(props.appContext.platform, props.appContext.credentialId)
+    : { label: '' },
+)
 
 const groupedKeys = computed(() => {
   return PLATFORMS
@@ -225,6 +320,7 @@ const errors = reactive({})
 watch(() => props.visible, (visible) => {
   if (visible) {
     refreshKeys()
+    syncAppSelection()
     if (props.addMode) {
       openAdd()
     } else {
@@ -233,9 +329,51 @@ watch(() => props.visible, (visible) => {
   }
 })
 
+watch(() => props.appContext, () => {
+  if (props.visible) syncAppSelection()
+}, { deep: true })
+
+/** 根据 App.credential_id 回填选用区选中项 */
+function syncAppSelection() {
+  if (!props.appContext) {
+    appSelectedKeyId.value = ''
+    return
+  }
+  const { platform, credentialId } = props.appContext
+  if (credentialId) {
+    const bound = getKeyById(credentialId)
+    if (bound?.platform === platform && bound.apiKey) {
+      if (credentialId === getDefaultKeyForPlatform(platform)?.id) {
+        appSelectedKeyId.value = DEFAULT_OPTION
+      } else {
+        appSelectedKeyId.value = credentialId
+      }
+      return
+    }
+  }
+  if (getDefaultKeyForPlatform(platform)) {
+    appSelectedKeyId.value = DEFAULT_OPTION
+    return
+  }
+  const defaultId = getDefaultKeyForPlatform(platform)?.id
+  appSelectedKeyId.value = appPlatformKeys.value.find(k => k.id !== defaultId)?.id || ''
+}
+
+function resolveAppCredentialId(keyId) {
+  if (!keyId || keyId === DEFAULT_OPTION) return null
+  if (keyId === appDefaultKey.value?.id) return null
+  return keyId
+}
+
+/** 确认 App 级选用，不改变全局默认 */
+function confirmAppCredential() {
+  emit('app-credential-selected', resolveAppCredentialId(appSelectedKeyId.value))
+}
+
 /** 从 useApiConfig 重新加载密钥列表 */
 function refreshKeys() {
   keys.value = getKeys() || []
+  if (props.appContext) syncAppSelection()
 }
 
 /** 进入添加新密钥表单 */
@@ -406,6 +544,10 @@ function maskKey(key) {
   overflow: hidden;
 }
 
+.modal-container.is-app-pick {
+  max-width: 440px;
+}
+
 /* 标题栏 */
 .modal-header {
   padding: 24px 28px 20px;
@@ -451,6 +593,145 @@ function maskKey(key) {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.app-bind-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.app-bind-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.app-bind-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.app-bind-name {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-bind-intro {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.app-key-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-key-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.app-key-option.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.app-key-option input {
+  margin: 0;
+}
+
+.app-key-option-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.app-key-alias {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.app-key-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.app-key-badge.muted {
+  color: var(--color-text-muted);
+  background: var(--color-bg-secondary);
+}
+
+.app-bind-empty {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--color-bg-secondary);
+  border: 1px dashed var(--color-border);
+}
+
+.app-bind-only {
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+.app-bind-status {
+  margin-bottom: 4px;
+}
+
+.app-bind-confirm {
+  align-self: flex-end;
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.section-divider::before,
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
 }
 
 .empty-state {

@@ -14,12 +14,10 @@
           </div>
 
           <div class="dialog-body">
-            <p class="intro">切换平台会影响底层模型、平台专属工具与 API 凭证，请确认后再切换。</p>
+            <p class="intro">切换平台会影响底层模型与平台专属工具，请确认后再切换。API 凭证请在顶部「API 密钥配置」中选用。</p>
             <AppPlatformSection
               :model-value="selectedPlatform"
-              :api-key-configured="apiKeyConfigured"
               @update:model-value="onPlatformSelect"
-              @configure-api-key="$emit('configure-api-key', selectedPlatform)"
             />
           </div>
         </div>
@@ -29,20 +27,17 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, watch } from 'vue'
 import AppPlatformSection from '@/components/app/AppPlatformSection.vue'
-import { useApiConfig } from '@/composables/useApiConfig'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
   modelValue: { type: String, default: 'claude' },
 })
 
-const emit = defineEmits(['update:visible', 'select', 'configure-api-key'])
+const emit = defineEmits(['update:visible', 'select'])
 
 const selectedPlatform = ref(props.modelValue)
-const { hasKeyForPlatform } = useApiConfig()
-const apiKeyConfigured = computed(() => hasKeyForPlatform(selectedPlatform.value))
 
 watch(
   () => props.visible,

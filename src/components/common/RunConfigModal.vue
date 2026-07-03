@@ -4,22 +4,30 @@
       <div v-if="visible" class="overlay" @click.self="canClose && $emit('update:visible', false)">
         <div class="dialog">
           <div class="dialog-header">
-            <span class="dialog-title">API 凭证 ({{ platformName }})</span>
+            <span class="dialog-title">{{ dialogTitle }}</span>
             <button v-if="canClose" class="close-btn" @click="$emit('update:visible', false)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
 
           <div class="dialog-body">
-            <p class="intro">
-              {{ showAddForm
-                ? `为 ${platformName} 平台添加 API 凭证`
-                : `选择 ${platformName} 平台凭证，或添加新的密钥` }}
-            </p>
+            <p class="intro">{{ introText }}</p>
 
             <div v-if="!showAddForm" class="key-picker">
               <label
-                v-for="key in platformKeys"
+                v-if="defaultKey"
+                class="key-option"
+                :class="{ active: selectedKeyId === DEFAULT_OPTION }"
+              >
+                <input v-model="selectedKeyId" type="radio" :value="DEFAULT_OPTION" />
+                <div class="key-option-body">
+                  <span class="key-alias">使用平台默认</span>
+                  <span class="key-badge">{{ defaultKey.alias }}</span>
+                </div>
+              </label>
+
+              <label
+                v-for="key in alternatePlatformKeys"
                 :key="key.id"
                 class="key-option"
                 :class="{ active: selectedKeyId === key.id }"
@@ -27,10 +35,11 @@
                 <input v-model="selectedKeyId" type="radio" :value="key.id" />
                 <div class="key-option-body">
                   <span class="key-alias">{{ key.alias }}</span>
-                  <span v-if="key.isDefault" class="key-badge">平台默认</span>
                 </div>
               </label>
-              <button type="button" class="link-btn" @click="showAddForm = true">+ 添加新凭证</button>
+
+              <button type="button" class="link-btn" @click="showAddForm = true">+ 添加新凭证到密钥池</button>
+              <p v-if="mode === 'select'" class="hint">仅选择本 App 使用的凭证，不会修改全局默认设置。</p>
             </div>
 
             <div v-else class="credential-section">
@@ -74,10 +83,7 @@
                 />
               </div>
 
-              <label class="default-check">
-                <input v-model="newCredential.setAsDefault" type="checkbox" />
-                设为 {{ platformName }} 平台默认凭证
-              </label>
+              <p class="hint">新凭证将加入全局密钥池。修改平台默认请前往顶部「API 密钥配置」。</p>
             </div>
           </div>
 
@@ -94,12 +100,15 @@
 
 <script setup>
 /**
- * 运行前 API Key 配置弹窗（JIT 拦截）。
- * 支持选用已有平台凭证、添加新凭证，以及设置平台默认凭证。
+ * App 级 API 凭证选用弹窗。
+ * 仅将选择结果写入 App.credential_id，不修改全局密钥池的默认项。
+ * mode=setup 时用于首次无密钥的 JIT 引导（添加后自动绑定到 App）。
  */
 import { ref, computed, watch } from 'vue'
 import { useApiConfig } from '@/composables/useApiConfig'
 import { PLATFORM_NAMES } from '@/constants/platformModels'
+
+const DEFAULT_OPTION = '__default__'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -108,27 +117,50 @@ const props = defineProps({
   appId: { type: String, required: true },
   canClose: { type: Boolean, default: true },
   confirmText: { type: String, default: '' },
+  /** select：选用已有凭证；setup：无密钥时的首次配置引导 */
+  mode: { type: String, default: 'select' },
 })
 const emit = defineEmits(['update:visible', 'confirm'])
 
 const {
   getKeysForPlatform,
   getDefaultKeyForPlatform,
-  resolveKeyForApp,
+  getKeyById,
   addKey,
 } = useApiConfig()
 
 const showAddForm = ref(false)
 const selectedKeyId = ref('')
-const newCredential = ref({ alias: '', baseUrl: '', apiKey: '', setAsDefault: true })
+const newCredential = ref({ alias: '', baseUrl: '', apiKey: '' })
 
 const platformName = computed(() => PLATFORM_NAMES[props.platform] || props.platform)
 const platformKeys = computed(() => getKeysForPlatform(props.platform))
 const defaultKey = computed(() => getDefaultKeyForPlatform(props.platform))
+/** 除平台默认外的其他可选密钥 */
+const alternatePlatformKeys = computed(() => {
+  const defaultId = defaultKey.value?.id
+  return platformKeys.value.filter(k => k.id !== defaultId)
+})
+
+const dialogTitle = computed(() => {
+  if (props.mode === 'setup') return `配置 API 凭证 (${platformName.value})`
+  return `选择 API 凭证 (${platformName.value})`
+})
+
+const introText = computed(() => {
+  if (showAddForm.value) {
+    return `为 ${platformName.value} 平台添加新凭证（加入全局密钥池）`
+  }
+  if (props.mode === 'setup') {
+    return `运行前需要配置 ${platformName.value} 平台凭证，请选择或添加`
+  }
+  return `选择本 App 在 ${platformName.value} 平台使用的凭证；未指定时将跟随平台默认`
+})
 
 const confirmLabel = computed(() => {
   if (props.confirmText) return props.confirmText
-  return showAddForm.value ? '保存并继续' : '确认并继续'
+  if (showAddForm.value) return props.mode === 'setup' ? '保存并继续' : '添加并选用'
+  return props.mode === 'setup' ? '确认并继续' : '确认选择'
 })
 
 const canConfirm = computed(() => {
@@ -138,33 +170,47 @@ const canConfirm = computed(() => {
   return !!selectedKeyId.value
 })
 
+/** 弹窗打开时根据 App.credential_id 回填选中项 */
 watch(() => props.visible, (visible) => {
   if (!visible) return
   showAddForm.value = platformKeys.value.length === 0
-  const resolved = resolveKeyForApp(props.platform, props.credentialId)
-  selectedKeyId.value = resolved?.id || defaultKey.value?.id || ''
-  newCredential.value = {
-    alias: '',
-    baseUrl: '',
-    apiKey: '',
-    setAsDefault: platformKeys.value.length === 0,
-  }
+  selectedKeyId.value = resolveInitialSelection()
+  newCredential.value = { alias: '', baseUrl: '', apiKey: '' }
 })
 
+/** 根据 App 已绑定的 credential_id 确定初始选中项 */
+function resolveInitialSelection() {
+  if (props.credentialId) {
+    const bound = getKeyById(props.credentialId)
+    if (bound?.platform === props.platform && bound.apiKey) {
+      if (props.credentialId === defaultKey.value?.id) {
+        return DEFAULT_OPTION
+      }
+      return props.credentialId
+    }
+  }
+  if (defaultKey.value) return DEFAULT_OPTION
+  const defaultId = defaultKey.value?.id
+  return platformKeys.value.find(k => k.id !== defaultId)?.id || ''
+}
+
+/** 将 UI 选中项转为 App.credential_id：选平台默认时存 null */
 function resolveCredentialId(keyId) {
-  if (!keyId) return null
+  if (!keyId || keyId === DEFAULT_OPTION) return null
   if (keyId === defaultKey.value?.id) return null
   return keyId
 }
 
 function confirm() {
   if (showAddForm.value) {
+    const isFirstForPlatform = platformKeys.value.length === 0
     const created = addKey({
       alias: newCredential.value.alias.trim() || `我的 ${platformName.value} 密钥`,
       platform: props.platform,
       baseUrl: newCredential.value.baseUrl.trim(),
       apiKey: newCredential.value.apiKey.trim(),
-      isDefault: newCredential.value.setAsDefault,
+      // 仅当该平台尚无密钥时自动成为平台默认；否则只加入密钥池
+      isDefault: isFirstForPlatform,
     })
     emit('confirm', {
       platform: props.platform,
@@ -213,7 +259,14 @@ function confirm() {
 
 .dialog-body { padding: 14px 20px 20px; display: flex; flex-direction: column; gap: 14px; }
 
-.intro { font-size: 13px; color: var(--color-text-muted); margin: 0; }
+.intro { font-size: 13px; color: var(--color-text-muted); margin: 0; line-height: 1.5; }
+
+.hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
 
 .key-picker {
   display: flex;
@@ -263,6 +316,11 @@ function confirm() {
   border-radius: 999px;
 }
 
+.key-badge.muted {
+  color: var(--color-text-muted);
+  background: var(--color-bg-secondary);
+}
+
 .credential-section {
   display: flex; flex-direction: column; gap: 12px;
   background: var(--color-bg-secondary);
@@ -283,14 +341,6 @@ function confirm() {
   font-family: inherit; transition: border-color 0.15s; box-sizing: border-box;
 }
 .key-input:focus { border-color: var(--color-primary); }
-
-.default-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
 
 .link-btn { background: none; border: none; font-size: 12px; color: var(--color-primary); cursor: pointer; padding: 0; }
 .link-btn:hover { text-decoration: underline; }

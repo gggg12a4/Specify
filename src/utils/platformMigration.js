@@ -92,6 +92,7 @@ export function buildPlatformSwitchMessage(analysis) {
   if (analysis.customToolRefsRemoved) {
     lines.push(`· ${analysis.customToolRefsRemoved} 个自定义工具中的不兼容嵌套引用将被移除`)
   }
+  lines.push('· API 凭证将重置为跟随新平台默认')
   if (!analysis.modelWillChange && !analysis.removedSpecialTools.length && !analysis.customToolRefsRemoved) {
     lines.push('· 当前配置与新平台兼容，无需额外清理')
   }

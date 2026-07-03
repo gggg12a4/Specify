@@ -133,6 +133,40 @@ export function useApiConfig() {
     return !!(key && key.platform === platform && key.apiKey)
   }
 
+  /**
+   * App 凭证展示摘要：是否可用、文案、是否跟随平台默认。
+   * 供 AppPlatformSection 等 UI 使用。
+   */
+  function getAppCredentialSummary(platform, credentialId = null) {
+    if (!hasKeyForPlatform(platform)) {
+      return {
+        ready: false,
+        label: '尚未配置 API 密钥',
+        buttonText: '去添加',
+        usingDefault: false,
+      }
+    }
+
+    const resolved = resolveKeyForApp(platform, credentialId)
+    const usingDefault = !credentialId || !isValidCredentialForPlatform(platform, credentialId)
+
+    if (usingDefault) {
+      return {
+        ready: true,
+        label: `使用平台默认：${resolved?.alias || '默认密钥'}`,
+        buttonText: '选择凭证',
+        usingDefault: true,
+      }
+    }
+
+    return {
+      ready: true,
+      label: `已选用：${resolved?.alias || '未知密钥'}`,
+      buttonText: '选择凭证',
+      usingDefault: false,
+    }
+  }
+
   function hasKeys() {
     return getKeys().some(k => k.apiKey)
   }
@@ -239,6 +273,7 @@ export function useApiConfig() {
     getDefaultKeyForPlatform,
     resolveKeyForApp,
     isValidCredentialForPlatform,
+    getAppCredentialSummary,
     setDefaultKey,
     getConfig,
     addKey,

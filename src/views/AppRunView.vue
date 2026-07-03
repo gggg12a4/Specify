@@ -241,12 +241,14 @@
     @confirm="handleRenameConfirm"
   />
 
-  <!-- 运行配置弹窗 -->
+  <!-- 运行配置弹窗（非开发者门户 fallback） -->
   <RunConfigModal
+    v-if="!apiConfigModal"
     v-model:visible="showRunConfig"
     :platform="app?.platform || 'claude'"
     :credential-id="app?.credential_id || null"
     :app-id="app?.id || ''"
+    :mode="apiKeyPickerMode"
     :can-close="runConfigured"
     @confirm="onRunConfigConfirm"
   />
@@ -260,7 +262,7 @@
  * query.mode=debug 时展示开发者侧边栏；正式运行模式隐藏调试 UI。
  * 首次进入若未配置对应平台 API Key，会通过 RunConfigModal 做 JIT 拦截。
  */
-import { ref, computed, nextTick, watch, onMounted } from 'vue'
+import { ref, computed, nextTick, watch, onMounted, inject } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import FileTree from '@/components/app/FileTree.vue'
@@ -269,6 +271,7 @@ import FilePreviewList from '@/components/common/FilePreviewList.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import InputDialog from '@/components/common/InputDialog.vue'
 import RunConfigModal from '@/components/common/RunConfigModal.vue'
+import { API_CONFIG_MODAL_KEY } from '@/composables/useApiConfigModal'
 import { getModelsForPlatform, resolveAppModel } from '@/constants/platformModels'
 import { createPreviewURL, revokePreviewURL, detectContentType, fileToBase64 } from '@/utils/file'
 import { useApiConfig } from '@/composables/useApiConfig'
@@ -278,7 +281,8 @@ import * as sessionApi from '@/api/session'
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
-const { hasKeyForApp } = useApiConfig()
+const { hasKeyForApp, hasKeyForPlatform } = useApiConfig()
+const apiConfigModal = inject(API_CONFIG_MODAL_KEY, null)
 
 /** 从路由 id 获取当前运行的 App */
 const app = computed(() => appStore.getApp(route.params.id))
@@ -310,7 +314,14 @@ const renameDialog = ref({ visible: false, sessionId: null, current: '' })
 const showResetConfirm = ref(false)
 const showRunConfig = ref(false)
 const runConfigured = ref(false)
-const runConfigMode = ref('') // 'platform' | 'self_key'
+/** 计费展示模式（正式运行页顶栏） */
+const runConfigMode = ref(null)
+
+/** RunConfigModal fallback 的选用/引导模式 */
+const apiKeyPickerMode = computed(() => {
+  if (!app.value) return 'select'
+  return hasKeyForPlatform(app.value.platform) ? 'select' : 'setup'
+})
 
 const inputTokens = ref(0)
 const outputTokens = ref(0)
@@ -412,16 +423,39 @@ function loadSessions() {
   } catch { /* parse error */ }
 }
 
+/** 打开 API 凭证配置：开发者门户走全局弹窗，其他场景 fallback RunConfigModal */
+function openRunApiConfig() {
+  if (!app.value) return
+
+  if (apiConfigModal) {
+    apiConfigModal.open({
+      appContext: {
+        appId: app.value.id,
+        appName: app.value.name,
+        platform: app.value.platform,
+        credentialId: app.value.credential_id,
+        onSelect: (credentialId) => {
+          appStore.updateApp(app.value.id, { credential_id: credentialId })
+          runConfigured.value = true
+          if (inputText.value.trim() || uploadedFiles.value.length) send()
+        },
+      },
+    })
+    return
+  }
+
+  showRunConfig.value = true
+}
+
 /** 挂载时加载历史会话，并检查是否需要弹出运行配置（API Key JIT） */
 onMounted(async () => {
   loadSessions()
 
   if (!app.value) return
 
-  // double check logic for JIT API Validation
   if (!hasKeyForApp(app.value.platform, app.value.credential_id)) {
     runConfigured.value = false
-    showRunConfig.value = true
+    openRunApiConfig()
   } else {
     runConfigured.value = true
   }
@@ -495,7 +529,7 @@ async function send() {
   if (!canSend.value) return
 
   if (!runConfigured.value) {
-    showRunConfig.value = true
+    openRunApiConfig()
     return
   }
 

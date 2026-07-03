@@ -34,6 +34,15 @@
                 切换平台
               </span>
             </button>
+            <button
+              v-if="platformLabel"
+              type="button"
+              class="bar-credential"
+              :title="credentialSummary.label"
+              @click="openAppApiConfig"
+            >
+              {{ credentialShortLabel }}
+            </button>
           </div>
           <span v-if="showAutoSavedHint" class="save-status saved">已自动保存</span>
           <span v-else-if="autoSavePending" class="save-status pending">{{ autoSaveCountdown }}s 后自动保存</span>
@@ -208,17 +217,10 @@
     <SystemPromptModal v-model:visible="showPromptModal" v-model="form.system_prompt" :file-refs="promptFileRefs"
       :tool-refs="promptToolRefs" @done="markDirty" />
 
-    <AppPlatformModal v-model:visible="showPlatformModal" :model-value="form.platform" @select="handlePlatformChange"
-      @configure-api-key="openApiKeyModal" />
-
-    <RunConfigModal
-      v-if="app"
-      v-model:visible="showApiKeyModal"
-      :app-id="app.id"
-      :platform="apiKeyModalPlatform"
-      :credential-id="form.credential_id"
-      :confirm-text="apiKeyModalConfirmText"
-      @confirm="onApiKeyConfigured"
+    <AppPlatformModal
+      v-model:visible="showPlatformModal"
+      :model-value="form.platform"
+      @select="handlePlatformChange"
     />
 
     <AppMetaEditModal v-if="app" v-model:visible="showMetaEditModal" :name="app.name"
@@ -234,7 +236,7 @@
  * form 为本地草稿，通过 isDirty 跟踪未保存修改；修改后 3 秒自动保存。
  * 调试入口会先校验已启用工具的失效状态，必要时静默保存后再跳转运行页。
  */
-import { ref, reactive, computed, watch, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onUnmounted, inject } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { PLATFORM_LABELS } from '@/constants/spTools'
@@ -249,7 +251,7 @@ import SystemPromptModal from '@/components/app/SystemPromptModal.vue'
 import AppModelSection from '@/components/app/AppModelSection.vue'
 import AppPlatformModal from '@/components/app/AppPlatformModal.vue'
 import AppMetaEditModal from '@/components/app/AppMetaEditModal.vue'
-import RunConfigModal from '@/components/common/RunConfigModal.vue'
+import { API_CONFIG_MODAL_KEY } from '@/composables/useApiConfigModal'
 import { useApiConfig } from '@/composables/useApiConfig'
 import {
   analyzePlatformMigration,
@@ -263,11 +265,22 @@ import { showSuccess, showConfirm } from '@/composables/useNotification'
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
-const { hasKeyForPlatform, hasKeyForApp } = useApiConfig()
+const { hasKeyForPlatform, hasKeyForApp, getAppCredentialSummary } = useApiConfig()
+const apiConfigModal = inject(API_CONFIG_MODAL_KEY, null)
 /** 从路由 id 获取当前编辑的 App */
 const app = computed(() => appStore.getApp(route.params.id))
 /** 平台中文展示名 */
 const platformLabel = computed(() => PLATFORM_LABELS[form.platform] || '')
+/** 当前 App API 凭证展示摘要 */
+const credentialSummary = computed(() =>
+  getAppCredentialSummary(form.platform, form.credential_id),
+)
+/** 顶栏凭证按钮短文案 */
+const credentialShortLabel = computed(() => {
+  if (!credentialSummary.value.ready) return 'API 未配置'
+  if (credentialSummary.value.usingDefault) return 'API · 默认'
+  return 'API · 已选用'
+})
 
 const toolsSectionRef = ref(null)
 const filePanelRef = ref(null)
@@ -293,9 +306,6 @@ const showAddMcp = ref(false)
 const showMcpConfig = ref(false)
 const mcpConfigTarget = ref(null)
 const showPromptModal = ref(false)
-const showApiKeyModal = ref(false)
-const apiKeyModalPlatform = ref('claude')
-const apiKeyModalConfirmText = ref('保存凭证')
 const pendingDebug = ref(false)
 const hasAnyEnabledError = ref(false)
 let pendingNav = null
@@ -397,22 +407,25 @@ function handleMetaSave({ name, description }) {
   showSuccess('App 信息已更新')
 }
 
-function openApiKeyModal(platform = form.platform) {
-  apiKeyModalPlatform.value = platform
-  apiKeyModalConfirmText.value = hasKeyForApp(platform, form.credential_id) ? '完成' : '保存凭证'
-  showApiKeyModal.value = true
-}
-
-function onApiKeyConfigured(payload = {}) {
-  showApiKeyModal.value = false
-  if (payload.credentialId !== undefined) {
-    form.credential_id = payload.credentialId
-    markDirty()
-  }
-  if (pendingDebug.value) {
-    pendingDebug.value = false
-    proceedDebug()
-  }
+/** 打开全局 API 密钥配置，并带上当前 App 选用上下文 */
+function openAppApiConfig() {
+  if (!app.value || !apiConfigModal) return
+  apiConfigModal.open({
+    appContext: {
+      appId: app.value.id,
+      appName: app.value.name,
+      platform: form.platform,
+      credentialId: form.credential_id,
+      onSelect: (credentialId) => {
+        form.credential_id = credentialId
+        markDirty()
+        if (pendingDebug.value) {
+          pendingDebug.value = false
+          proceedDebug()
+        }
+      },
+    },
+  })
 }
 
 /** 切换平台：先确认影响范围，确认后再迁移并视情况提示配置 API Key */
@@ -440,9 +453,7 @@ async function handlePlatformChange(newPlatform) {
   checkGlobalErrors()
 
   if (!hasKeyForPlatform(newPlatform)) {
-    apiKeyModalPlatform.value = newPlatform
-    apiKeyModalConfirmText.value = '保存凭证'
-    showApiKeyModal.value = true
+    openAppApiConfig()
   }
 }
 
@@ -600,9 +611,7 @@ async function handleDebug() {
 
   if (!hasKeyForApp(form.platform, form.credential_id)) {
     pendingDebug.value = true
-    apiKeyModalPlatform.value = form.platform
-    apiKeyModalConfirmText.value = '保存并开始调试'
-    showApiKeyModal.value = true
+    openAppApiConfig()
     return
   }
 
@@ -741,6 +750,29 @@ onBeforeRouteLeave(async (to, from, next) => {
 .bar-app-edit:hover {
   opacity: 1;
   color: var(--color-text-secondary);
+}
+
+.bar-credential {
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  padding: 3px 10px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  margin-left: 6px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.bar-credential:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
 }
 
 .bar-platform {
