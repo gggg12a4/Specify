@@ -14,7 +14,7 @@
             <McpSchemaFields
               :template-key="templateKey"
               mode="create"
-              v-model="configValues"
+              :model-value="configValues"
               :errors="errors"
             />
 
