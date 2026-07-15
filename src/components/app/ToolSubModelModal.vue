@@ -45,7 +45,7 @@
  * 按 toolKey + platform 展示可选子模型列表。
  */
 import { ref, computed, watch } from 'vue'
-import { SPECIAL_TOOL_MAP, TOOL_SUB_MODELS } from '@/constants/spTools'
+import { TOOL_SUB_MODELS } from '@/constants/spTools'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -57,8 +57,8 @@ const emit = defineEmits(['update:visible', 'confirm'])
 
 const selected = ref(null)
 
-/** 特殊工具元信息 */
-const toolInfo = computed(() => SPECIAL_TOOL_MAP[props.toolKey])
+/** 特殊工具显示名 */
+const toolInfo = computed(() => ({ name: props.toolKey }))
 /** 当前平台下该工具可用的子模型列表 */
 const subModels = computed(() => TOOL_SUB_MODELS[props.toolKey]?.[props.platform] || [])
 

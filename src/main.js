@@ -27,10 +27,10 @@ app.use(router)
 
 // 初始化认证状态（从 localStorage 加载已登录用户，未登录则保持 null）
 // 必须在 pinia 注册后、mount 前执行，路由守卫才能正确读取 isAuthenticated
+// Token 仅来自登录接口写入；不再使用 VITE_DEV_TOKEN 自动注入
 const authStore = useAuthStore()
 authStore.initAuth()
 
 const appStore = useAppStore()
-appStore.initApps()
 
 app.mount('#app')

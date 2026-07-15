@@ -1,180 +1,234 @@
 /**
  * 开发者 App 数据（Pinia）。
  *
- * 当前以 localStorage 为数据源（key: specify_apps_v2），用于创建/编辑/运行 App 的前端状态。
- * 推荐 App、最近使用列表由接口填充，初始值为占位 mock 数据。
- *
- * App 结构对齐后端 API 扁平字段：tools（SP 内置工具）、special_tools、custom_tools、mcp_services 等。
+ * 列表、创建、编辑、草稿保存等走 @/api/developer.js；
+ * credential_id 等运行配置仍存 localStorage。
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import * as developerApi from '@/api/developer'
+import { getModelGroups } from '@/api/admin'
+import {
+  toListItem,
+  toTemplateItem,
+  editPageToSession,
+  formToSaveDraft,
+  toCreateRequest,
+  extractAppId,
+  extractPublishResult,
+  platformKeyToModelGroupId,
+  sortAppsByUpdateTimeDesc,
+  isPendingConfig,
+  inferPendingConfigFromListItem,
+} from '@/utils/appAdapter'
 
-const STORAGE_KEY = 'specify_apps_v2'
-
-function genId() {
-  return 'app_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
-}
-
-function genCustomToolId() {
-  return 'ct_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
-}
-
-/** 各 SP 内置工具的默认 enabled / config，新建 App 时全部关闭 */
-function defaultToolConfig() {
-  return {
-    SPread:         { enabled: false, config: { max_output_length: null, max_line_length: 2000, image: false, video: false, audio: false, file: false, image_url: false, video_url: false, audio_url: false, file_url: false, max_image_size: 20, max_video_size: 50, max_audio_size: 50, max_file_size: 20, timeout: null } },
-    SPglob:         { enabled: false, config: { max_output_length: null, timeout: null } },
-    SPgrep:         { enabled: false, config: { max_output_length: null, timeout: null } },
-    SPedit:         { enabled: false, config: { timeout: null } },
-    SPwrite:        { enabled: false, config: { timeout: null } },
-    SPmake:         { enabled: false, config: { timeout: null } },
-    SPcreatedir:    { enabled: false, config: { timeout: null } },
-    SPrm:           { enabled: false, config: { timeout: null } },
-    SPupload:       { enabled: false, config: { max_file_size: 10, timeout: 60, use_magic_bytes: true } },
-    SPSkillManager: { enabled: false, config: { skills_dir: 'shared/skills/', max_content_length: -1, max_desc_length: 250, timeout: null } },
-  }
-}
-
-/** 合并默认值与用户输入，生成完整 App 对象 */
-function defaultApp(data = {}) {
-  return {
-    id: data.id || genId(),
-    user_id: data.user_id || 1,
-    name: data.name || '',
-    description: data.description || '',
-    platform: data.platform || 'claude',
-    credential_id: data.credential_id ?? null,
-    model: data.model || '',
-    system_prompt: data.system_prompt || '',
-    tools: data.tools || defaultToolConfig(),
-    // 平台预置特殊工具（绘图、图片理解等）
-    special_tools: data.special_tools || {},
-    // 开发者自定义子 Agent / 工具
-    custom_tools: data.custom_tools || [],
-    mcp_services: data.mcp_services || [],
-    // 高级运行参数（原 advanced 嵌套字段，现扁平到顶层）
-    tool_timeout: data.tool_timeout ?? 30,
-    max_steps: data.max_steps ?? 20,
-    steps_limit_behavior: data.steps_limit_behavior ?? 'auto',
-    compress_threshold: data.compress_threshold ?? 80000,
-    compress_behavior: data.compress_behavior ?? 'form',
-    safety_enabled: data.safety_enabled ?? false,
-    safety_rules: data.safety_rules ?? {},
-    default_safety_policy: data.default_safety_policy ?? 'ASK',
-    allowed_paths: data.allowed_paths ?? [],
-    allowed_urls: data.allowed_urls ?? [],
-    workspace_base_url: data.workspace_base_url ?? '',
-    workspace_api_key: data.workspace_api_key ?? '',
-    created_at: data.created_at || new Date().toISOString()
-  }
-}
+const CREDENTIAL_PREFIX = 'specify_app_credential_'
 
 export const useAppStore = defineStore('appStore', () => {
-  /** 当前用户创建的 App 列表 */
   const apps = ref([])
+  const listTotal = ref(0)
+  const listPages = ref(0)
+  const templates = ref([])
+  const modelGroups = ref([])
+  const editSessions = ref(new Map())
+  const loading = ref(false)
+  const templatesLoading = ref(false)
 
   const hasApps = computed(() => apps.value.length > 0)
 
-  /** 从 localStorage 加载；兼容旧版 specify_apps 并自动迁移 */
-  function initApps() {
+  function _loadCredentialId(appId) {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        apps.value = JSON.parse(stored)
-        return
-      }
-      const legacy = localStorage.getItem('specify_apps')
-      if (legacy) {
-        apps.value = JSON.parse(legacy).map(a => _migrateLegacy(a))
-        _persist()
+      const raw = localStorage.getItem(CREDENTIAL_PREFIX + appId)
+      return raw || null
+    } catch {
+      return null
+    }
+  }
+
+  function _saveCredentialId(appId, credentialId) {
+    try {
+      if (credentialId) {
+        localStorage.setItem(CREDENTIAL_PREFIX + appId, credentialId)
+      } else {
+        localStorage.removeItem(CREDENTIAL_PREFIX + appId)
       }
     } catch {
-      apps.value = []
+      // ignore
     }
   }
 
-  /** 将旧版嵌套结构（advanced / subAgents / workspace）转为当前扁平 schema */
-  function _migrateLegacy(a) {
-    const adv = a.advanced || {}
-    return defaultApp({
-      id: a.id,
-      name: a.name,
-      description: a.description,
-      system_prompt: a.systemPrompt || a.system_prompt || '',
-      tools: a.tools || defaultToolConfig(),
-      custom_tools: (a.subAgents || []).map(sa => ({
-        id: sa.id || genCustomToolId(),
-        name: sa.name || '',
-        description: sa.description || '',
-        system_prompt: sa.system_prompt || sa.systemPrompt || '',
-        sub_tools: (sa.tools || []).map(t =>
-          typeof t === 'string'
-            ? { type: 'recommended', name: t }
-            : t
-        ),
-        referenced_by: [],
-        enabled: sa.enabled ?? true,
-        created_at: sa.created_at || new Date().toISOString()
-      })),
-      tool_timeout: adv.tool_timeout,
-      max_steps: adv.max_steps,
-      steps_limit_behavior: adv.steps_limit_behavior,
-      compress_threshold: adv.compress_threshold,
-      compress_behavior: adv.compress_behavior,
-      safety_enabled: adv.safety_enabled,
-      safety_rules: adv.safety_rules,
-      default_safety_policy: adv.default_safety_policy,
-      allowed_paths: adv.allowed_paths,
-      allowed_urls: adv.allowed_urls,
-      workspace_base_url: a.workspace?.base_url || '',
-      workspace_api_key: a.workspace?.api_key || '',
-      created_at: a.created_at
-    })
+  async function fetchModelGroups() {
+    if (modelGroups.value.length) return modelGroups.value
+    const res = await getModelGroups({ pageNo: 1, pageSize: 100 })
+    const records = res.data?.records || res.data || []
+    modelGroups.value = Array.isArray(records) ? records : []
+    return modelGroups.value
   }
 
-  function _persist() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(apps.value))
+  function _syncListPendingConfig(appId, isPendingConfig) {
+    const item = apps.value.find(a => a.id === appId)
+    if (item) item.isPendingConfig = isPendingConfig
   }
 
-  function addApp(data) {
-    const app = defaultApp(data)
-    apps.value.unshift(app)
-    _persist()
-    return app
-  }
-
-  /**
-   * 更新 App 字段。tools 做按 key 深度合并，避免覆盖未提交的 SP 工具配置。
-   */
-  function updateApp(id, updates) {
-    const idx = apps.value.findIndex(a => a.id === id)
-    if (idx === -1) return
-    if (updates.tools) {
-      Object.keys(updates.tools).forEach(k => {
-        if (apps.value[idx].tools[k]) {
-          Object.assign(apps.value[idx].tools[k], updates.tools[k])
+  async function fetchMyApps(params = { pageNo: 1, pageSize: 11 }) {
+    loading.value = true
+    try {
+      const res = await developerApi.listMyApps(params)
+      const page = res.data || {}
+      apps.value = sortAppsByUpdateTimeDesc((page.records || []).map((vo) => {
+        const item = toListItem(vo)
+        const session = editSessions.value.get(item.id)
+        if (session?.meta?.isPendingConfig != null) {
+          item.isPendingConfig = session.meta.isPendingConfig
+        } else {
+          item.isPendingConfig = inferPendingConfigFromListItem(item)
         }
-      })
-      delete updates.tools
+        return item
+      }))
+      listTotal.value = page.total ?? apps.value.length
+      listPages.value = page.pages ?? 1
+      return apps.value
+    } finally {
+      loading.value = false
     }
-    Object.assign(apps.value[idx], updates)
-    _persist()
   }
 
-  function deleteApp(id) {
-    const idx = apps.value.findIndex(a => a.id === id)
-    if (idx !== -1) {
-      apps.value.splice(idx, 1)
-      _persist()
+  async function fetchTemplates(params = { pageNo: 1, pageSize: 20 }) {
+    templatesLoading.value = true
+    try {
+      const res = await developerApi.listTemplates(params)
+      const page = res.data || {}
+      templates.value = (page.records || []).map(toTemplateItem)
+      return templates.value
+    } finally {
+      templatesLoading.value = false
     }
+  }
+
+  async function createAppViaApi({ name, description, templateAppId, platform }) {
+    await fetchModelGroups()
+    const modelGroupId = templateAppId
+      ? undefined
+      : platformKeyToModelGroupId(platform, modelGroups.value)
+
+    const payload = toCreateRequest({ name, description, templateAppId, modelGroupId })
+    const res = await developerApi.createApp(payload)
+    const appId = extractAppId(res.data)
+    if (!appId) {
+      throw new Error(res.msg || '创建 App 失败')
+    }
+    _syncListPendingConfig(appId, true)
+    return appId
+  }
+
+  async function fetchEditPage(appId) {
+    const res = await developerApi.queryEditPageData(appId)
+    const session = editPageToSession(res.data || {})
+    session.form.credential_id = _loadCredentialId(appId)
+    session.meta.isPendingConfig = isPendingConfig(res.data || {})
+    editSessions.value.set(appId, session)
+    _syncListPendingConfig(appId, session.meta.isPendingConfig)
+    return session
+  }
+
+  async function saveDraft(appId, form) {
+    const payload = formToSaveDraft(appId, form)
+    await developerApi.saveDraft(payload)
+    const session = editSessions.value.get(appId)
+    if (session) {
+      Object.assign(session.form, form)
+      Object.assign(session.app, {
+        system_prompt: form.system_prompt,
+        model: form.model,
+        platform: form.platform,
+        tools: form.tools,
+        special_tools: form.special_tools,
+        custom_tools: form.custom_tools,
+        mcp_services: form.mcp_services,
+        modelGroupId: form.modelGroupId,
+      })
+      if (session.draft) {
+        session.draft.hasDraft = true
+        session.draft.configSource = 'draft'
+      }
+      session.meta.isPendingConfig = false
+    }
+    _syncListPendingConfig(appId, false)
+  }
+
+  async function updateMeta(appId, { name, description }) {
+    await developerApi.updateAppMeta(appId, { name, description })
+    const session = editSessions.value.get(appId)
+    if (session) {
+      session.meta.name = name
+      session.meta.description = description
+      session.app.name = name
+      session.app.description = description
+    }
+    const listItem = apps.value.find(a => a.id === appId)
+    if (listItem) {
+      listItem.name = name
+      listItem.description = description
+    }
+  }
+
+  async function publishAppViaApi(appId, options = {}) {
+    const res = await developerApi.publishApp({
+      app_id: appId,
+      force_upgrade: options.forceUpgrade ?? false,
+      is_compatible: options.isCompatible ?? true,
+    })
+    const result = extractPublishResult(res.data)
+    await fetchEditPage(appId)
+    return result
+  }
+
+  async function togglePublic(appId, isPublic) {
+    await developerApi.toggleAppPublic(appId, isPublic)
+    const session = editSessions.value.get(appId)
+    if (session) {
+      session.meta.isPublic = isPublic
+      session.app.isPublic = isPublic
+    }
+    const listItem = apps.value.find(a => a.id === appId)
+    if (listItem) {
+      listItem.isPublic = isPublic
+    }
+  }
+
+  async function removeApp(appId) {
+    await developerApi.deleteApp(appId)
+    apps.value = apps.value.filter(a => a.id !== appId)
+    editSessions.value.delete(appId)
+    listTotal.value = Math.max(0, listTotal.value - 1)
+  }
+
+  function getEditSession(appId) {
+    return editSessions.value.get(appId) || null
   }
 
   function getApp(id) {
+    const session = editSessions.value.get(id)
+    if (session) return session.app
     return apps.value.find(a => a.id === id) || null
   }
 
-  /** 统计 App 已启用工具总数（SP + 特殊 + 自定义 Agent + 已启用 MCP 服务） */
+  /** 局部更新（主要用于 credential_id 等前端本地字段） */
+  function updateAppLocal(id, updates) {
+    if (updates.credential_id !== undefined) {
+      _saveCredentialId(id, updates.credential_id)
+    }
+    const session = editSessions.value.get(id)
+    if (session) {
+      Object.assign(session.app, updates)
+      if (updates.credential_id !== undefined) {
+        session.form.credential_id = updates.credential_id
+      }
+    }
+  }
+
   function getEnabledToolCount(app) {
+    if (!app?.tools) return 0
     const spCount = Object.values(app.tools || {}).filter(t => t.enabled).length
     const specialCount = Object.values(app.special_tools || {}).filter(t => t.enabled).length
     const customCount = (app.custom_tools || []).filter(ct => ct.enabled).length
@@ -182,14 +236,34 @@ export const useAppStore = defineStore('appStore', () => {
     return spCount + specialCount + customCount + mcpCount
   }
 
+  /** @deprecated 保留兼容，不再读 localStorage App 列表 */
+  function initApps() {
+    // no-op：列表改由 fetchMyApps 加载
+  }
+
   return {
     apps,
+    listTotal,
+    listPages,
+    templates,
+    modelGroups,
+    loading,
+    templatesLoading,
     hasApps,
-    initApps,
-    addApp,
-    updateApp,
-    deleteApp,
+    fetchModelGroups,
+    fetchMyApps,
+    fetchTemplates,
+    createAppViaApi,
+    fetchEditPage,
+    saveDraft,
+    updateMeta,
+    publishAppViaApi,
+    togglePublic,
+    removeApp,
+    getEditSession,
     getApp,
+    updateAppLocal,
     getEnabledToolCount,
+    initApps,
   }
 })

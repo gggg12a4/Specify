@@ -1,22 +1,26 @@
 <template>
-  <div class="app-card" :class="{ 'is-template': agent.isTemplate }">
+  <div class="app-card" :class="cardClass">
+    <!-- 右上角：发布态 + 可见性 -->
+    <div v-if="!agent.isTemplate" class="corner-badges" :class="{ 'is-workspace': variant === 'workspace' }" aria-label="App 状态">
+      <span class="corner-badge" :class="publishBadgeClass">{{ publishLabel }}</span>
+      <span class="corner-badge" :class="visibilityBadgeClass">{{ visibilityLabel }}</span>
+    </div>
+
     <div class="card-body">
-      <!-- 顶部：名称 -->
       <div class="card-top">
-        <h3 class="app-name">
-          {{ agent.name }}
-          <span v-if="agent.isTemplate" class="template-badge">💡 官方模板</span>
-        </h3>
+        <h3 class="app-name">{{ agent.name }}</h3>
+        <span v-if="agent.isTemplate" class="template-badge">💡 官方模板</span>
       </div>
 
-      <!-- 平台标识 -->
-      <div v-if="platformLabel && !agent.isTemplate" class="platform-tag">{{ platformLabel }}</div>
+      <!-- 平台标签（workspace 风格：标题下方浅蓝标签） -->
+      <div v-if="platformLabel && !agent.isTemplate" class="platform-tag" :class="{ 'is-workspace': variant === 'workspace' }">
+        {{ platformLabel }}
+      </div>
 
-      <!-- 描述 -->
       <p class="app-desc">{{ agent.description || '暂无描述' }}</p>
 
-      <!-- 工具数 -->
-      <div class="app-meta">
+      <!-- 非 workspace：工具数 -->
+      <div v-if="variant !== 'workspace' && !agent.isTemplate" class="app-meta">
         <span class="stat-chip">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
@@ -25,17 +29,20 @@
         </span>
       </div>
 
-      <!-- 操作按钮 -->
       <div class="card-actions">
         <template v-if="agent.isTemplate">
-          <button class="act-btn act-run" style="flex: 1;" @click="$emit('use-template', agent)">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <button class="act-btn act-run full" @click="$emit('use-template', agent)">
             一键使用该模板
           </button>
         </template>
+        <template v-else-if="variant === 'workspace'">
+          <button class="act-btn" @click.stop="$emit('edit', agent.id)">编辑</button>
+          <button class="act-btn act-run" @click.stop="$emit('run', agent.id)">运行</button>
+          <button class="act-btn" @click.stop="$emit('share', agent)">分享</button>
+          <button class="act-btn act-delete" @click.stop="$emit('delete', agent)">删除</button>
+        </template>
         <template v-else>
           <button class="act-btn" @click.stop="$emit('edit', agent.id)">编辑</button>
-          <button class="act-btn" style="display:none" @click.stop="$emit('advanced', agent)">高级配置</button>
           <button class="act-btn act-run" @click.stop="$emit('run', agent.id)">运行</button>
           <button class="act-btn act-delete" @click.stop="$emit('delete', agent)">删除</button>
         </template>
@@ -47,44 +54,118 @@
 <script setup>
 /**
  * 工作空间 App/模板卡片。
- * 展示名称、平台、工具数与操作按钮（编辑/运行/删除或一键使用模板）。
  */
 import { computed } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { PLATFORM_LABELS } from '@/constants/spTools'
+import { resolveAppPublishStatus } from '@/utils/appAdapter'
 
 const props = defineProps({
-  agent: { type: Object, required: true }
+  agent: { type: Object, required: true },
+  /** workspace：对齐线上工作区卡片样式 */
+  variant: { type: String, default: 'default' },
 })
-const emit = defineEmits(['edit', 'run', 'delete', 'advanced', 'use-template'])
+
+defineEmits(['edit', 'run', 'delete', 'advanced', 'use-template', 'share'])
 
 const appStore = useAppStore()
-/** 已启用工具总数（含 MCP、自定义工具等） */
+
+const cardClass = computed(() => ({
+  'is-template': props.agent.isTemplate,
+  'is-workspace': props.variant === 'workspace',
+  'has-corner-badges': !props.agent.isTemplate,
+}))
+
 const toolCount = computed(() => appStore.getEnabledToolCount(props.agent))
-/** 平台中文标签 */
-const platformLabel = computed(() => PLATFORM_LABELS[props.agent.platform] || '')
+
+const platformLabel = computed(() => {
+  if (props.agent.modelGroupName) return props.agent.modelGroupName
+  return PLATFORM_LABELS[props.agent.platform] || ''
+})
+
+const publishStatus = computed(() => resolveAppPublishStatus({
+  liveVersionId: props.agent.liveVersionId,
+  isPendingConfig: props.agent.isPendingConfig,
+}))
+const publishLabel = computed(() => publishStatus.value.label)
+const publishBadgeClass = computed(() => publishStatus.value.badgeClass)
+
+const visibilityLabel = computed(() => (props.agent.isPublic ? '公开' : '私有'))
+const visibilityBadgeClass = computed(() => (props.agent.isPublic ? 'badge-public' : 'badge-private'))
 </script>
 
 <style scoped>
 .app-card {
-  height: 100%;
+  position: relative;
   box-sizing: border-box;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 20px;
+  border-radius: 12px;
+  padding: 18px 20px;
   transition: all 0.18s;
 }
+
+.app-card.is-workspace {
+  width: 100%;
+  min-width: 0;
+}
+
 .app-card:hover {
-  border-color: var(--color-text-muted);
-  box-shadow: var(--shadow-md);
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
+
 .app-card.is-template {
-  background: linear-gradient(to bottom right, var(--color-surface), rgba(254, 243, 199, 0.15));
-  border-color: rgba(252, 211, 77, 0.5); /* amber-300 soft */
+  background: var(--color-surface);
+  border-color: var(--color-border);
 }
-.app-card.is-template:hover {
-  border-color: #f59e0b; /* amber-500 */
+
+.corner-badges {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.corner-badges.is-workspace {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.corner-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.corner-badges.is-workspace .corner-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  line-height: 1.5;
+}
+
+.corner-badge.badge-live { color: #059669; background: rgba(16, 185, 129, 0.12); }
+.corner-badge.badge-draft { color: #b45309; background: rgba(245, 158, 11, 0.12); }
+.corner-badge.badge-pending-config { color: #7c3aed; background: rgba(124, 58, 237, 0.12); }
+.corner-badge.badge-public { color: #2563eb; background: rgba(59, 130, 246, 0.12); }
+.corner-badge.badge-private { color: var(--color-text-muted); background: var(--color-bg-secondary); }
+
+.app-card.has-corner-badges .card-top {
+  padding-right: 88px;
+}
+
+.app-card.is-workspace.has-corner-badges .card-top {
+  padding-right: 120px;
 }
 
 .card-body {
@@ -102,31 +183,47 @@ const platformLabel = computed(() => PLATFORM_LABELS[props.agent.platform] || ''
 }
 
 .app-name {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   color: var(--color-text);
   margin: 0;
   line-height: 1.3;
   flex: 1;
   min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .template-badge {
   font-size: 10px;
   font-weight: 600;
-  color: #d97706; /* amber-600 */
-  background: #fef3c7; /* amber-100 */
+  color: #d97706;
+  background: #fef3c7;
   padding: 2px 6px;
   border-radius: 4px;
   flex-shrink: 0;
+}
+
+.platform-tag {
   display: inline-flex;
-  align-items: center;
+  width: fit-content;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: var(--color-bg-secondary);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.platform-tag.is-workspace {
+  color: #0284c7;
+  background: #e0f2fe;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
 }
 
 .app-desc {
@@ -145,6 +242,7 @@ const platformLabel = computed(() => PLATFORM_LABELS[props.agent.platform] || ''
   display: flex;
   gap: 6px;
 }
+
 .stat-chip {
   display: flex;
   align-items: center;
@@ -159,32 +257,35 @@ const platformLabel = computed(() => PLATFORM_LABELS[props.agent.platform] || ''
 .card-actions {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding-top: 10px;
-  border-top: 1px solid var(--color-border);
-  margin-top: 2px;
-  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 12px;
+  margin-top: auto;
+  flex-wrap: nowrap;
 }
 
 .act-btn {
   flex: 1;
   min-width: 0;
-  padding: 6px 4px;
+  padding: 7px 4px;
   font-size: 12px;
   font-weight: 500;
-  background: var(--color-bg-secondary);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 6px;
   color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.15s;
   text-align: center;
   white-space: nowrap;
 }
+
 .act-btn:hover {
-  background: var(--color-bg);
+  background: var(--color-bg-secondary);
   color: var(--color-text);
-  border-color: var(--color-text-muted);
+}
+
+.act-btn.full {
+  flex: 1;
 }
 
 .act-run {
@@ -192,6 +293,7 @@ const platformLabel = computed(() => PLATFORM_LABELS[props.agent.platform] || ''
   border-color: var(--color-primary);
   color: #fff;
 }
+
 .act-run:hover {
   background: var(--color-primary-hover);
   border-color: var(--color-primary-hover);
@@ -201,6 +303,6 @@ const platformLabel = computed(() => PLATFORM_LABELS[props.agent.platform] || ''
 .act-delete:hover {
   color: var(--color-error);
   border-color: var(--color-error);
-  background: rgba(239,68,68,0.06);
+  background: rgba(239, 68, 68, 0.06);
 }
 </style>

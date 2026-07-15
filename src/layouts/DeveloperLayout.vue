@@ -1,50 +1,18 @@
 <template>
-  <div class="developer-layout" @click="closeDropdown">
-    <!-- Header extracted from AgentSpaceView -->
-    <header class="sp-header" @click.stop>
+  <div class="developer-layout">
+    <header v-if="!hideHeader" class="sp-header">
       <div class="header-left">
         <router-link to="/developer/workspace" class="brand" style="text-decoration: none;">
           <span class="brand-mark">S</span>
-          <span class="brand-name">Specify <span class="role-badge">Dev</span></span>
+          <span class="brand-name">Specify</span>
         </router-link>
-      </div>
-
-      <!-- 中间作为动态 banner 容器 -->
-      <div class="header-center">
-        <Transition name="fade" mode="out-in">
-          <div v-if="authStore.isAuthenticated && isWorkspace" class="dynamic-banner" :key="currentBannerIndex">
-            <span class="banner-icon">{{ currentBanner.icon }}</span>
-            <span class="banner-text">{{ currentBanner.text }}</span>
-          </div>
-        </Transition>
       </div>
 
       <div class="header-right">
         <template v-if="authStore.isAuthenticated">
-          <button type="button" class="header-nav-btn" @click="openApiConfig">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
-            </svg>
-            API 密钥配置
-          </button>
-          <div class="user-avatar-wrap" @click.stop="toggleDropdown">
-            <div class="user-avatar">{{ userInitial }}</div>
-
-            <div v-if="showDropdown" class="dropdown-menu">
-              <div class="dropdown-header">
-                <span class="dropdown-user">{{ authStore.currentUser?.nickname || authStore.currentUser?.phone }}</span>
-              </div>
-              <button class="dropdown-item" @click="openAccountSettings">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                账号设置
-              </button>
-              <div class="dropdown-divider"></div>
-              <button class="dropdown-item danger" @click="openLogout">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                退出登录
-              </button>
-            </div>
-          </div>
+          <button type="button" class="header-link" @click="openApiConfig">我的模型</button>
+          <span class="header-phone">{{ maskedPhone }}</span>
+          <button type="button" class="header-link logout" @click="openLogout">退出登录</button>
         </template>
         <template v-else>
           <!-- Should rarely hit this due to route guards, but keeping for safety -->
@@ -87,72 +55,30 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, provide } from 'vue'
+import { ref, computed, provide } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import ApiConfigModal from '@/components/common/ApiConfigModal.vue'
 import { createApiConfigModalApi, API_CONFIG_MODAL_KEY } from '@/composables/useApiConfigModal'
-import { showInfo } from '@/composables/useNotification'
 
 const route = useRoute()
 const authStore = useAuthStore()
 const apiConfigModal = createApiConfigModalApi()
 provide(API_CONFIG_MODAL_KEY, apiConfigModal)
 const showLogoutConfirm = ref(false)
-const showDropdown = ref(false)
 
-const userInitial = computed(() => {
-  const name = authStore.currentUser?.nickname || authStore.currentUser?.phone || 'U'
-  return String(name).charAt(0).toUpperCase()
+/** 编辑页使用自带统一顶栏，隐藏布局层头部避免重复 */
+const hideHeader = computed(() => route.name === 'AppEdit')
+
+const maskedPhone = computed(() => {
+  const phone = authStore.currentUser?.phone || authStore.currentUser?.nickname || ''
+  const s = String(phone)
+  if (s.length >= 7) return s.slice(0, 3) + '****' + s.slice(-4)
+  return s
 })
-
-// ── 动态微引导 (Dynamic Banner) Logic ──
-const isWorkspace = computed(() => route.path === '/developer/workspace')
-
-const banners = computed(() => {
-  const name = authStore.currentUser?.nickname || authStore.currentUser?.phone || '开发者'
-  return [
-    { icon: '👋', text: `下午好，${name}。开始构建你的专属智能体吧。` },
-    { icon: '💡', text: 'Tip: 在开发页的指令中输入 @ 可以快速引用文件库。' },
-    { icon: '✨', text: 'Tip: 遇到问题？尝试查看官方提供的模板。' },
-    { icon: '🚀', text: 'Tip: 给应用起一个清晰的名字，能让你的工作区更井井有条。' }
-  ]
-})
-
-const currentBannerIndex = ref(0)
-const currentBanner = computed(() => banners.value[currentBannerIndex.value])
-let bannerTimer = null
-
-onMounted(() => {
-  const hour = new Date().getHours()
-  let greeting = '你好'
-  if (hour < 12) greeting = '上午好'
-  else if (hour < 18) greeting = '下午好'
-  else greeting = '晚上好'
-
-  const name = authStore.currentUser?.nickname || authStore.currentUser?.phone || '开发者'
-  banners.value[0].text = `${greeting}，${name}。开始构建你的专属智能体吧。`
-
-  bannerTimer = setInterval(() => {
-    currentBannerIndex.value = (currentBannerIndex.value + 1) % banners.value.length
-  }, 10000)
-})
-
-onUnmounted(() => {
-  if (bannerTimer) clearInterval(bannerTimer)
-})
-
-function toggleDropdown() {
-  showDropdown.value = !showDropdown.value
-}
-
-function closeDropdown() {
-  showDropdown.value = false
-}
 
 function openApiConfig() {
   apiConfigModal.open()
-  closeDropdown()
 }
 
 function onApiConfigVisibleChange(visible) {
@@ -163,15 +89,8 @@ function onApiConfigVisibleChange(visible) {
   }
 }
 
-function openAccountSettings() {
-  // Placeholder for account settings
-  showInfo('账号设置模块开发中...')
-  closeDropdown()
-}
-
 function openLogout() {
   showLogoutConfirm.value = true
-  closeDropdown()
 }
 
 function handleLogout() {
@@ -205,134 +124,36 @@ function handleLogout() {
 .brand-name { font-size: 16px; font-weight: 600; color: var(--color-text); display: flex; align-items: center; gap: 6px; }
 .role-badge { font-size: 10px; background: var(--color-primary-soft); color: var(--color-primary); padding: 2px 6px; border-radius: 4px; font-weight: 700; }
 
-.header-nav-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  font-size: 13px;
+.header-right { display: flex; align-items: center; gap: 20px; }
+
+.header-link {
+  padding: 0;
+  font-size: 14px;
   font-weight: 500;
   color: var(--color-text-secondary);
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+  background: none;
+  border: none;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: color 0.15s;
 }
 
-.header-nav-btn:hover {
+.header-link:hover {
   color: var(--color-text);
-  background: var(--color-bg-secondary);
-  border-color: var(--color-text-muted);
 }
 
-.header-center {
-  flex: 1;
+.header-link.logout {
+  color: var(--color-text-muted);
 }
 
-.header-right { display: flex; align-items: center; gap: 12px; }
-.user-name { font-size: 14px; font-weight: 500; color: var(--color-text); }
+.header-phone {
+  font-size: 14px;
+  color: var(--color-text);
+  font-weight: 500;
+}
 .btn-ghost { padding: 6px 12px; font-size: 13px; font-weight: 500; color: var(--color-text-secondary); background: none; border: 1px solid transparent; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
 .btn-ghost:hover { background: var(--color-bg-secondary); color: var(--color-text); }
 .btn-primary { padding: 6px 16px; font-size: 13px; font-weight: 500; background: var(--color-primary); color: #fff; border: none; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
 .btn-primary:hover { background: var(--color-primary-hover); }
-
-/* Dropdown */
-.user-avatar-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.user-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 600;
-  transition: all 0.15s;
-  border: 1px solid transparent;
-}
-
-.user-avatar-wrap:hover .user-avatar {
-  border-color: var(--color-primary);
-  background: var(--color-primary-muted);
-}
-
-.dropdown-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  min-width: 180px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  z-index: 100;
-  animation: dropIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-  transform-origin: top right;
-}
-
-@keyframes dropIn {
-  from { opacity: 0; transform: scale(0.96) translateY(-4px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-.dropdown-header {
-  padding: 8px 12px 10px;
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: 4px;
-}
-
-.dropdown-user {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.15s;
-}
-
-.dropdown-item:hover {
-  background: var(--color-bg-secondary);
-  color: var(--color-text);
-}
-
-.dropdown-item.danger {
-  color: var(--color-error);
-}
-
-.dropdown-item.danger:hover {
-  background: rgba(239, 68, 68, 0.08);
-}
-
-.dropdown-divider {
-  height: 1px;
-  background: var(--color-border);
-  margin: 4px 0;
-}
 
 .layout-main {
   flex: 1;
@@ -345,47 +166,4 @@ function handleLogout() {
 /* Modal styles for logout */
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
 .dialog { background: var(--color-surface); border-radius: 16px; width: 100%; max-width: 320px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
-
-/* Dynamic Banner */
-.header-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.dynamic-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--color-bg-secondary);
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--color-border);
-}
-
-.banner-icon {
-  font-size: 14px;
-}
-
-.banner-text {
-  font-weight: 500;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.fade-enter-from {
-  opacity: 0;
-  transform: translateY(4px);
-}
-
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
-}
 </style>

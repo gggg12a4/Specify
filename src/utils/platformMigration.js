@@ -1,17 +1,15 @@
 import {
   PLATFORM_TOOLS,
-  SPECIAL_TOOLS,
   TOOL_SUB_MODELS,
 } from '@/constants/spTools'
 import { getDefaultModelForPlatform, getModelsForPlatform } from '@/constants/platformModels'
 import { normalizeSubTools, getSubToolRefKey, isPlatformSubTool } from '@/utils/customToolErrors'
 
+/** 无本地 PLATFORM_TOOLS 时返回 null，表示不按平台清单裁剪工具 */
 function getAllowedToolKeys(platform) {
-  return new Set(PLATFORM_TOOLS[platform] || PLATFORM_TOOLS.claude)
-}
-
-function getSpecialToolLabel(key) {
-  return SPECIAL_TOOLS.find(t => t.key === key)?.name || key
+  const list = PLATFORM_TOOLS[platform] || PLATFORM_TOOLS.claude
+  if (!list || !list.length) return null
+  return new Set(list)
 }
 
 function resolveSubModelForPlatform(toolKey, platform, current) {
@@ -28,58 +26,73 @@ export function analyzePlatformMigration(form, oldPlatform, newPlatform) {
   }
 
   const allowed = getAllowedToolKeys(newPlatform)
-  const removedSpecialTools = Object.keys(form.special_tools || {}).filter(key => !allowed.has(key))
+  const removedSpecialTools = allowed
+    ? Object.keys(form.special_tools || {}).filter(key => !allowed.has(key))
+    : []
   const modelWillChange = !getModelsForPlatform(newPlatform).some(m => m.id === form.model)
 
   let customToolRefsRemoved = 0
-  for (const ct of form.custom_tools || []) {
-    const subs = normalizeSubTools(ct, form.custom_tools || [])
-    customToolRefsRemoved += subs.filter(sub => isPlatformSubTool(sub) && !allowed.has(getSubToolRefKey(sub))).length
+  if (allowed) {
+    for (const ct of form.custom_tools || []) {
+      const subs = normalizeSubTools(ct, form.custom_tools || [])
+      customToolRefsRemoved += subs.filter(sub => isPlatformSubTool(sub) && !allowed.has(getSubToolRefKey(sub))).length
+    }
   }
 
   return {
     hasChanges: true,
-    removedSpecialTools: removedSpecialTools.map(getSpecialToolLabel),
+    removedSpecialTools,
     modelWillChange,
     nextModel: modelWillChange ? getDefaultModelForPlatform(newPlatform) : form.model,
     customToolRefsRemoved,
   }
 }
 
-/** 将 form 中与平台绑定的字段迁移到新平台 */
+/** 将 form 中与平台绑定的字段迁移到新平台（主模型清空，需用户重选） */
 export function applyPlatformMigration(form, newPlatform) {
   const allowed = getAllowedToolKeys(newPlatform)
 
-  if (!getModelsForPlatform(newPlatform).some(m => m.id === form.model)) {
-    form.model = getDefaultModelForPlatform(newPlatform)
-  }
+  // 与产品确认文案一致：切换后清除主模型，不自动填默认模型
+  form.model = ''
 
   const nextSpecialTools = {}
   for (const [key, cfg] of Object.entries(form.special_tools || {})) {
-    if (!allowed.has(key)) continue
-    const tool = SPECIAL_TOOLS.find(t => t.key === key)
+    if (allowed && !allowed.has(key)) continue
     let sub_model = cfg.sub_model ?? null
-    if (tool?.hasSubModel) {
+    if (TOOL_SUB_MODELS[key]) {
       sub_model = resolveSubModelForPlatform(key, newPlatform, sub_model)
     }
     nextSpecialTools[key] = { ...cfg, sub_model }
   }
   form.special_tools = nextSpecialTools
 
-  form.custom_tools = (form.custom_tools || []).map(ct => {
-    const subs = normalizeSubTools(ct, form.custom_tools || [])
-    const filtered = subs.filter(sub => {
-      if (!isPlatformSubTool(sub)) return true
-      return allowed.has(getSubToolRefKey(sub))
+  if (allowed) {
+    form.custom_tools = (form.custom_tools || []).map(ct => {
+      const subs = normalizeSubTools(ct, form.custom_tools || [])
+      const filtered = subs.filter(sub => {
+        if (!isPlatformSubTool(sub)) return true
+        return allowed.has(getSubToolRefKey(sub))
+      })
+      if (filtered.length === subs.length) return ct
+      return { ...ct, sub_tools: filtered }
     })
-    if (filtered.length === subs.length) return ct
-    return { ...ct, sub_tools: filtered }
-  })
+  }
 
   form.platform = newPlatform
   form.credential_id = null
 }
 
+/** 切换平台前的固定确认文案（与产品设计稿一致） */
+export const PLATFORM_SWITCH_CONFIRM_MESSAGE = [
+  '切换平台后：',
+  '1. 当前对话模型将被**清除**，需要重新选择',
+  '2. 不兼容新平台的工具需要**手动关闭**',
+  '3. 已有对话记录不受影响',
+  '',
+  '确定要切换平台吗？',
+].join('\n')
+
+/** @deprecated 保留给调试用；产品确认弹窗请使用 PLATFORM_SWITCH_CONFIRM_MESSAGE */
 export function buildPlatformSwitchMessage(analysis) {
   const lines = ['切换平台后，以下配置将自动调整：', '']
 

@@ -141,8 +141,8 @@ router.beforeEach((to) => {
     }
   }
 
-  // 3. 已登录用户访问首页时，自动跳转到对应门户
-  if (to.path === '/' && authStore.isAuthenticated) {
+  // 3. 已登录用户访问首页时跳转到对应门户；退出登录后应留在官网
+  if (to.path === '/' && authStore.isAuthenticated && !to.query.loggedOut) {
     return { path: portalHomePath(authStore.userRole || 'developer') }
   }
 

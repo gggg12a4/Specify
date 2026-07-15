@@ -2,79 +2,88 @@
   <div class="app-edit">
     <header class="edit-bar">
       <div class="bar-left">
-        <router-link to="/" class="back-btn" @click.prevent="handleBack">
+        <router-link to="/developer/workspace" class="brand">
+          <span class="brand-mark">S</span>
+          <span class="brand-name">Specify</span>
+        </router-link>
+        <span class="dev-badge">DEV</span>
+        <span class="bar-divider" aria-hidden="true" />
+
+        <button type="button" class="back-btn" aria-label="返回工作空间" @click="handleBack">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="15 18 9 12 15 6" />
           </svg>
-        </router-link>
-        <div class="bar-title">
-          <span class="bar-label">App 开发</span>
-          <!-- <span class="bar-sep">：</span> -->
-          <div class="bar-app-row">
-            <span class="bar-app-wrap">
-              <span class="bar-app">{{ app?.name }}</span>
-              <button v-if="app" type="button" class="bar-app-edit" aria-label="编辑 App 名称与描述" title="编辑 App 信息"
-                @click="showMetaEditModal = true">
+        </button>
+
+        <div class="bar-app-wrap">
+          <h1 class="bar-app-name">{{ app?.name || 'App' }}</h1>
+          <button
+            v-if="app"
+            type="button"
+            class="bar-app-edit"
+            aria-label="编辑 App 名称与描述"
+            title="编辑 App 信息"
+            @click="showMetaEditModal = true"
+          >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 20h9" />
                   <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                 </svg>
               </button>
-            </span>
-            <button v-if="platformLabel" type="button" class="bar-platform" :class="{ active: showPlatformModal }"
-              :aria-label="`当前平台 ${platformLabel}，点击切换 AI 平台`" title="点击切换 AI 平台" @click="showPlatformModal = true">
-              <span class="bar-platform-label">{{ platformLabel }}</span>
-              <span class="bar-platform-hint">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                  <polyline points="17 1 21 5 17 9" />
-                  <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-                  <polyline points="7 23 3 19 7 15" />
-                  <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+        </div>
+
+        <div v-if="platformLabel" class="bar-platform">
+          <span class="bar-platform-deco" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="12" cy="12" r="2.5" />
                 </svg>
-                切换平台
               </span>
-            </button>
-            <button
-              v-if="platformLabel"
-              type="button"
-              class="bar-credential"
-              :title="credentialSummary.label"
-              @click="openAppApiConfig"
-            >
-              {{ credentialShortLabel }}
-            </button>
+          <span class="bar-platform-prefix">平台:</span>
+          <strong class="bar-platform-name">{{ platformLabel }}</strong>
+          <button type="button" class="bar-switch-link" @click="openPlatformSwitch">切换</button>
           </div>
-          <span v-if="showAutoSavedHint" class="save-status saved">已自动保存</span>
-          <span v-else-if="autoSavePending" class="save-status pending">{{ autoSaveCountdown }}s 后自动保存</span>
-          <span v-else-if="isDirty" class="unsaved-dot" title="有未保存的修改"></span>
+
+        <div v-if="releaseMeta" class="version-select-wrap">
+          <select v-model="versionView" class="version-select">
+            <option value="draft">草稿(当前编辑)</option>
+            <option v-if="releaseMeta.isPublished" value="live">
+              {{ releaseMeta.liveVersionNumber != null ? `v${releaseMeta.liveVersionNumber} 线上` : '已发布' }}
+            </option>
+          </select>
         </div>
       </div>
+
       <div class="bar-right">
-        <button class="btn-save" :class="{ 'is-saving': isSaving }" @click="handleSave()"
-          :disabled="!isDirty || isSaving">
-          <template v-if="isSaving">
-            <span class="spinner"></span>
-            保存中...
-          </template>
-          <template v-else>
+        <span v-if="isSaving" class="save-status saving">保存中…</span>
+        <span v-else-if="!isDirty || showAutoSavedHint" class="save-status saved">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-              <polyline points="17 21 17 13 7 13 7 21"></polyline>
-              <polyline points="7 3 7 8 15 8"></polyline>
+            <polyline points="20 6 9 17 4 12" />
             </svg>
-            保存修改
-          </template>
+          已保存
+        </span>
+        <span v-else-if="autoSavePending" class="save-status pending">{{ autoSaveCountdown }}s 后自动保存</span>
+
+        <button
+          type="button"
+          class="btn-save-debug"
+          :disabled="isSaving"
+          @click="handleSaveAndDebug"
+        >
+          保存为草稿去调试
         </button>
-        <button class="btn-debug ml-2" @click="handleDebug">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polygon points="5 3 19 12 5 21 5 3"></polygon>
-          </svg>
-          开始调试
-        </button>
+
+        <span class="bar-divider" aria-hidden="true" />
+
+        <button type="button" class="header-link" @click="openGlobalApiConfig">我的模型</button>
+        <span class="header-phone">{{ maskedPhone }}</span>
+        <button type="button" class="header-link logout" @click="handleLogout">退出登录</button>
       </div>
     </header>
 
-    <div v-if="!app" class="not-found">App 不存在或已被删除</div>
+    <div v-if="pageLoading" class="not-found">加载中…</div>
+    <div v-else-if="pageError" class="not-found">{{ pageError }}</div>
+    <div v-else-if="!app" class="not-found">App 不存在或已被删除</div>
 
     <div v-else class="edit-layout">
       <!-- 全局失效警告条 -->
@@ -89,116 +98,184 @@
 
       <div class="edit-content">
         <!-- 左侧文件空间 -->
-        <aside class="file-panel">
-          <AppFilePanel ref="filePanelRef" />
+        <aside class="file-panel" :class="{ 'is-collapsed': filePanelCollapsed }">
+          <button
+            type="button"
+            class="file-panel-toggle"
+            :title="filePanelCollapsed ? '展开文件栏' : '收起文件栏'"
+            :aria-label="filePanelCollapsed ? '展开文件栏' : '收起文件栏'"
+            :aria-expanded="!filePanelCollapsed"
+            @click="filePanelCollapsed = !filePanelCollapsed"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline v-if="filePanelCollapsed" points="9 18 15 12 9 6" />
+              <polyline v-else points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          <div v-show="!filePanelCollapsed" class="file-panel-body">
+            <AppFilePanel ref="filePanelRef" :app-name="app?.name || ''" />
+          </div>
         </aside>
 
         <!-- 主编辑区 -->
         <div class="edit-main">
           <div class="edit-container">
-            <!-- 底层模型 -->
-            <section class="edit-section">
-              <div class="section-header">
-                <div>
-                  <h2 class="section-title">底层模型</h2>
-                  <p class="section-desc">选择该平台（{{ platformLabel }}）下用于调试与运行的模型。</p>
+            <header class="edit-page-head">
+              <div class="page-breadcrumb">app / config / 草稿</div>
+              <div class="page-title-row">
+                <h1 class="page-title">{{ app.name }}</h1>
+                <span class="page-tag">{{ pageStatusLabel }}</span>
+                <span class="page-tag muted">当前编辑</span>
                 </div>
-              </div>
-              <AppModelSection :platform="form.platform || 'claude'" :model-value="form.model"
-                @update:model-value="(v) => { form.model = v; markDirty() }" />
+              <p class="page-desc">
+                配置主模型、系统提示词与推荐工具。左侧 shared/ 空间里面的文件与技能将在运行时注入。
+              </p>
+            </header>
+
+            <!-- 主模型 -->
+            <section class="edit-section">
+              <h2 class="section-label">
+                主模型 <span class="section-label-en">MODEL</span>
+              </h2>
+              <AppModelSection
+                variant="compact"
+                :platform="form.platform || 'claude'"
+                :model-value="form.model"
+                :available-models="editModels"
+                @update:model-value="(v) => { form.model = v; markDirty() }"
+              />
             </section>
 
             <!-- 系统提示词 -->
-            <section class="edit-section">
-              <div class="section-header">
-                <div>
-                  <h2 class="section-title">系统提示词</h2>
-                  <p class="section-desc">定义 App 的角色、行为边界以及如何使用工作区资源。</p>
+            <section class="edit-section prompt-section">
+              <h2 class="section-label">
+                系统提示词 <span class="section-label-en">PROMPT</span>
+              </h2>
+              <div
+                class="prompt-row"
+                role="button"
+                tabindex="0"
+                @click="openPromptModal"
+                @keydown.enter.prevent="openPromptModal"
+                @keydown.space.prevent="openPromptModal"
+              >
+                <div class="prompt-row-main">
+                  <span class="prompt-row-icon" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M153.6 768h716.8a51.2 51.2 0 0 1 0 102.4H153.6a51.2 51.2 0 0 1 0-102.4zM153.6 153.6h716.8a51.2 51.2 0 0 1 0 102.4H153.6a51.2 51.2 0 0 1 0-102.4z m0 307.2h409.6a51.2 51.2 0 0 1 0 102.4H153.6a51.2 51.2 0 0 1 0-102.4z" fill="currentColor" />
+                    </svg>
+                  </span>
+                  <span class="prompt-row-label">{{ promptRowLabel }}</span>
                 </div>
-              </div>
-              <div class="prompt-box prompt-trigger" role="button" tabindex="0" @click="openPromptModal"
-                @keydown.enter.prevent="openPromptModal" @keydown.space.prevent="openPromptModal">
-                <div v-if="form.system_prompt.trim()" class="prompt-preview">{{ form.system_prompt }}</div>
-                <div v-else class="prompt-placeholder">定义 App 的角色、行为和限制…</div>
-                <span class="prompt-open-hint">点击展开编辑</span>
+                <span class="prompt-expand-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 3 21 3 21 9" />
+                    <polyline points="9 21 3 21 3 15" />
+                    <line x1="21" y1="3" x2="14" y2="10" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                  展开编辑
+                </span>
               </div>
             </section>
 
-            <!-- 工具区 -->
-            <section class="edit-section">
-              <div class="section-header">
-                <div>
-                  <h2 class="section-title">工具</h2>
-                  <p class="section-desc">配置 App 可调用的平台能力、特殊工具与自定义子 Agent。</p>
-                </div>
+            <!-- 推荐工具 -->
+            <section class="edit-section tools-edit-section">
+              <div class="tools-section-head">
+                <h2 class="section-label">
+                  推荐工具 <span class="section-label-en">TOOLS</span>
+                </h2>
               </div>
-              <AppToolsSection ref="toolsSectionRef" :tools="form.tools" :custom-tools="form.custom_tools"
-                :special-tools="form.special_tools" :platform="form.platform || 'claude'" :file-refs="promptFileRefs"
-                :tool-refs="promptToolRefs" @update:tools="(v) => { form.tools = v; markDirty() }"
-                @update:custom-tools="(v) => { form.custom_tools = v; markDirty() }"
-                @update:special-tools="(v) => { form.special_tools = v; markDirty() }" @show-info="infoTool = $event"
-                @show-config="configTool = $event" />
+              <AppToolsSection
+                ref="toolsSectionRef"
+                :tools="form.tools"
+                :custom-tools="form.custom_tools"
+                :special-tools="form.special_tools"
+                :platform-mcp="form.platform_mcp"
+                :platform="form.platform || 'claude'"
+                :platform-tool-defs="platformToolDefs"
+                @update:tools="(v) => { form.tools = v; markDirty() }"
+                @update:special-tools="(v) => { form.special_tools = v; markDirty() }"
+                @update:platform-mcp="(v) => { form.platform_mcp = v; markDirty() }"
+                @show-info="infoTool = $event"
+                @show-config="configTool = $event"
+              />
             </section>
 
-            <!-- MCP 服务区 -->
-            <section class="edit-section">
-              <div class="section-header">
-                <div>
-                  <h2 class="section-title">MCP工具 (MCP)</h2>
-                  <p class="section-desc">为 App 挂载外部 API 和本地服务能力。</p>
-                </div>
-                <button class="btn btn-outline" @click="showAddMcp = true">+ 添加服务</button>
+            <!-- MCP 服务区：仅开发者自建 MCP -->
+            <section class="edit-section mcp-edit-section">
+              <div class="tools-section-head">
+                <h2 class="section-label">
+                  服务 <span class="section-label-en">MCP</span>
+                </h2>
+                <button type="button" class="btn-section-link" @click="showAddMcp = true">
+                  + 添加 MCP
+                </button>
               </div>
 
               <div v-if="!form.mcp_services.length" class="mcp-empty">
-                还没有添加 MCP 服务，点击「添加服务」接入外部工具
+                连接外部服务(如 GitHub、Notion)。点「添加 MCP」配置端点与凭证。
               </div>
 
-              <!-- MCP 服务卡片：名称 + URL（省略号截断，title 悬停查看完整地址） -->
               <div v-else class="mcp-card-grid">
-                <div
-                  v-for="mcp in form.mcp_services"
-                  :key="mcp.id"
-                  class="mcp-card"
-                  :class="{ 'is-off': !mcp.enabled }"
-                >
-                  <div class="mcp-card-row">
-                    <div class="mcp-card-info">
-                      <div class="mcp-card-title">{{ mcp.name }}</div>
-                      <div v-if="mcp.url" class="mcp-card-meta">
-                        <span class="mcp-url" :title="mcp.url">{{ mcp.url }}</span>
+                  <div
+                    v-for="mcp in form.mcp_services"
+                    :key="mcp.id"
+                    class="mcp-card"
+                    :class="{ 'is-off': !mcp.enabled }"
+                  >
+                    <div class="mcp-card-row">
+                      <div class="mcp-card-info">
+                        <div class="mcp-card-title">{{ mcp.name }}</div>
+                        <div v-if="mcp.url" class="mcp-card-meta">
+                          <span class="mcp-url" :title="mcp.url">{{ mcp.url }}</span>
+                        </div>
+                      </div>
+                      <div class="mcp-card-controls">
+                        <ToolConfigBtn title="配置参数" @click="openMcpConfig(mcp)" />
+                        <button
+                          type="button"
+                          class="mcp-remove-btn"
+                          title="移除"
+                          @click="removeMcp(mcp.id)"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6l-1 14H6L5 6"/>
+                            <path d="M10 11v6M14 11v6"/>
+                            <path d="M9 6V4h6v2"/>
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          class="card-toggle"
+                          :class="{ off: !mcp.enabled }"
+                          :aria-pressed="mcp.enabled"
+                          title="启用 / 禁用"
+                          @click="toggleMcp(mcp.id, !mcp.enabled)"
+                        >
+                          <div class="card-toggle-knob"></div>
+                        </button>
                       </div>
                     </div>
-                    <div class="mcp-card-controls">
-                      <ToolConfigBtn title="配置参数" @click="openMcpConfig(mcp)" />
-                      <button
-                        type="button"
-                        class="mcp-remove-btn"
-                        title="移除"
-                        @click="removeMcp(mcp.id)"
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <polyline points="3 6 5 6 21 6"/>
-                          <path d="M19 6l-1 14H6L5 6"/>
-                          <path d="M10 11v6M14 11v6"/>
-                          <path d="M9 6V4h6v2"/>
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        class="card-toggle"
-                        :class="{ off: !mcp.enabled }"
-                        :aria-pressed="mcp.enabled"
-                        title="启用 / 禁用"
-                        @click="toggleMcp(mcp.id, !mcp.enabled)"
-                      >
-                        <div class="card-toggle-knob"></div>
-                      </button>
-                    </div>
+                    <span class="tool-type-badge type-mcp">MCP工具</span>
                   </div>
-                  <span class="tool-type-badge type-mcp">MCP工具</span>
-                </div>
               </div>
+            </section>
+
+            <!-- 你创建的工具 AGENTS -->
+            <section class="edit-section">
+              <AppCustomAgentsSection
+                :custom-tools="form.custom_tools"
+                :tools="form.tools"
+                :special-tools="form.special_tools"
+                :platform="form.platform || 'claude'"
+                :app-name="app?.name || ''"
+                :platform-tool-defs="platformToolDefs"
+                :file-refs="promptFileRefs"
+                :tool-refs="promptToolRefs"
+                @update:custom-tools="(v) => { form.custom_tools = v; markDirty() }"
+              />
             </section>
           </div>
         </div>
@@ -206,13 +283,32 @@
     </div>
 
     <ToolInfoModal v-if="infoTool" :tool="infoTool" @close="infoTool = null" />
-    <ToolConfigModal v-if="configTool" :tool="configTool.tool" :config="form.tools[configTool.tool.key]?.config || {}"
-      :disabled-rules="configTool.disabledRules" @save="handleToolConfigSave" @close="configTool = null" />
+    <ToolConfigModal
+      v-if="configTool"
+      :tool="configTool.tool"
+      :config="toolConfigValue"
+      :disabled-rules="configTool.disabledRules"
+      :model-group-id="form.modelGroupId"
+      @save="handleToolConfigSave"
+      @close="configTool = null"
+    />
 
     <!-- MCP 弹窗 -->
-    <AddMcpModal v-model:visible="showAddMcp" :app-id="app?.id" @created="handleMcpCreated" />
-    <McpConfigModal v-if="mcpConfigTarget" v-model:visible="showMcpConfig" :app-id="app?.id" :mcp="mcpConfigTarget"
-      @updated="handleMcpUpdated" />
+    <AddMcpModal
+      v-model:visible="showAddMcp"
+      :app-id="app?.id"
+      :templates="createableMcpTemplates"
+      template-key="MCPServerStreamable"
+      @created="handleMcpCreated"
+    />
+    <McpConfigModal
+      v-if="mcpConfigTarget"
+      v-model:visible="showMcpConfig"
+      :app-id="app?.id"
+      :mcp="mcpConfigTarget"
+      :templates="createableMcpTemplates"
+      @updated="handleMcpUpdated"
+    />
 
     <SystemPromptModal v-model:visible="showPromptModal" v-model="form.system_prompt" :file-refs="promptFileRefs"
       :tool-refs="promptToolRefs" @done="markDirty" />
@@ -220,7 +316,10 @@
     <AppPlatformModal
       v-model:visible="showPlatformModal"
       :model-value="form.platform"
+      :app-name="app?.name || ''"
+      :current-model="form.model"
       @select="handlePlatformChange"
+      @back="openPlatformSwitch"
     />
 
     <AppMetaEditModal v-if="app" v-model:visible="showMetaEditModal" :name="app.name"
@@ -236,12 +335,14 @@
  * form 为本地草稿，通过 isDirty 跟踪未保存修改；修改后 3 秒自动保存。
  * 调试入口会先校验已启用工具的失效状态，必要时静默保存后再跳转运行页。
  */
-import { ref, reactive, computed, watch, onUnmounted, inject } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted, inject } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
 import { PLATFORM_LABELS } from '@/constants/spTools'
 import AppFilePanel from '@/components/app/AppFilePanel.vue'
 import AppToolsSection from '@/components/app/AppToolsSection.vue'
+import AppCustomAgentsSection from '@/components/app/AppCustomAgentsSection.vue'
 import ToolInfoModal from '@/components/app/ToolInfoModal.vue'
 import ToolConfigModal from '@/components/app/ToolConfigModal.vue'
 import AddMcpModal from '@/components/app/AddMcpModal.vue'
@@ -254,52 +355,128 @@ import AppMetaEditModal from '@/components/app/AppMetaEditModal.vue'
 import { API_CONFIG_MODAL_KEY } from '@/composables/useApiConfigModal'
 import { useApiConfig } from '@/composables/useApiConfig'
 import {
-  analyzePlatformMigration,
   applyPlatformMigration,
-  buildPlatformSwitchMessage,
+  PLATFORM_SWITCH_CONFIRM_MESSAGE,
 } from '@/utils/platformMigration'
-import { SP_TOOLS } from '@/constants/spTools'
-import { resolveAppModel, getDefaultModelForPlatform } from '@/constants/platformModels'
-import { showSuccess, showConfirm } from '@/composables/useNotification'
+import { showSuccess, showConfirm, showError } from '@/composables/useNotification'
+import { platformKeyToModelGroupId, resolveAppPublishStatus } from '@/utils/appAdapter'
+import { getModelsForPlatform } from '@/constants/platformModels'
 
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
-const { hasKeyForPlatform, hasKeyForApp, getAppCredentialSummary } = useApiConfig()
+const authStore = useAuthStore()
+const { hasKeyForPlatform, hasKeyForApp } = useApiConfig()
 const apiConfigModal = inject(API_CONFIG_MODAL_KEY, null)
 /** 从路由 id 获取当前编辑的 App */
 const app = computed(() => appStore.getApp(route.params.id))
+/** 编辑页会话（含 models / draft / templates 等） */
+const editSession = computed(() => appStore.getEditSession(route.params.id))
+/** 推荐工具目录（基础工具 + Agent + 平台 MCP） */
+const platformToolDefs = computed(() => editSession.value?.platformToolDefs || [])
+/** 可创建 MCP 模板（createable，默认 MCPServerStreamable） */
+const createableMcpTemplates = computed(() => editSession.value?.createableMcpTemplates || {})
+/**
+ * 主模型下拉选项。
+ * 暂时使用前端写死的 PLATFORM_MODELS（按当前平台过滤）；
+ * 编辑页接口 result.models 后续再切换接入。
+ */
+const editModels = computed(() => getModelsForPlatform(form.platform || 'claude'))
+
+/** 发布/分享相关元数据 */
+const releaseMeta = computed(() => {
+  const session = editSession.value
+  if (!session?.meta) return null
+  const meta = session.meta
+  const draft = session.draft || {}
+  const versions = draft.versions || []
+  const liveVersionId = meta.liveVersionId || ''
+  const liveVersion = versions.find(v => (v.id || v.version_id || v.versionId) === liveVersionId)
+  const liveVersionNumber = liveVersion?.version_number ?? liveVersion?.versionNumber ?? null
+  const isPublished = !!liveVersionId
+  const isPendingConfig = !!meta.isPendingConfig
+  const serverHasDraft = !!draft.hasDraft
+  const hasPendingDraft = serverHasDraft || isDirty.value
+  const publishStatus = resolveAppPublishStatus({
+    liveVersionId,
+    isPendingConfig,
+    hasDraft: hasPendingDraft,
+  })
+
+  return {
+    isPublished,
+    isPendingConfig,
+    liveVersionId,
+    liveVersionNumber,
+    serverHasDraft,
+    hasDraft: hasPendingDraft,
+    isPublic: meta.isPublic,
+    shareCode: meta.shareCode || '',
+    draftUpdatedAt: draft.draftUpdatedAt || '',
+    versions,
+    publishLabel: isPublished
+      ? (liveVersionNumber != null ? `v${liveVersionNumber} 线上` : '已发布')
+      : publishStatus.label,
+    publishBadgeClass: isPublished ? 'badge-live' : publishStatus.badgeClass,
+    liveLabel: isPublished
+      ? (liveVersionNumber != null ? `v${liveVersionNumber} 线上` : '已发布')
+      : publishStatus.label,
+  }
+})
+
+const pageLoading = ref(true)
+const pageError = ref('')
 /** 平台中文展示名 */
 const platformLabel = computed(() => PLATFORM_LABELS[form.platform] || '')
-/** 当前 App API 凭证展示摘要 */
-const credentialSummary = computed(() =>
-  getAppCredentialSummary(form.platform, form.credential_id),
-)
-/** 顶栏凭证按钮短文案 */
-const credentialShortLabel = computed(() => {
-  if (!credentialSummary.value.ready) return 'API 未配置'
-  if (credentialSummary.value.usingDefault) return 'API · 默认'
-  return 'API · 已选用'
-})
 
 const toolsSectionRef = ref(null)
 const filePanelRef = ref(null)
+const filePanelCollapsed = ref(false)
 const showPlatformModal = ref(false)
 const showMetaEditModal = ref(false)
+const versionView = ref('draft')
+
+const pageStatusLabel = computed(() => {
+  if (!releaseMeta.value) return '草稿'
+  if (releaseMeta.value.isPublished && releaseMeta.value.publishLabel.includes('线上')) {
+    return releaseMeta.value.publishLabel
+  }
+  return releaseMeta.value.publishLabel || '草稿'
+})
+
+const maskedPhone = computed(() => {
+  const phone = authStore.currentUser?.phone || authStore.currentUser?.nickname || ''
+  const s = String(phone)
+  if (s.length >= 7) return s.slice(0, 3) + '****' + s.slice(-4)
+  return s
+})
 
 const form = reactive({
   platform: 'claude',
+  modelGroupId: '',
   credential_id: null,
   system_prompt: '',
   model: '',
   tools: {},
   custom_tools: [],
   special_tools: {},
+  platform_mcp: {},
   mcp_services: [],
 })
 const infoTool = ref(null)
 const configTool = ref(null)
 const isDirty = ref(false)
+
+const toolConfigValue = computed(() => {
+  if (!configTool.value?.tool?.key) return {}
+  const key = configTool.value.tool.key
+  if (configTool.value._platformMcp) return form.platform_mcp[key]?.config || {}
+  const def = platformToolDefs.value.find(t => t.key === key)
+  if (def?.category === 'agent' || configTool.value._agentTool) {
+    return form.special_tools[key]?.config || {}
+  }
+  return form.tools[key]?.config || {}
+})
 const isSaving = ref(false)
 const showLeaveConfirm = ref(false)
 const showAddMcp = ref(false)
@@ -380,16 +557,19 @@ const promptFileRefs = computed(() => {
 const promptToolRefs = computed(() => {
   const items = []
 
-  for (const tool of SP_TOOLS) {
-    if (form.tools[tool.key]?.enabled) {
-      items.push({ label: tool.name, value: tool.key, desc: tool.desc, kind: 'tool' })
-    }
-  }
-
-  for (const [key, cfg] of Object.entries(form.special_tools || {})) {
-    if (cfg?.enabled) {
-      items.push({ label: key, value: key, kind: 'tool' })
-    }
+  for (const tool of platformToolDefs.value) {
+    const enabled = tool.category === 'mcp' || tool.kind === 'mcp'
+      ? !!form.platform_mcp[tool.key]?.enabled
+      : tool.category === 'agent' || tool.kind === 'special'
+        ? !!form.special_tools[tool.key]?.enabled
+        : !!form.tools[tool.key]?.enabled
+    if (!enabled) continue
+    items.push({
+      label: tool.name,
+      value: tool.key,
+      desc: tool.desc,
+      kind: 'tool',
+    })
   }
 
   for (const tool of form.custom_tools || []) {
@@ -401,10 +581,14 @@ const promptToolRefs = computed(() => {
   return items
 })
 
-/** 保存 App 名称与描述（独立于 form 草稿，立即写入 store） */
-function handleMetaSave({ name, description }) {
-  appStore.updateApp(app.value.id, { name, description })
+/** 保存 App 名称与描述（走独立 API，不写入草稿） */
+async function handleMetaSave({ name, description }) {
+  try {
+    await appStore.updateMeta(app.value.id, { name, description })
   showSuccess('App 信息已更新')
+  } catch (err) {
+    showError(err.message || '更新 App 信息失败')
+  }
 }
 
 /** 打开全局 API 密钥配置，并带上当前 App 选用上下文 */
@@ -428,33 +612,31 @@ function openAppApiConfig() {
   })
 }
 
-/** 切换平台：先确认影响范围，确认后再迁移并视情况提示配置 API Key */
-async function handlePlatformChange(newPlatform) {
-  if (newPlatform === form.platform) return
-
-  const analysis = analyzePlatformMigration(form, form.platform, newPlatform)
-  const message = buildPlatformSwitchMessage(analysis)
-
-  showPlatformModal.value = false
-
+/** 点击「切换」：先弹出影响说明，确认后再打开平台选择 */
+async function openPlatformSwitch() {
   const confirmed = await showConfirm({
-    title: `切换到 ${PLATFORM_LABELS[newPlatform] || newPlatform}？`,
-    message,
+    title: '切换平台',
+    message: PLATFORM_SWITCH_CONFIRM_MESSAGE,
     confirmText: '确认切换',
     cancelText: '取消',
   })
-  if (!confirmed) {
+  if (confirmed) {
     showPlatformModal.value = true
+  }
+}
+
+/** 在平台弹窗中选中新平台后执行迁移 */
+async function handlePlatformChange(newPlatform) {
+  if (newPlatform === form.platform) {
+    showPlatformModal.value = false
     return
   }
 
+  showPlatformModal.value = false
   applyPlatformMigration(form, newPlatform)
+  form.modelGroupId = platformKeyToModelGroupId(newPlatform, appStore.modelGroups)
   markDirty()
   checkGlobalErrors()
-
-  if (!hasKeyForPlatform(newPlatform)) {
-    openAppApiConfig()
-  }
 }
 
 /** 打开系统提示词全屏编辑弹窗 */
@@ -462,23 +644,68 @@ function openPromptModal() {
   showPromptModal.value = true
 }
 
-/** App 数据加载后：深拷贝到 form 并重置 isDirty */
-watch(app, (a) => {
-  if (!a) return
+/** 紧凑行展示：空时为 # Role，有内容时取首行 */
+const promptRowLabel = computed(() => {
+  const text = form.system_prompt.trim()
+  if (!text) return '# Role'
+  const firstLine = text.split('\n').map((line) => line.trim()).find(Boolean)
+  return firstLine || '# Role'
+})
+
+/** 从编辑会话填充 form */
+function applyEditSession(session) {
+  if (!session) return
   suppressDirtyUntil = Date.now() + 100
   clearAutoSaveTimer()
   showAutoSavedHint.value = false
   showPlatformModal.value = false
+
+  const a = session.form
   form.system_prompt = a.system_prompt || ''
   form.platform = a.platform || 'claude'
+  form.modelGroupId = a.modelGroupId || session.meta?.modelGroupId || ''
   form.credential_id = a.credential_id ?? null
-  form.model = resolveAppModel(a)
+  // 写死模型列表阶段：仅保留当前平台 mock 列表中存在的模型 id
+  const platformModels = getModelsForPlatform(form.platform)
+  const incomingModel = a.model || ''
+  form.model = platformModels.some(m => m.id === incomingModel) ? incomingModel : ''
   form.tools = JSON.parse(JSON.stringify(a.tools || {}))
   form.custom_tools = JSON.parse(JSON.stringify(a.custom_tools || []))
   form.special_tools = JSON.parse(JSON.stringify(a.special_tools || {}))
+  form.platform_mcp = JSON.parse(JSON.stringify(a.platform_mcp || {}))
   form.mcp_services = JSON.parse(JSON.stringify(a.mcp_services || []))
   isDirty.value = false
-}, { immediate: true })
+}
+
+async function loadEditPage(appId) {
+  pageLoading.value = true
+  pageError.value = ''
+  try {
+    await appStore.fetchModelGroups()
+    const session = await appStore.fetchEditPage(appId)
+    applyEditSession(session)
+  } catch (err) {
+    pageError.value = err.message || '加载编辑页失败'
+  } finally {
+    pageLoading.value = false
+  }
+}
+
+onMounted(() => {
+  if (route.params.id) {
+    loadEditPage(route.params.id)
+  }
+})
+
+watch(() => route.params.id, (id) => {
+  if (id) loadEditPage(id)
+})
+
+/** App 数据加载后：深拷贝到 form 并重置 isDirty（兼容 editSession 更新） */
+watch(editSession, (session) => {
+  if (!session || pageLoading.value) return
+  applyEditSession(session)
+}, { immediate: false })
 
 /** form 任意字段变更时标记为未保存（跳过 App 尚未就绪的初始阶段） */
 watch(() => form, () => {
@@ -509,36 +736,29 @@ watch(() => [form.tools, form.special_tools, form.custom_tools], () => {
   setTimeout(checkGlobalErrors, 150)
 }, { deep: true })
 
-/** 将 form 写回 appStore；silent 为 true 时不弹成功提示 */
-function handleSave(silent = false, options = {}) {
-  if (!isDirty.value) return Promise.resolve()
+/** 将 form 保存到后端草稿；silent 为 true 时不弹成功提示 */
+async function handleSave(silent = false, options = {}) {
+  if (!isDirty.value || !app.value) return Promise.resolve()
 
   clearAutoSaveTimer()
-
-  return new Promise((resolve) => {
     isSaving.value = true
 
-    setTimeout(() => {
-      appStore.updateApp(app.value.id, {
-        platform: form.platform,
-        credential_id: form.credential_id,
-        system_prompt: form.system_prompt,
-        model: form.model || getDefaultModelForPlatform(form.platform),
-        tools: form.tools,
-        custom_tools: form.custom_tools,
-        special_tools: form.special_tools,
-        mcp_services: form.mcp_services,
-      })
+  try {
+    await appStore.saveDraft(app.value.id, { ...form })
       isDirty.value = false
-      isSaving.value = false
       if (options.auto) {
         flashAutoSavedHint()
       } else if (!silent) {
         showSuccess('保存成功')
       }
-      resolve()
-    }, 300)
-  })
+  } catch (err) {
+    if (!silent) {
+      showError(err.message || '保存失败')
+    }
+    throw err
+  } finally {
+    isSaving.value = false
+  }
 }
 
 onUnmounted(() => {
@@ -546,10 +766,34 @@ onUnmounted(() => {
   if (autoSavedHintTimer) clearTimeout(autoSavedHintTimer)
 })
 
-/** 保存平台工具参数配置到 form.tools[key].config */
+/** 保存平台工具 / 平台 MCP 参数配置 */
 function handleToolConfigSave(config) {
   const key = configTool.value.tool.key
-  form.tools = { ...form.tools, [key]: { ...form.tools[key], config } }
+  const def = platformToolDefs.value.find(t => t.key === key)
+  const isPlatformMcp = !!configTool.value._platformMcp
+  const isAgent = !!configTool.value._agentTool || def?.category === 'agent'
+
+  if (isPlatformMcp) {
+    form.platform_mcp = {
+      ...form.platform_mcp,
+      [key]: {
+        ...(form.platform_mcp[key] || {}),
+        enabled: form.platform_mcp[key]?.enabled ?? false,
+        config,
+      },
+    }
+  } else if (isAgent) {
+    form.special_tools = {
+      ...form.special_tools,
+      [key]: {
+        ...(form.special_tools[key] || {}),
+        enabled: form.special_tools[key]?.enabled ?? false,
+        config,
+      },
+    }
+  } else {
+    form.tools = { ...form.tools, [key]: { ...form.tools[key], config } }
+  }
   configTool.value = null
   markDirty()
 }
@@ -589,7 +833,26 @@ function removeMcp(id) {
 // ── Navigation guards ────────────────────────────────────────────────────────
 /** 返回开发者工作空间首页 */
 function handleBack() {
-  router.push('/workspace')
+  router.push('/developer/workspace')
+}
+
+function openGlobalApiConfig() {
+  apiConfigModal?.open()
+}
+
+async function handleLogout() {
+  const ok = await showConfirm({
+    title: '退出登录',
+    message: '确定要退出当前账号吗？',
+    confirmText: '确定退出',
+    cancelText: '取消',
+    danger: true,
+  })
+  if (ok) authStore.logout()
+}
+
+async function handleSaveAndDebug() {
+  await handleDebug()
 }
 
 /** 进入调试运行页：先拦截失效工具，再处理未保存修改与 API Key */
@@ -638,15 +901,16 @@ onBeforeRouteLeave(async (to, from, next) => {
 <style scoped>
 .app-edit {
   width: 100%;
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   background: var(--color-bg);
+  font-family: var(--font-sans);
 }
 
-/* ── Top bar ── */
+/* ── Unified top bar ── */
 .edit-bar {
-  height: 54px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -654,12 +918,69 @@ onBeforeRouteLeave(async (to, from, next) => {
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
+  gap: 16px;
 }
 
-.bar-left {
+.bar-left,
+.bar-right {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+}
+
+.bar-left {
+  flex: 1;
+  overflow: hidden;
+}
+
+.bar-right {
+  flex-shrink: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  background: var(--color-text);
+  color: var(--color-surface);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+.brand-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #000000;
+}
+
+.dev-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.bar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+  flex-shrink: 0;
 }
 
 .back-btn {
@@ -670,59 +991,38 @@ onBeforeRouteLeave(async (to, from, next) => {
   justify-content: center;
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  text-decoration: none;
+  border-radius: 8px;
+  background: var(--color-surface);
   transition: all 0.15s;
   cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
 }
 
 .back-btn:hover {
   color: var(--color-text);
-  border-color: var(--color-text-muted);
+  border-color: #d1d5db;
   background: var(--color-bg-secondary);
-}
-
-.bar-title {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.bar-label {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  font-weight: 500;
-  padding: 2px 8px;
-  background: var(--color-bg-secondary);
-  border-radius: 4px;
-}
-
-.bar-sep {
-  font-size: 13px;
-  color: var(--color-text-muted);
-}
-
-.bar-app-row {
-  display: inline-flex;
-  align-items: baseline;
-  min-width: 0;
 }
 
 .bar-app-wrap {
   display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
+  align-items: center;
+  gap: 4px;
   min-width: 0;
-  max-width: 240px;
+  max-width: 180px;
+  flex-shrink: 1;
 }
 
-.bar-app {
+.bar-app-name {
+  margin: 0;
   font-size: 15px;
   font-weight: 600;
-  color: var(--color-text);
+  color: #000000;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .bar-app-edit {
@@ -730,21 +1030,15 @@ onBeforeRouteLeave(async (to, from, next) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: auto;
-  height: auto;
-  margin: 0;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: none;
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  opacity: 0.5;
-  transform: translateY(2px);
+  opacity: 0.55;
   transition: opacity 0.15s, color 0.15s;
-}
-
-.bar-app-edit svg {
-  display: block;
 }
 
 .bar-app-edit:hover {
@@ -752,103 +1046,86 @@ onBeforeRouteLeave(async (to, from, next) => {
   color: var(--color-text-secondary);
 }
 
-.bar-credential {
-  display: inline-flex;
-  align-items: center;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  padding: 3px 10px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  margin-left: 6px;
-  flex-shrink: 0;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
-}
-
-.bar-credential:hover {
-  color: var(--color-primary);
-  border-color: var(--color-primary);
-  background: var(--color-primary-soft);
-}
-
 .bar-platform {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--color-primary-hover);
-  padding: 3px 8px 3px 10px;
-  background: var(--color-primary-soft);
-  border: 1px solid var(--color-primary);
-  border-radius: 10px;
-  margin-left: 6px;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
   flex-shrink: 0;
-  transform: translateY(1px);
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
 }
 
-.bar-platform-label {
-  font-weight: 600;
-  color: var(--color-primary-hover);
-}
-
-.bar-platform-hint {
+.bar-platform-deco {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--color-primary);
-  padding-left: 6px;
-  border-left: 1px solid var(--color-primary);
-  opacity: 0.85;
-  transition: opacity 0.15s, color 0.15s;
-}
-
-.bar-platform:hover {
-  background: var(--color-primary-soft);
-  border-color: var(--color-primary-hover);
-  box-shadow: 0 2px 8px var(--color-primary-glow);
-}
-
-.bar-platform:hover .bar-platform-hint {
-  color: var(--color-primary-hover);
-  opacity: 1;
-}
-
-.bar-platform.active {
-  background: var(--color-primary-soft);
-  border-color: var(--color-primary-hover);
-  box-shadow: 0 0 0 2px var(--color-primary-muted);
-}
-
-.bar-platform.active .bar-platform-hint {
-  color: var(--color-primary-hover);
-  opacity: 1;
-}
-
-.unsaved-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--color-warning, #f59e0b);
-  margin-left: 4px;
+  justify-content: center;
+  color: var(--color-text-muted);
   flex-shrink: 0;
+  pointer-events: none;
+  line-height: 0;
+  margin-right: -2px;
+}
+
+.bar-platform-prefix {
+  color: var(--color-text-muted);
+}
+
+.bar-platform-name {
+  color: #000000;
+  font-weight: 600;
+}
+
+.bar-switch-link {
+  padding: 0;
+  margin-left: 2px;
+  border: none;
+  background: none;
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.bar-switch-link:hover {
+  color: var(--color-primary-hover);
+  text-decoration: underline;
+}
+
+.version-select-wrap {
+  flex-shrink: 0;
+}
+
+.version-select {
+  appearance: none;
+  padding: 5px 28px 5px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+.version-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
 }
 
 .save-status {
-  margin-left: 8px;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
   font-weight: 500;
   line-height: 1;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .save-status.pending {
@@ -859,59 +1136,60 @@ onBeforeRouteLeave(async (to, from, next) => {
   color: #059669;
 }
 
-.bar-right {
-  display: flex;
-  align-items: center;
+.save-status.saving {
+  color: var(--color-text-muted);
 }
 
-.btn-save {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
+.btn-save-debug {
+  padding: 8px 16px;
   font-size: 13px;
   font-weight: 500;
   background: var(--color-primary);
   color: #fff;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.btn-debug {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  font-size: 13px;
-  font-weight: 500;
-  background: var(--color-success, #10b981);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-debug:hover {
-  background: #059669;
-  /* slightly darker green */
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-}
-
-.ml-2 {
-  margin-left: 8px;
-}
-
-.btn-save:hover:not(:disabled) {
+.btn-save-debug:hover:not(:disabled) {
   background: var(--color-primary-hover);
   box-shadow: 0 4px 12px var(--color-primary-glow);
 }
 
-.btn-save:disabled {
-  opacity: 0.5;
+.btn-save-debug:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
+}
+
+.header-link {
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 500;
+    color: var(--color-text-secondary);
+    background: none;
+  border: none;
+    border-radius: 6px;
+  cursor: pointer;
+    transition: .15s;
+    flex-shrink: 0;
+}
+
+.header-link:hover {
+  color: var(--color-text);
+}
+
+.header-link.logout {
+  color: var(--color-text-muted);
+}
+
+.header-phone {
+  font-size: 14px;
+  color: var(--color-text);
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .spinner {
@@ -970,15 +1248,63 @@ onBeforeRouteLeave(async (to, from, next) => {
 }
 
 .file-panel {
-  width: 320px;
+  position: relative;
+  width: 279px;
   flex-shrink: 0;
   border-right: 1px solid var(--color-border);
   background: var(--color-surface);
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   box-shadow: 1px 0 2px rgba(0, 0, 0, 0.02);
   z-index: 5;
+  transition: width 0.2s ease;
+}
+
+.file-panel.is-collapsed {
+  width: 36px;
+  overflow: visible;
+}
+
+.file-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-panel-toggle {
+  position: absolute;
+  top: 14px;
+  right: -12px;
+  z-index: 8;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: color 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.file-panel.is-collapsed .file-panel-toggle {
+  top: 50%;
+  right: 50%;
+  transform: translate(50%, -50%);
+}
+
+.file-panel-toggle:hover {
+  color: var(--color-primary);
+  border-color: #93c5fd;
+  background: #eff6ff;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.15);
 }
 
 .file-panel::-webkit-scrollbar {
@@ -987,10 +1313,11 @@ onBeforeRouteLeave(async (to, from, next) => {
 
 .edit-main {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
   scrollbar-width: none;
-  padding: 40px;
-  background: var(--color-bg);
+  padding: 24px 28px 36px;
+  background: var(--color-surface);
 }
 
 .edit-main::-webkit-scrollbar {
@@ -998,17 +1325,117 @@ onBeforeRouteLeave(async (to, from, next) => {
 }
 
 .edit-container {
-  max-width: 1200px;
-  margin: 0 auto;
   width: 100%;
+  max-width: none;
+  margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 24px;
+}
+
+.edit-page-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 4px;
+}
+
+.page-breadcrumb {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono, monospace);
+}
+
+.page-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #000000;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.page-tag {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  padding: 2px 10px;
+  border-radius: 999px;
+  line-height: 1.5;
+}
+
+.page-tag.muted {
+  color: var(--color-text-muted);
+}
+
+.page-desc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  max-width: 720px;
 }
 
 .edit-section {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+
+.section-label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.section-label-en {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  letter-spacing: 0.06em;
+}
+
+.tools-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.btn-section-link {
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: var(--color-primary, #3b82f6);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.btn-section-link:hover {
+  color: var(--color-primary-hover, #2563eb);
+}
+
+.tools-edit-section {
+  gap: 16px;
+}
+
+.mcp-edit-section {
+  gap: 16px;
 }
 
 .section-header {
@@ -1035,75 +1462,87 @@ onBeforeRouteLeave(async (to, from, next) => {
 }
 
 /* ── Prompt ── */
-.prompt-box {
+.prompt-section {
   width: 100%;
-  min-height: 180px;
-  padding: 16px 18px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 13px;
-  line-height: 1.6;
-  resize: vertical;
-  outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.prompt-box:focus-visible {
+.prompt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid #eef0f3;
+  border-radius: 8px;
+  background: var(--color-surface);
+  box-shadow: none;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.prompt-row:hover {
+  border-color: #e5e7eb;
+  background: #fafafa;
+}
+
+.prompt-row:focus-visible {
   outline: none;
   border-color: #60a5fa;
   box-shadow: 0 0 0 2px #dbeafe;
 }
 
-.prompt-trigger {
-  position: relative;
-  cursor: pointer;
-  min-height: 180px;
-  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+.prompt-row-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
 }
 
-.prompt-trigger:hover {
-  border-color: #cbd5e1;
-  background: #fafafa;
+.prompt-row-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #9ca3af;
 }
 
-.prompt-preview {
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--color-text);
-  max-height: 220px;
+.prompt-row:hover .prompt-row-icon {
+  color: #6b7280;
+}
+
+.prompt-row-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  font-family: var(--font-sans);
+  line-height: 1.4;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 8;
-  line-clamp: 8;
-  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.prompt-placeholder {
+.prompt-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
   font-size: 13px;
-  color: var(--color-text-muted);
-  line-height: 1.6;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: var(--color-primary);
+  line-height: 1;
+  white-space: nowrap;
 }
 
-.prompt-open-hint {
-  position: absolute;
-  right: 14px;
-  bottom: 12px;
-  font-size: 11px;
-  color: var(--color-text-muted);
-  opacity: 0;
-  transition: opacity 0.15s;
+.prompt-expand-btn svg {
+  flex-shrink: 0;
 }
 
-.prompt-trigger:hover .prompt-open-hint,
-.prompt-trigger:focus-visible .prompt-open-hint {
-  opacity: 1;
+.prompt-row:hover .prompt-expand-btn {
+  color: var(--color-primary-hover, #2563eb);
 }
 
 /* ── Buttons (sketch style) ── */
@@ -1135,18 +1574,23 @@ onBeforeRouteLeave(async (to, from, next) => {
 /* ── MCP 服务卡片（布局与 AppToolsSection 工具卡片对齐） ── */
 .mcp-empty {
   font-size: 13px;
-  color: var(--color-text-muted);
-  padding: 20px 16px;
-  border: 1px dashed var(--color-border);
+  color: #9ca3af;
+  padding: 18px 16px;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  text-align: center;
-  background: var(--color-bg-secondary);
+  text-align: left;
+  line-height: 1.6;
+  background: #f9fafb;
 }
 
 .mcp-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 10px;
+}
+
+.mcp-card-grid.is-stacked {
+  margin-top: 10px;
 }
 
 .mcp-card {

@@ -435,7 +435,7 @@ function openRunApiConfig() {
         platform: app.value.platform,
         credentialId: app.value.credential_id,
         onSelect: (credentialId) => {
-          appStore.updateApp(app.value.id, { credential_id: credentialId })
+          appStore.updateAppLocal(app.value.id, { credential_id: credentialId })
           runConfigured.value = true
           if (inputText.value.trim() || uploadedFiles.value.length) send()
         },
@@ -447,9 +447,17 @@ function openRunApiConfig() {
   showRunConfig.value = true
 }
 
-/** 挂载时加载历史会话，并检查是否需要弹出运行配置（API Key JIT） */
+/** 挂载时加载 App 数据、历史会话，并检查是否需要弹出运行配置（API Key JIT） */
 onMounted(async () => {
   loadSessions()
+
+  if (route.params.id && !app.value) {
+    try {
+      await appStore.fetchEditPage(route.params.id)
+    } catch {
+      // 加载失败时 app 仍为 null，模板会展示不可用状态
+    }
+  }
 
   if (!app.value) return
 
@@ -466,7 +474,7 @@ function onRunConfigConfirm(payload = {}) {
   runConfigured.value = true
 
   if (payload.credentialId !== undefined && app.value) {
-    appStore.updateApp(app.value.id, { credential_id: payload.credentialId })
+    appStore.updateAppLocal(app.value.id, { credential_id: payload.credentialId })
   }
 
   if (inputText.value.trim() || uploadedFiles.value.length) {

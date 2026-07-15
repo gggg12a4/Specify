@@ -5,30 +5,26 @@
         <div class="modal-container" :class="{ 'is-app-pick': appContext && !isEditing }" @click.stop>
           <!-- 标题栏 -->
           <div class="modal-header">
-            <div class="modal-title-wrapper">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-              </svg>
-              <h2 class="modal-title">{{ isEditing ? (editId ? '编辑 API 密钥' : '添加 API 密钥') : (appContext ? '选择 API 凭证' : 'API 密钥配置') }}</h2>
+            <div class="modal-header-top">
+              <h2 class="modal-title">{{ modalTitle }}</h2>
+              <button type="button" class="close-btn" title="关闭" @click="handleCancel">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
             </div>
-            <p class="modal-subtitle">
-              {{ isEditing
-                ? '配置指定平台的大模型 API 凭证'
-                : appContext
-                  ? `为「${appContext.appName || '当前 App'}」选择 ${appPlatformLabel} 平台凭证；未指定时将跟随平台默认。`
-                  : '管理全局 API 凭证池。每个平台可配置多条密钥并指定默认。' }}
-            </p>
+            <p class="modal-subtitle">{{ modalSubtitle }}</p>
           </div>
 
-          <!-- 内容区：列表模式 or 编辑模式 -->
+          <!-- 内容区 -->
           <div class="modal-content">
             <!-- 列表模式 -->
             <div v-if="!isEditing" class="key-list-view">
-              <!-- App 选用模式：仅展示选用区，不显示全局密钥池 -->
+              <!-- App 选用模式 -->
               <template v-if="appContext">
-                <div class="app-bind-section app-bind-only">
-                  <p class="app-bind-intro app-bind-status">
+                <div class="app-bind-section">
+                  <p class="app-bind-status">
                     当前：{{ appCredentialSummary.label }}
                   </p>
 
@@ -58,120 +54,65 @@
                   </div>
 
                   <div v-else class="app-bind-empty">
-                    该平台尚无可用凭证，请先在顶部「API 密钥配置」中添加后再选用。
+                    该平台尚无可用凭证，请先添加密钥后再选用。
                   </div>
                 </div>
               </template>
 
-              <!-- 全局密钥池管理 -->
+              <!-- 全局密钥池 -->
               <template v-else>
-              <div v-if="keys.length === 0" class="empty-state">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-icon">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                </svg>
-                <p class="empty-text">暂无 API 密钥</p>
-                <p class="empty-subtext">请添加一个 API 密钥以运行你的应用</p>
-                <button class="btn btn-primary mt-4" @click="openAdd">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                  </svg>
-                  添加密钥
-                </button>
-              </div>
+                <div v-if="keys.length === 0" class="empty-state">
+                  <p class="empty-text">暂无 API 密钥</p>
+                  <p class="empty-subtext">为模型分组配置自带密钥后即可运行应用</p>
+                </div>
 
-              <div v-else class="key-groups">
-                <div v-for="group in groupedKeys" :key="group.platform" class="key-group">
-                  <div class="group-header">
-                    <span class="group-title">{{ group.label }}</span>
-                    <span class="group-count">{{ group.keys.length }} 条</span>
-                  </div>
-
-                  <div class="key-grid">
-                    <div v-for="k in group.keys" :key="k.id" class="key-card" :class="{ 'is-default': k.isDefault }">
-                      <div class="key-card-header">
-                        <div class="key-title-wrap">
-                          <span class="key-alias">{{ k.alias }}</span>
-                          <span v-if="k.isDefault" class="default-badge">默认</span>
-                        </div>
-                        <div class="key-actions">
-                          <button
-                            v-if="!k.isDefault"
-                            class="text-btn"
-                            title="设为默认"
-                            @click="handleSetDefault(k.id)"
-                          >
-                            设为默认
-                          </button>
-                          <button class="icon-btn" title="编辑" @click="openEdit(k)">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                            </svg>
-                          </button>
-                          <button class="icon-btn danger" title="删除" @click="confirmDelete(k.id)">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                              <polyline points="3 6 5 6 21 6"></polyline>
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                      <div class="key-card-body">
-                        <div class="key-field">
-                          <span class="field-label">Base URL:</span>
-                          <span class="field-value">{{ k.baseUrl || '-' }}</span>
-                        </div>
-                        <div class="key-field">
-                          <span class="field-label">API Key:</span>
-                          <span class="field-value masked">{{ maskKey(k.apiKey) }}</span>
-                        </div>
-                      </div>
+                <div v-else class="key-row-list">
+                  <div v-for="k in sortedKeys" :key="k.id" class="key-row">
+                    <div class="key-row-main">
+                      <div class="key-row-name">{{ platformLabel(k.platform) }}</div>
+                      <div class="key-row-url" :title="displayUrl(k)">{{ displayUrl(k) }}</div>
+                    </div>
+                    <div class="key-row-actions">
+                      <button type="button" class="row-btn" @click="openEdit(k)">编辑</button>
+                      <button type="button" class="row-btn danger" @click="confirmDelete(k.id)">删除</button>
                     </div>
                   </div>
                 </div>
 
-                <button class="add-key-card" @click="openAdd">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                  </svg>
-                  <span>添加新密钥</span>
+                <button type="button" class="add-key-btn" @click="openAdd">
+                  + 添加密钥
                 </button>
-              </div>
               </template>
             </div>
 
             <!-- 编辑/添加模式 -->
             <div v-else class="form-view">
               <div class="form-group">
-                <label class="form-label">所属平台 *</label>
-                <select v-model="formData.platform" class="form-input form-select" @change="clearError('platform')">
+                <label class="form-label">模型分组 *</label>
+                <select v-model="formData.platform" class="form-input form-select" @change="onPlatformChange">
                   <option v-for="p in PLATFORMS" :key="p.key" :value="p.key">{{ p.label }}</option>
                 </select>
                 <span v-if="errors.platform" class="form-error">{{ errors.platform }}</span>
               </div>
 
               <div class="form-group">
-                <label class="form-label">备注别名 *</label>
+                <label class="form-label">备注别名</label>
                 <input
                   v-model="formData.alias"
                   type="text"
                   class="form-input"
-                  placeholder="例如：Qwen 默认模型"
+                  placeholder="选填，便于区分同分组多条密钥"
                   @input="clearError('alias')"
                 />
-                <span v-if="errors.alias" class="form-error">{{ errors.alias }}</span>
               </div>
 
               <div class="form-group">
-                <label class="form-label">Base URL *</label>
+                <label class="form-label">API 地址</label>
                 <input
                   v-model="formData.baseUrl"
                   type="text"
                   class="form-input"
-                  placeholder="例如：https://dashscope.aliyuncs.com/compatible-mode/v1"
+                  placeholder="留空则使用分组默认地址"
                   @input="clearError('baseUrl')"
                 />
                 <span v-if="errors.baseUrl" class="form-error">{{ errors.baseUrl }}</span>
@@ -191,16 +132,17 @@
 
               <label class="default-check">
                 <input v-model="formData.isDefault" type="checkbox" />
-                设为该平台默认凭证
+                设为该分组默认凭证
               </label>
             </div>
           </div>
 
-          <!-- 底部操作按钮 -->
-          <div class="modal-footer">
+          <!-- 底部：仅 App 选用 / 编辑表单需要 -->
+          <div v-if="isEditing || appContext" class="modal-footer">
             <template v-if="!isEditing && appContext">
-              <button class="btn btn-ghost" @click="handleCancel">取消</button>
+              <button type="button" class="btn btn-ghost" @click="handleCancel">取消</button>
               <button
+                type="button"
                 class="btn btn-primary"
                 :disabled="!appSelectedKeyId"
                 @click="confirmAppCredential"
@@ -208,16 +150,9 @@
                 确认选用
               </button>
             </template>
-            <template v-else-if="!isEditing">
-              <button class="btn btn-ghost" @click="handleCancel">关闭</button>
-            </template>
-            <template v-else>
-              <button class="btn btn-ghost" @click="cancelEdit">
-                取消
-              </button>
-              <button class="btn btn-primary" @click="handleSaveForm">
-                保存配置
-              </button>
+            <template v-else-if="isEditing">
+              <button type="button" class="btn btn-ghost" @click="cancelEdit">取消</button>
+              <button type="button" class="btn btn-primary" @click="handleSaveForm">保存</button>
             </template>
           </div>
         </div>
@@ -229,8 +164,8 @@
 <script setup>
 /**
  * API 密钥配置弹窗。
- * - 无 appContext：全局密钥池管理
- * - 有 appContext：仅为当前 App 选用凭证（不展示密钥池）
+ * - 无 appContext：全局密钥池管理（我的模型 · API 密钥）
+ * - 有 appContext：仅为当前 App 选用凭证
  */
 import { ref, reactive, watch, computed } from 'vue'
 import { useApiConfig } from '@/composables/useApiConfig'
@@ -240,14 +175,16 @@ import { showSuccess, showConfirm } from '@/composables/useNotification'
 
 const DEFAULT_OPTION = '__default__'
 
+const PLATFORM_ORDER = PLATFORMS.map(p => p.key)
+
 const props = defineProps({
   visible: {
     type: Boolean,
-    default: false
+    default: false,
   },
   addMode: {
     type: Boolean,
-    default: false
+    default: false,
   },
   /** 传入时展示 App 选用区：{ appId, appName, platform, credentialId } */
   appContext: {
@@ -263,7 +200,6 @@ const {
   addKey,
   updateKey,
   deleteKey,
-  setDefaultKey,
   getKeysForPlatform,
   getDefaultKeyForPlatform,
   getKeyById,
@@ -278,13 +214,29 @@ const appSelectedKeyId = ref('')
 const appPlatformLabel = computed(() =>
   PLATFORM_NAMES[props.appContext?.platform] || props.appContext?.platform || '',
 )
+
+const modalTitle = computed(() => {
+  if (isEditing.value) return editId.value ? '编辑密钥' : '添加密钥'
+  if (props.appContext) return '选择 API 凭证'
+  return '我的模型 · API 密钥'
+})
+
+const modalSubtitle = computed(() => {
+  if (isEditing.value) {
+    return '为模型分组配置自带密钥 (BYOK)；可填写自定义 API 地址（留空用分组默认地址）。'
+  }
+  if (props.appContext) {
+    return `为「${props.appContext.appName || '当前 App'}」选择 ${appPlatformLabel.value} 平台凭证；未指定时将跟随平台默认。`
+  }
+  return '为模型分组配置自带密钥 (BYOK)，每个分组一个密钥；可填自定义 API 地址（留空用分组默认地址）。'
+})
+
 const appPlatformKeys = computed(() =>
   props.appContext ? getKeysForPlatform(props.appContext.platform) : [],
 )
 const appDefaultKey = computed(() =>
   props.appContext ? getDefaultKeyForPlatform(props.appContext.platform) : null,
 )
-/** 除平台默认外的其他可选密钥（避免与「使用平台默认」重复展示） */
 const appAlternateKeys = computed(() => {
   const defaultId = appDefaultKey.value?.id
   return appPlatformKeys.value.filter(k => k.id !== defaultId)
@@ -295,14 +247,16 @@ const appCredentialSummary = computed(() =>
     : { label: '' },
 )
 
-const groupedKeys = computed(() => {
-  return PLATFORMS
-    .map(p => ({
-      platform: p.key,
-      label: p.label,
-      keys: keys.value.filter(k => k.platform === p.key),
-    }))
-    .filter(group => group.keys.length > 0)
+/** 按平台顺序排列密钥列表 */
+const sortedKeys = computed(() => {
+  return [...keys.value].sort((a, b) => {
+    const ai = PLATFORM_ORDER.indexOf(a.platform)
+    const bi = PLATFORM_ORDER.indexOf(b.platform)
+    const ao = ai === -1 ? 999 : ai
+    const bo = bi === -1 ? 999 : bi
+    if (ao !== bo) return ao - bo
+    return String(a.alias || '').localeCompare(String(b.alias || ''), 'zh')
+  })
 })
 
 const formData = reactive({
@@ -313,10 +267,8 @@ const formData = reactive({
   isDefault: false,
 })
 
-// 错误信息
 const errors = reactive({})
 
-/** 弹窗显示时刷新列表，addMode 直接进入添加表单 */
 watch(() => props.visible, (visible) => {
   if (visible) {
     refreshKeys()
@@ -333,7 +285,14 @@ watch(() => props.appContext, () => {
   if (props.visible) syncAppSelection()
 }, { deep: true })
 
-/** 根据 App.credential_id 回填选用区选中项 */
+function platformLabel(platform) {
+  return PLATFORM_NAMES[platform] || PLATFORMS.find(p => p.key === platform)?.label || platform
+}
+
+function displayUrl(k) {
+  return k.baseUrl?.trim() || '使用分组默认地址'
+}
+
 function syncAppSelection() {
   if (!props.appContext) {
     appSelectedKeyId.value = ''
@@ -365,22 +324,26 @@ function resolveAppCredentialId(keyId) {
   return keyId
 }
 
-/** 确认 App 级选用，不改变全局默认 */
 function confirmAppCredential() {
   emit('app-credential-selected', resolveAppCredentialId(appSelectedKeyId.value))
 }
 
-/** 从 useApiConfig 重新加载密钥列表 */
 function refreshKeys() {
   keys.value = getKeys() || []
   if (props.appContext) syncAppSelection()
 }
 
-/** 进入添加新密钥表单 */
+function onPlatformChange() {
+  clearError('platform')
+  if (!editId.value && !formData.alias.trim()) {
+    formData.alias = platformLabel(formData.platform)
+  }
+}
+
 function openAdd() {
   editId.value = null
   formData.platform = 'claude'
-  formData.alias = ''
+  formData.alias = platformLabel('claude')
   formData.baseUrl = ''
   formData.apiKey = ''
   formData.isDefault = false
@@ -388,7 +351,6 @@ function openAdd() {
   isEditing.value = true
 }
 
-/** 进入编辑已有密钥表单 */
 function openEdit(k) {
   editId.value = k.id
   formData.platform = k.platform || 'claude'
@@ -400,29 +362,19 @@ function openEdit(k) {
   isEditing.value = true
 }
 
-function handleSetDefault(id) {
-  if (setDefaultKey(id)) {
-    refreshKeys()
-    showSuccess('已设为平台默认凭证')
-  }
-}
-
-/** 退出编辑；addMode 且无密钥时直接关闭整个弹窗 */
 function cancelEdit() {
   if (props.addMode && keys.value.length === 0) {
-    // 如果是强制添加模式且没有其他 key，取消则直接关闭弹窗
     handleCancel()
   } else {
     isEditing.value = false
   }
 }
 
-/** 确认后删除指定密钥 */
 async function confirmDelete(id) {
   const isConfirmed = await showConfirm({
     title: '删除确认',
     message: '确定要删除此密钥吗？',
-    danger: true
+    danger: true,
   })
 
   if (isConfirmed) {
@@ -432,21 +384,12 @@ async function confirmDelete(id) {
   }
 }
 
-/** 校验 alias、baseUrl、apiKey 三项必填 */
 function validateForm() {
   clearAllErrors()
   let isValid = true
 
-  if (!formData.alias.trim()) {
-    errors.alias = '备注别名不能为空'
-    isValid = false
-  }
   if (!formData.platform) {
-    errors.platform = '请选择所属平台'
-    isValid = false
-  }
-  if (!formData.baseUrl.trim()) {
-    errors.baseUrl = 'Base URL 不能为空'
+    errors.platform = '请选择模型分组'
     isValid = false
   }
   if (!formData.apiKey.trim()) {
@@ -457,37 +400,31 @@ function validateForm() {
   return isValid
 }
 
-/** 清空所有字段错误信息 */
 function clearAllErrors() {
   Object.keys(errors).forEach(key => delete errors[key])
 }
 
-/** 清除单个字段的错误提示 */
 function clearError(field) {
   delete errors[field]
 }
 
-/** 新增或更新密钥，addMode 下保存后自动关闭并 emit saved */
 function handleSaveForm() {
   if (!validateForm()) return
 
+  const alias = formData.alias.trim() || platformLabel(formData.platform)
+  const payload = {
+    platform: formData.platform,
+    alias,
+    baseUrl: formData.baseUrl.trim(),
+    apiKey: formData.apiKey.trim(),
+    isDefault: formData.isDefault,
+  }
+
   if (editId.value) {
-    updateKey(editId.value, {
-      platform: formData.platform,
-      alias: formData.alias.trim(),
-      baseUrl: formData.baseUrl.trim(),
-      apiKey: formData.apiKey.trim(),
-      isDefault: formData.isDefault,
-    })
+    updateKey(editId.value, payload)
     showSuccess('更新成功')
   } else {
-    addKey({
-      platform: formData.platform,
-      alias: formData.alias.trim(),
-      baseUrl: formData.baseUrl.trim(),
-      apiKey: formData.apiKey.trim(),
-      isDefault: formData.isDefault,
-    })
+    addKey(payload)
     showSuccess('添加成功')
   }
 
@@ -495,48 +432,36 @@ function handleSaveForm() {
   isEditing.value = false
 
   if (props.addMode) {
-    // 如果是从 JIT 拦截过来的，添加完直接关闭弹窗并触发 saved
     emit('saved')
     emit('update:visible', false)
   }
 }
 
-/** 关闭弹窗 */
 function handleCancel() {
   emit('update:visible', false)
-}
-
-/** 脱敏展示 API Key（保留首尾各 4 位） */
-function maskKey(key) {
-  if (!key) return '-'
-  if (key.length <= 8) return '****'
-  return key.substring(0, 4) + '****' + key.substring(key.length - 4)
 }
 </script>
 
 <style scoped>
-/* 遮罩层 */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(2px);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 3000;
   padding: 20px;
+  font-family: var(--font-sans);
 }
 
-/* 弹窗容器 */
 .modal-container {
   background: var(--color-surface);
-  border-radius: 16px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  max-width: 600px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
+  max-width: 480px;
   width: 100%;
   max-height: 85vh;
   display: flex;
@@ -545,93 +470,204 @@ function maskKey(key) {
 }
 
 .modal-container.is-app-pick {
-  max-width: 440px;
+  max-width: 420px;
 }
 
-/* 标题栏 */
 .modal-header {
-  padding: 24px 28px 20px;
-  border-bottom: 1px solid var(--color-border);
+  padding: 18px 20px 0;
   flex-shrink: 0;
 }
 
-.modal-title-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.modal-title-wrapper svg {
-  color: var(--color-primary);
-  flex-shrink: 0;
-}
-
-.modal-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0;
-}
-
-.modal-subtitle {
-  font-size: 13px;
-  color: var(--color-text-muted);
-  margin: 0;
-}
-
-/* 内容区 */
-.modal-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px 28px;
-  background: var(--color-bg-secondary);
-}
-
-/* 列表模式 */
-.key-list-view {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.app-bind-section {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.app-bind-header {
+.modal-header-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
+  min-height: 28px;
 }
 
-.app-bind-title {
-  font-size: 13px;
+.modal-title {
+  margin: 0;
+  font-size: 15px;
   font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.close-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.close-btn:hover {
+  background: var(--color-bg-secondary);
   color: var(--color-text);
 }
 
-.app-bind-name {
+.modal-subtitle {
+  margin: 8px 0 0;
+  padding-right: 24px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #b0b4ba;
+}
+
+.modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 20px 20px;
+}
+
+.key-list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.key-row-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.key-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 14px;
+  background: var(--color-bg-secondary);
+  border: none;
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.key-row-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.key-row-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.key-row-url {
+  margin-top: 2px;
   font-size: 12px;
   color: var(--color-text-muted);
-  max-width: 50%;
+  line-height: 1.45;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.app-bind-intro {
+.key-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.row-btn {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: var(--color-surface);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.row-btn:hover {
+  background: var(--color-bg);
+  border-color: #d1d5db;
+  color: var(--color-text);
+}
+
+.row-btn.danger {
+  color: var(--color-text-secondary);
+  border-color: #e5e7eb;
+}
+
+.row-btn.danger:hover {
+  color: var(--color-error-dark);
+  background: var(--color-error-bg);
+  border-color: #fecaca;
+}
+
+.add-key-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 32px;
+  margin-top: 4px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.add-key-btn:hover {
+  background: var(--color-bg);
+  border-color: #d1d5db;
+  color: var(--color-text);
+}
+
+.empty-state {
+  padding: 28px 16px;
+  text-align: center;
+  background: var(--color-bg-secondary);
+  border-radius: 10px;
+}
+
+.empty-text {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.empty-subtext {
   margin: 0;
   font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* App 选用 */
+.app-bind-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.app-bind-status {
+  margin: 0;
+  font-size: 13px;
   color: var(--color-text-secondary);
-  line-height: 1.5;
 }
 
 .app-key-picker {
@@ -647,13 +683,14 @@ function maskKey(key) {
   padding: 10px 12px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
+  background: var(--color-bg-secondary);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .app-key-option.active {
   border-color: var(--color-primary);
-  background: var(--color-primary-soft);
+  background: rgba(59, 130, 246, 0.06);
 }
 
 .app-key-option input {
@@ -682,327 +719,57 @@ function maskKey(key) {
   border-radius: 999px;
 }
 
-.app-key-badge.muted {
-  color: var(--color-text-muted);
-  background: var(--color-bg-secondary);
-}
-
 .app-bind-empty {
   font-size: 12px;
   color: var(--color-text-muted);
-  padding: 10px 12px;
+  padding: 12px;
   border-radius: 8px;
   background: var(--color-bg-secondary);
   border: 1px dashed var(--color-border);
 }
 
-.app-bind-only {
-  border: none;
-  padding: 0;
-  background: transparent;
-}
-
-.app-bind-status {
-  margin-bottom: 4px;
-}
-
-.app-bind-confirm {
-  align-self: flex-end;
-}
-
-.btn-sm {
-  padding: 6px 14px;
-  font-size: 13px;
-}
-
-.section-divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.section-divider::before,
-.section-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--color-border);
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-  background: var(--color-surface);
-  border-radius: 12px;
-  border: 1px dashed var(--color-border);
-}
-
-.empty-icon {
-  color: var(--color-text-muted);
-  margin-bottom: 16px;
-  opacity: 0.5;
-}
-
-.empty-text {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0 0 6px 0;
-}
-
-.empty-subtext {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  margin: 0;
-}
-
-.mt-4 {
-  margin-top: 16px;
-}
-
-.key-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-}
-
-.key-groups {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.key-group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.group-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.group-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.group-count {
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-
-.key-card.is-default {
-  border-color: rgba(16, 185, 129, 0.35);
-  background: rgba(16, 185, 129, 0.04);
-}
-
-.key-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.default-badge {
-  font-size: 10px;
-  font-weight: 600;
-  color: #047857;
-  background: rgba(16, 185, 129, 0.12);
-  padding: 2px 6px;
-  border-radius: 999px;
-}
-
-.text-btn {
-  border: none;
-  background: none;
-  font-size: 11px;
-  color: var(--color-primary);
-  cursor: pointer;
-  padding: 0 4px;
-}
-
-.text-btn:hover {
-  text-decoration: underline;
-}
-
-.default-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  margin-top: 4px;
-}
-
-.form-select {
-  font-family: inherit;
-}
-
-.key-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 16px;
-  transition: all 0.2s;
-}
-
-.key-card:hover {
-  border-color: var(--color-primary-soft);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-.key-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.key-alias {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.key-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.icon-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.icon-btn:hover {
-  background: var(--color-bg-secondary);
-  color: var(--color-primary);
-}
-
-.icon-btn.danger:hover {
-  color: var(--color-error);
-  background: rgba(239, 68, 68, 0.08);
-}
-
-.key-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.key-field {
-  display: flex;
-  align-items: center;
-  font-size: 13px;
-}
-
-.field-label {
-  color: var(--color-text-muted);
-  width: 80px;
-  flex-shrink: 0;
-}
-
-.field-value {
-  color: var(--color-text-secondary);
-  font-family: var(--font-mono);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.field-value.masked {
-  letter-spacing: 1px;
-}
-
-.add-key-card {
-  background: transparent;
-  border: 1px dashed var(--color-border);
-  border-radius: 12px;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: var(--color-primary);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.add-key-card:hover {
-  background: rgba(99, 102, 241, 0.04);
-  border-color: var(--color-primary-soft);
-}
-
-/* 编辑模式 */
+/* 表单 */
 .form-view {
-  background: var(--color-surface);
-  border-radius: 12px;
-  padding: 24px;
-  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
 }
 
 .form-group {
-  margin-bottom: 16px;
-}
-
-.form-group:last-child {
-  margin-bottom: 0;
+  margin-bottom: 14px;
 }
 
 .form-label {
   display: block;
   font-size: 13px;
   font-weight: 500;
-  color: var(--color-text-secondary);
+  color: var(--color-text);
   margin-bottom: 6px;
 }
 
 .form-input {
   width: 100%;
-  padding: 10px 12px;
-  background: var(--color-bg);
+  padding: 8px 12px;
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md, 8px);
   font-size: 14px;
   color: var(--color-text);
-  transition: all 0.2s;
   outline: none;
-  font-family: var(--font-mono);
+  transition: border-color 0.15s;
+  font-family: inherit;
+  box-sizing: border-box;
 }
 
 .form-input::placeholder {
   color: var(--color-text-muted);
-  font-family: var(--font-sans);
 }
 
 .form-input:focus {
   border-color: var(--color-primary);
-  background: var(--color-surface);
-  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+.form-select {
+  font-family: inherit;
 }
 
 .form-error {
@@ -1012,29 +779,42 @@ function maskKey(key) {
   margin-top: 4px;
 }
 
-/* 底部操作栏 */
+.default-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
 .modal-footer {
-  padding: 16px 28px;
-  border-top: 1px solid var(--color-border);
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
   flex-shrink: 0;
-  background: var(--color-surface);
 }
 
 .btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 8px 20px;
+  gap: 6px;
+  padding: 7px 18px;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
   border: none;
+  transition: all 0.15s;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-ghost {
@@ -1044,21 +824,19 @@ function maskKey(key) {
 }
 
 .btn-ghost:hover {
-  background: var(--color-bg-secondary);
+  background: var(--color-bg);
   color: var(--color-text);
 }
 
 .btn-primary {
   background: var(--color-primary);
-  color: white;
+  color: #fff;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: var(--color-primary-hover);
-  box-shadow: 0 4px 12px var(--color-primary-glow);
 }
 
-/* 弹窗动画 */
 .modal-enter-active,
 .modal-leave-active {
   transition: opacity 0.2s ease;
@@ -1076,6 +854,6 @@ function maskKey(key) {
 
 .modal-enter-from .modal-container,
 .modal-leave-to .modal-container {
-  transform: scale(0.96) translateY(-10px);
+  transform: scale(0.96) translateY(-8px);
 }
 </style>

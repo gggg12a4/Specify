@@ -281,12 +281,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { login as adminLoginApi, getRandomImage } from '@/api/admin'
+import { login as loginApi, getRandomImage } from '@/api/auth'
+import { normalizeLoginSession } from '@/utils/loginSession'
 import AuthModal from '@/components/common/AuthModal.vue'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 const showAuthModal = ref(false)
@@ -307,7 +309,6 @@ async function refreshCaptcha() {
   checkKey.value = Date.now().toString()
   try {
     const res = await getRandomImage(checkKey.value)
-    // 根据文档，200响应有 success 或 code 为0，且 result 为字符串
     if (res.success || res.code === 0) {
       captchaImage.value = res.result || res.data
     }
@@ -316,7 +317,11 @@ async function refreshCaptcha() {
   }
 }
 
-onMounted(() => {})
+onMounted(() => {
+  if (route.query.loggedOut) {
+    router.replace({ path: '/', query: {} })
+  }
+})
 
 function openLogin() {
   authInitialTab.value = 'login'
@@ -361,7 +366,7 @@ async function doAdminLogin() {
   }
 
   try {
-    const res = await adminLoginApi({
+    const res = await loginApi({
       username: adminUsername.value,
       password: adminPassword.value,
       loginOrgCode: adminLoginOrgCode.value,
@@ -369,23 +374,16 @@ async function doAdminLogin() {
       checkKey: checkKey.value
     })
 
-    if (res.code === 0 && res.data) {
-      // 兼容可能不同的返回结构，假设后端返回 token 和用户信息
-      // 如果后端严格遵循 Jeecg 格式，通常在 res.data.token 或 res.data.userInfo
-      const token = res.data.token || res.data
-      // 强制设置 user 的 role 为 admin，确保路由能够正确鉴权为管理员跳转到 /admin
-      const user = res.data.userInfo || { nickname: adminUsername.value }
-      user.role = 'admin'
-
-      authStore.login({
-        token: token,
-        user: user
-      })
+    const session = normalizeLoginSession(res, {
+      role: 'admin',
+      fallbackUsername: adminUsername.value,
+    })
+    if (session.ok) {
+      authStore.login({ token: session.token, user: session.user })
       showAdminLogin.value = false
       router.push('/admin')
     } else {
-      adminError.value = res.message || res.msg || '登录失败，请检查账号密码'
-      // 登录失败通常需要刷新验证码
+      adminError.value = session.message
       refreshCaptcha()
     }
   } catch (error) {

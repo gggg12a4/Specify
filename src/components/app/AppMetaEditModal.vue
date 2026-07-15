@@ -22,7 +22,7 @@
                 v-model="draft.name"
                 class="field-input"
                 :class="{ error: errors.name }"
-                placeholder="全英文或下划线，例如：my_agent"
+                placeholder="输入 App 名称，例如：智能客服助手"
                 maxlength="50"
                 @keydown.enter.prevent="confirm"
               />
@@ -55,7 +55,6 @@
 <script setup>
 /**
  * App 元信息编辑弹窗：修改名称与描述。
- * 名称仅允许英文字母与下划线，保存后通过 save 事件回传父组件。
  */
 import { ref, reactive, watch, nextTick } from 'vue'
 
@@ -83,16 +82,12 @@ watch(
   },
 )
 
-/** 校验名称非空且仅含英文字母与下划线 */
+/** 校验名称非空 */
 function validate() {
   errors.name = ''
   const trimmed = draft.name.trim()
   if (!trimmed) {
     errors.name = 'App 名称不能为空'
-    return false
-  }
-  if (!/^[a-zA-Z_]+$/.test(trimmed)) {
-    errors.name = 'App 名称仅支持全英文和下划线'
     return false
   }
   return true

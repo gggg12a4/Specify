@@ -2,14 +2,20 @@
   <div class="mcp-schema-fields">
     <template v-for="field in fields" :key="field.name">
       <div v-if="field.name === 'name' && lockName" class="field">
-        <label class="field-label">{{ getMcpFieldLabel(field) }}</label>
+        <label class="field-label">
+          {{ getMcpFieldLabel(field) }}
+          <span v-if="isMcpFieldRequired(field)" class="req">*</span>
+        </label>
         <input class="field-input field-input-disabled" :value="modelValue.name" disabled />
         <span class="field-hint">服务名创建后不可修改</span>
       </div>
 
       <div v-else-if="isMcpDictField(field)" class="field">
         <div class="field-label-row">
-          <label class="field-label">{{ getMcpFieldLabel(field) }}</label>
+          <label class="field-label">
+            {{ getMcpFieldLabel(field) }}
+            <span v-if="isMcpFieldRequired(field)" class="req">*</span>
+          </label>
           <button type="button" class="btn-text" @click="addHeaderRow(field.name)">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             添加
@@ -42,7 +48,10 @@
       </div>
 
       <div v-else-if="field.type === 'boolean'" class="field">
-        <label class="field-label">{{ getMcpFieldLabel(field) }}</label>
+        <label class="field-label">
+          {{ getMcpFieldLabel(field) }}
+          <span v-if="isMcpFieldRequired(field)" class="req">*</span>
+        </label>
         <label class="checkbox-row">
           <input v-model="modelValue[field.name]" type="checkbox" />
           <span>启用</span>
@@ -50,7 +59,10 @@
       </div>
 
       <div v-else class="field">
-        <label class="field-label">{{ getMcpFieldLabel(field) }}</label>
+        <label class="field-label">
+          {{ getMcpFieldLabel(field) }}
+          <span v-if="isMcpFieldRequired(field)" class="req">*</span>
+        </label>
         <input
           v-model="modelValue[field.name]"
           class="field-input"
@@ -58,7 +70,9 @@
           :placeholder="field.placeholder || `请输入${field.label || field.name}`"
           @input="onNameInput(field)"
         />
-        <span v-if="field.name === 'name'" class="field-hint">仅支持英文字母和下划线，作为工具名前缀</span>
+        <span v-if="field.name === 'name'" class="field-hint">
+          {{ field.pattern?.includes('_') ? '仅支持英文字母和下划线' : '仅支持英文字母' }}，作为工具名前缀
+        </span>
         <span v-if="errors[field.name]" class="field-error">{{ errors[field.name] }}</span>
       </div>
     </template>
@@ -70,18 +84,22 @@ import { computed } from 'vue'
 import {
   getMcpTemplateFields,
   getMcpFieldLabel,
+  isMcpFieldRequired,
   isMcpDictField,
 } from '@/utils/mcpSchema'
 
 const props = defineProps({
   templateKey: { type: String, default: 'MCPServerStreamable' },
+  templates: { type: Object, default: () => ({}) },
   mode: { type: String, default: 'create' },
   modelValue: { type: Object, required: true },
   errors: { type: Object, default: () => ({}) },
   lockName: { type: Boolean, default: false },
 })
 
-const fields = computed(() => getMcpTemplateFields(props.templateKey, props.mode))
+const fields = computed(() =>
+  getMcpTemplateFields(props.templateKey, props.mode, props.templates)
+)
 
 function addHeaderRow(fieldName) {
   const rows = [...(props.modelValue[fieldName] || []), { key: '', value: '' }]
@@ -96,7 +114,13 @@ function removeHeaderRow(fieldName, index) {
 
 function onNameInput(field) {
   if (field.name !== 'name') return
-  props.modelValue.name = String(props.modelValue.name || '').replace(/[^a-zA-Z_]/g, '')
+  // 模板 pattern 多为 [a-zA-Z]+，默认只保留字母
+  const pattern = field.pattern || '[a-zA-Z]+'
+  if (pattern.includes('_')) {
+    props.modelValue.name = String(props.modelValue.name || '').replace(/[^a-zA-Z_]/g, '')
+  } else {
+    props.modelValue.name = String(props.modelValue.name || '').replace(/[^a-zA-Z]/g, '')
+  }
 }
 </script>
 
@@ -109,6 +133,7 @@ function onNameInput(field) {
 
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field-label { font-size: 12px; font-weight: 600; color: var(--color-text-secondary); }
+.req { color: #ef4444; margin-left: 2px; font-weight: 700; }
 .field-hint { font-size: 11px; color: var(--color-text-muted); line-height: 1.4; }
 .field-input {
   padding: 8px 12px; font-size: 13px;

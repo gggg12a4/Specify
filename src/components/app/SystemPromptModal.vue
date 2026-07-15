@@ -92,7 +92,7 @@
                     @input="onEditorInput"
                     @keydown="onEditorKeydown"
                     @click="onEditorInput"
-                    @keyup="onEditorInput"
+                    @keyup="onEditorKeyup"
                   ></textarea>
                   <MentionPicker
                     v-if="mentionOpen"
@@ -128,7 +128,7 @@
                   @input="onEditorInput"
                   @keydown="onEditorKeydown"
                   @click="onEditorInput"
-                  @keyup="onEditorInput"
+                  @keyup="onEditorKeyup"
                 ></textarea>
                 <MentionPicker
                   v-if="mentionOpen"
@@ -293,10 +293,18 @@ function updateMentionState() {
     return
   }
 
+  const prevOpen = mentionOpen.value
+  const prevStart = mentionRange.value?.start
+  const prevQuery = mentionQuery.value
+
   mentionQuery.value = detected.query
   mentionRange.value = { start: detected.start, end: detected.end }
   mentionOpen.value = true
-  mentionIndex.value = 0
+
+  // 仅在新开菜单或查询变化时重置选中项；避免 ArrowUp/Down 后被 keyup 重置回 0
+  if (!prevOpen || prevStart !== detected.start || prevQuery !== detected.query) {
+    mentionIndex.value = 0
+  }
 
   const coords = getTextareaCaretCoords(el, cursor)
   mentionStyle.value = {
@@ -310,16 +318,24 @@ function onEditorInput() {
   updateMentionState()
 }
 
+/** keyup 跳过方向键/确认键，避免覆盖 keydown 里更新的选中态 */
+function onEditorKeyup(e) {
+  if (['ArrowUp', 'ArrowDown', 'Enter', 'Tab', 'Escape'].includes(e.key)) return
+  updateMentionState()
+}
+
 /** 编辑器键盘：@ 菜单导航/确认，Escape 关闭菜单或弹窗 */
 function onEditorKeydown(e) {
   if (mentionOpen.value && flatMentionItems.value.length) {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
+      e.stopPropagation()
       mentionIndex.value = (mentionIndex.value + 1) % flatMentionItems.value.length
       return
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault()
+      e.stopPropagation()
       mentionIndex.value =
         (mentionIndex.value - 1 + flatMentionItems.value.length) % flatMentionItems.value.length
       return

@@ -11,39 +11,46 @@
           </div>
 
           <div class="dialog-body">
-            <McpSchemaFields
-              :template-key="templateKey"
-              mode="create"
-              :model-value="configValues"
-              :errors="errors"
-            />
-
-            <div class="conn-status" :class="connState">
-              <template v-if="connState === 'idle'">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <span>填写信息后点击「测试连接」验证</span>
-              </template>
-              <template v-else-if="connState === 'testing'">
-                <span class="spin">◌</span>
-                <span>连接中…</span>
-              </template>
-              <template v-else-if="connState === 'success'">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>连接成功</span>
-              </template>
-              <template v-else-if="connState === 'fail'">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                <span>{{ connError }}</span>
-              </template>
+            <div v-if="!activeTemplateKey" class="empty-hint">
+              暂无可用来创建 MCP 的模板（需接口下发 createable.MCPServerStreamable）
             </div>
+
+            <template v-else>
+              <McpSchemaFields
+                :template-key="activeTemplateKey"
+                :templates="templates"
+                mode="create"
+                :model-value="configValues"
+                :errors="errors"
+              />
+
+              <div class="conn-status" :class="connState">
+                <template v-if="connState === 'idle'">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  <span>填写信息后点击「测试连接」验证</span>
+                </template>
+                <template v-else-if="connState === 'testing'">
+                  <span class="spin">◌</span>
+                  <span>连接中…</span>
+                </template>
+                <template v-else-if="connState === 'success'">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>连接成功</span>
+                </template>
+                <template v-else-if="connState === 'fail'">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  <span>{{ connError }}</span>
+                </template>
+              </div>
+            </template>
           </div>
 
           <div class="dialog-footer">
             <button class="btn btn-ghost" @click="$emit('update:visible', false)">取消</button>
-            <button class="btn btn-outline" :disabled="testing" @click="testConn">
+            <button class="btn btn-outline" :disabled="testing || !activeTemplateKey" @click="testConn">
               {{ testing ? '测试中…' : '测试连接' }}
             </button>
-            <button class="btn btn-primary" @click="handleAdd">
+            <button class="btn btn-primary" :disabled="!activeTemplateKey" @click="handleAdd">
               添加
             </button>
           </div>
@@ -56,9 +63,9 @@
 <script setup>
 /**
  * 添加 MCP 服务弹窗。
- * 按模板 config_schema 渲染表单；测试连接为可选步骤，校验通过即可添加。
+ * 固定使用 createable.MCPServerStreamable 的 config_schema 渲染表单。
  */
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import * as mockApi from '@/api/mockApi'
 import McpSchemaFields from '@/components/app/McpSchemaFields.vue'
 import { DEFAULT_MCP_TEMPLATE } from '@/constants/mcpTemplates'
@@ -67,44 +74,52 @@ import {
   validateMcpConfig,
   buildMcpPayload,
   headersObjectToRows,
+  resolveDefaultMcpTemplateKey,
 } from '@/utils/mcpSchema'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
   appId: { type: String, required: true },
+  /** 编辑页 templates.createable 中的 MCP 模板字典 */
+  templates: { type: Object, default: () => ({}) },
+  /** 默认 MCPServerStreamable */
   templateKey: { type: String, default: DEFAULT_MCP_TEMPLATE },
 })
 const emit = defineEmits(['update:visible', 'created'])
 
-const configValues = reactive(createDefaultMcpConfig(props.templateKey, 'create'))
+const activeTemplateKey = computed(() => {
+  if (props.templates?.[props.templateKey]) return props.templateKey
+  if (props.templates?.[DEFAULT_MCP_TEMPLATE]) return DEFAULT_MCP_TEMPLATE
+  return resolveDefaultMcpTemplateKey(props.templates)
+})
+
+const configValues = reactive({})
 const errors = ref({})
-const connState = ref('idle')   // idle | testing | success | fail
+const connState = ref('idle')
 const connError = ref('')
 const testing = ref(false)
 
-/** 弹窗打开时重置表单与连接状态 */
 watch(() => props.visible, (visible) => {
   if (visible) resetForm()
 })
 
-/** 表单变更后重置连接状态，避免展示过期的测试结果 */
 watch(configValues, () => {
-  if (connState.value !== 'idle') {
-    connState.value = 'idle'
-  }
+  if (connState.value !== 'idle') connState.value = 'idle'
 }, { deep: true })
 
-/** 恢复表单默认值并清空校验与连接反馈 */
 function resetForm() {
-  Object.assign(configValues, createDefaultMcpConfig(props.templateKey, 'create'))
+  Object.keys(configValues).forEach((k) => delete configValues[k])
+  const key = activeTemplateKey.value
+  if (key) {
+    Object.assign(configValues, createDefaultMcpConfig(key, 'create', props.templates))
+  }
   errors.value = {}
   connState.value = 'idle'
   connError.value = ''
 }
 
-/** 组装测试连接 API 所需参数 */
 function getTestPayload() {
-  const payload = buildMcpPayload(props.templateKey, configValues)
+  const payload = buildMcpPayload(activeTemplateKey.value, configValues, props.templates)
   return {
     url: payload.url,
     authType: 'header',
@@ -112,9 +127,9 @@ function getTestPayload() {
   }
 }
 
-/** 可选：测试 MCP 服务连通性 */
 async function testConn() {
-  errors.value = validateMcpConfig(props.templateKey, 'create', configValues)
+  if (!activeTemplateKey.value) return
+  errors.value = validateMcpConfig(activeTemplateKey.value, 'create', configValues, props.templates)
   if (Object.keys(errors.value).length) return
 
   testing.value = true
@@ -137,22 +152,21 @@ async function testConn() {
   }
 }
 
-/** 校验表单后创建 MCP 服务并追加到 App */
-async function handleAdd() {
-  errors.value = validateMcpConfig(props.templateKey, 'create', configValues)
+function handleAdd() {
+  if (!activeTemplateKey.value) return
+  errors.value = validateMcpConfig(activeTemplateKey.value, 'create', configValues, props.templates)
   if (Object.keys(errors.value).length) return
 
-  const payload = buildMcpPayload(props.templateKey, configValues)
-  const res = await mockApi.createMcp(props.appId, {
-    ...payload,
-    authType: 'header',
+  const payload = buildMcpPayload(activeTemplateKey.value, configValues, props.templates)
+  emit('created', {
+    id: 'mcp_' + Date.now(),
+    name: payload.name || '',
+    url: payload.url || '',
+    headers: payload.headers || {},
+    template: activeTemplateKey.value,
     enabled: true,
   })
-
-  if (res.code === 0) {
-    emit('created', res.data)
-    emit('update:visible', false)
-  }
+  emit('update:visible', false)
 }
 </script>
 
@@ -191,6 +205,16 @@ async function handleAdd() {
   padding: 14px 20px 20px;
   display: flex; flex-direction: column; gap: 14px;
   overflow-y: auto;
+}
+
+.empty-hint {
+  padding: 18px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-secondary);
 }
 
 .conn-status {

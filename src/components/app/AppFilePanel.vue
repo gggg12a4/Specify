@@ -1,38 +1,39 @@
 <template>
-  <div class="file-panel">
-    <div class="panel-header">
-      <span class="panel-title">工作区资源</span>
-      <button class="header-btn" title="新建文件夹" @click="openMkdirIn('shared/')">
-        <PlusIcon :size="14" />
-      </button>
-    </div>
+  <div class="file-panel" :class="{ 'is-compact': isCompact }">
+    <!-- 创建/编辑工具弹窗：紧凑资料侧栏 -->
+    <template v-if="isCompact">
+      <div class="compact-toolbar">
+        <span class="compact-tool-item is-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
+          APP 资料
+        </span>
+        <button type="button" class="compact-tool-item" @click="openMkdirIn('shared/')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            <line x1="12" y1="11" x2="12" y2="17" />
+            <line x1="9" y1="14" x2="15" y2="14" />
+          </svg>
+          新建文件夹
+        </button>
+        <button type="button" class="compact-tool-item" @click="openUploadTo('shared/')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          上传
+        </button>
+      </div>
 
-    <div class="tree-view">
-      <!-- shared / 核心知识库 -->
-      <div class="folder-block">
-        <div
-          class="folder-header"
-          :class="{ expanded: expanded.shared }"
-          @click="toggleDir('shared')"
-        >
-          <div class="folder-header-left">
-            <span class="folder-chevron">▸</span>
-            <FolderTypeIcon />
-            <span>shared / 核心知识库</span>
-          </div>
-          <div class="folder-header-actions" @click.stop>
-            <span class="folder-action" title="上传文件或文件夹" @click="openUploadTo('shared/')">
-              <UploadIcon :size="13" />
-            </span>
-            <span class="folder-action" title="新建文件夹" @click="openMkdirIn('shared/')">
-              <PlusIcon :size="13" />
-            </span>
-          </div>
+      <div class="compact-tree">
+        <div class="tree-root-row" :class="{ expanded: expanded.shared }" @click="toggleDir('shared')">
+          <span class="folder-chevron">▸</span>
+          <FolderTypeIcon :size="14" />
+          <span class="tree-root-name">shared/</span>
         </div>
-        <div class="folder-desc">
-          存放 Agent 必须阅读的文档或准则。复制此处的路径并粘贴到提示词中，AI 即可将其作为核心知识。
-        </div>
-        <div class="folder-contents" :class="{ expanded: expanded.shared }">
+        <div v-show="expanded.shared" class="tree-root-children">
           <FolderTreeList
             :files="sharedFiles"
             parent-path="shared/"
@@ -46,45 +47,126 @@
         </div>
       </div>
 
-      <!-- mailbox / 用户传递 -->
-      <div class="folder-block">
-        <div
-          class="folder-header"
-          :class="{ expanded: expanded.mailbox }"
-          @click="toggleDir('mailbox')"
-        >
-          <div class="folder-header-left">
-            <span class="folder-chevron">▸</span>
-            <FolderTypeIcon />
-            <span>mailbox / 用户传递</span>
-          </div>
-          <div class="folder-header-actions" @click.stop>
-            <span class="folder-action" title="上传文件或文件夹" @click="openUploadTo('mailbox/')">
-              <UploadIcon :size="13" />
-            </span>
-            <span class="folder-action" title="新建文件夹" @click="openMkdirIn('mailbox/')">
-              <PlusIcon :size="13" />
-            </span>
-            <span class="folder-action" title="使用说明" @click="showMailboxHelp = true">?</span>
-          </div>
-        </div>
-        <div class="folder-desc">
-          App 内用户之间的文件传递通道。写入后系统生成加密文件名，需知道具体文件名才能读取。
-        </div>
-        <div class="folder-contents" :class="{ expanded: expanded.mailbox }">
-          <FolderTreeList
-            :files="mailboxFiles"
-            parent-path="mailbox/"
-            :expanded-paths="expandedPaths"
-            @upload="openUploadTo"
-            @mkdir="openMkdirIn"
-            @copy="copyPath"
-            @delete="askDelete"
-            @download="downloadFile"
-          />
-        </div>
-      </div>
+      <p class="compact-tip">
+        可以从文件行 📋 复制路径，粘贴到右侧系统提示词中引用。
+      </p>
+    </template>
+
+    <template v-else>
+    <div class="root-path">
+      <svg class="root-path-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      </svg>
+      <span class="root-path-text">~/{{ appName || 'App' }}/</span>
     </div>
+
+    <div class="panel-scroll">
+      <!-- APP 空间 -->
+      <section class="space-section">
+        <div class="space-head">
+          <span class="space-title">APP 空间</span>
+          <span class="space-badge badge-rw">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+            </svg>
+            可读写
+          </span>
+        </div>
+        <p class="space-desc">
+          应用本身的共享空间:搭建所需的文件、技能 Skill 与资料,对所有终端用户共享。
+        </p>
+        <div class="space-actions">
+          <button type="button" class="space-action-btn" @click="openMkdirIn('shared/')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              <line x1="12" y1="11" x2="12" y2="17" />
+              <line x1="9" y1="14" x2="15" y2="14" />
+            </svg>
+            新建文件夹
+          </button>
+          <button type="button" class="space-action-btn" @click="openUploadTo('shared/')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            上传
+          </button>
+        </div>
+
+        <div class="space-tree">
+          <div class="tree-root-row" :class="{ expanded: expanded.shared }" @click="toggleDir('shared')">
+            <span class="folder-chevron">▸</span>
+            <FolderTypeIcon :size="14" />
+            <span class="tree-root-name">shared/</span>
+          </div>
+          <div v-show="expanded.shared" class="tree-root-children">
+            <FolderTreeList :files="sharedFiles" parent-path="shared/" :expanded-paths="expandedPaths"
+              @upload="openUploadTo" @mkdir="openMkdirIn" @copy="copyPath" @delete="askDelete"
+              @download="downloadFile" />
+          </div>
+
+          <div class="tree-root-row mailbox-row mailbox-row--locked">
+            <svg class="mailbox-lock" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <span class="tree-root-name">mailbox/</span>
+            <button type="button" class="mailbox-help" title="mailbox 使用说明"
+              @click.stop="showMailboxHelp = true">?</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="section-divider" />
+
+      <!-- 运行时 · 终端用户空间 -->
+      <section class="space-section runtime-section">
+        <div class="space-head">
+          <span class="space-title">运行时 · 终端用户空间</span>
+          <span class="space-badge badge-ro">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            只读
+          </span>
+        </div>
+
+        <div class="runtime-card">
+          <div class="runtime-card-head" :class="{ expanded: runtimeExpanded }"
+            @click="runtimeExpanded = !runtimeExpanded">
+            <span class="folder-chevron">▸</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <ellipse cx="12" cy="5" rx="9" ry="3" />
+              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+            </svg>
+            <span class="runtime-card-title">用户网盘</span>
+            <span class="runtime-card-meta">运行时 · {{ runtimeFolders.length }} 项</span>
+            <button type="button" class="runtime-help" title="用户网盘 · 介绍与使用"
+              @click.stop="showRuntimeHelp = true">?</button>
+          </div>
+
+          <div v-show="runtimeExpanded" class="runtime-card-body">
+            <div class="runtime-folder-grid">
+              <button v-for="folder in runtimeFolders" :key="folder.value" type="button" class="runtime-folder"
+                :title="folder.value" @click="copyPath(folder.value)">
+                <FolderTypeIcon :size="14" />
+                <span class="runtime-folder-name">{{ folder.shortName }}</span>
+              </button>
+            </div>
+            <p class="runtime-footnote">
+              终端用户运行时的私有空间。开发者不可编辑，仅供查看，可在提示词中引用路径。
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+    </template>
 
     <!-- mailbox 说明弹窗 -->
     <Teleport to="body">
@@ -99,13 +181,81 @@
               <p><strong>📌 工作原理</strong></p>
               <p>mailbox 是 App 内用户之间的文件传递通道。文件写入 mailbox/ 后，系统自动生成加密文件名，保障文件隐私。mailbox/ 不支持搜索和浏览目录，必须知道具体文件名才能读取。</p>
               <p><strong>📌 使用流程</strong></p>
-              <p>用户 A：帮我把这份报告发给同事<br>→ AI 将报告写入 mailbox/<br>→ 系统返回加密文件名如 mailbox/a3f8c1e9_report.md<br>→ 用户 A 将文件名发给用户 B</p>
+              <p>用户 A：帮我把这份报告发给同事<br>→ AI 将报告写入 mailbox/<br>→ 系统返回加密文件名如 mailbox/a3f8c1e9_report.md<br>→ 用户 A 将文件名发给用户 B
+              </p>
               <p>用户 B：同事给了我一份文件，文件名是 a3f8c1e9_report.md<br>→ AI 读取该文件并处理</p>
               <p><strong>📌 需要启用的工具</strong></p>
-              <p>· SPmake — 写入 mailbox/ 必须使用 SPmake（安全写入，不覆盖已有内容）</p>
+              <p>· SPmake — 写入 mailbox/ 必须使用 SPmake(安全写入，不覆盖已有内容)</p>
             </div>
             <div class="help-footer">
               <button class="btn-ok" @click="showMailboxHelp = false">知道了</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- 用户网盘说明 -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="showRuntimeHelp" class="overlay" @click="showRuntimeHelp = false">
+          <div class="help-dialog help-dialog-wide" @click.stop>
+            <div class="help-header">
+              <span>用户网盘 · 介绍与使用</span>
+              <button type="button" class="close-x" aria-label="关闭" @click="showRuntimeHelp = false">✕</button>
+            </div>
+            <div class="help-body help-body-rich">
+              <section class="help-section">
+                <h4 class="help-section-title">用户网盘是什么</h4>
+                <p>
+                  Specify 会为每个终端用户自动创建一块独立、隔离、互不可见的私有网盘。用户无需手动创建或管理，运行时自动分配。
+                </p>
+                <p class="help-sub-label">它固定包含四个目录：</p>
+                <ul class="help-dir-list">
+                  <li class="help-indent">
+                    <code class="code-tag">workspace/</code>
+                    <span>—— 主工作目录，对话产物默认保存在这里</span>
+                  </li>
+                  <li class="help-indent">
+                    <code class="code-tag">temp/</code>
+                    <span>—— 临时区，过程文件可随时清理</span>
+                  </li>
+                  <li class="help-indent">
+                    <code class="code-tag">memory/</code>
+                    <span>—— 记忆盘，沉淀长期上下文与用户偏好（写入需用 SPmake）</span>
+                  </li>
+                  <li class="help-indent">
+                    <code class="code-tag">assets/</code>
+                    <span>—— 用户在对话中上传的图片、文档等原始素材</span>
+                  </li>
+                </ul>
+              </section>
+
+              <section class="help-section">
+                <h4 class="help-section-title">在提示词里怎么引用</h4>
+                <p>直接用文件夹名引导 AI 读写即可，例如：</p>
+                <ul class="help-example-list help-indent-deep">
+                  <li class="help-indent">把生成的报告保存到 <code class="code-tag">workspace/report.md</code></li>
+                  <li class="help-indent">先读取 <code class="code-tag">assets/</code> 里用户上传的文件再分析</li>
+                  <li class="help-indent">把用户偏好记到 <code class="code-tag">memory/</code>，下次对话时参考</li>
+                </ul>
+              </section>
+
+              <section class="help-section">
+                <h4 class="help-section-title">注意</h4>
+                <div class="help-indent">
+                  <p>
+                    这是<strong>运行时</strong>空间，只有真实用户对话时才存在；<strong>开发者在这里看不到、也不直接编辑</strong>（你编辑的是左侧的 <code
+                      class="code-tag">shared/</code>）。
+                  </p>
+                  <p>
+                    往 <code class="code-tag">memory/</code> 写入必须用 <strong>SPmake</strong>（安全写入，不覆盖已有内容）。
+                  </p>
+                </div>
+              </section>
+            </div>
+            <div class="help-footer">
+              <button type="button" class="btn-ok" @click="showRuntimeHelp = false">知道了</button>
             </div>
           </div>
         </div>
@@ -147,13 +297,8 @@
               <label>上传到：</label>
               <div class="upload-target-path">{{ uploadTarget }}</div>
             </div>
-            <div
-              class="upload-zone"
-              :class="{ 'upload-zone-active': isDragging }"
-              @dragover.prevent="isDragging = true"
-              @dragleave="isDragging = false"
-              @drop.prevent="handleDrop"
-            >
+            <div class="upload-zone" :class="{ 'upload-zone-active': isDragging }" @dragover.prevent="isDragging = true"
+              @dragleave="isDragging = false" @drop.prevent="handleDrop">
               <p>拖拽文件到此处，或选择上传方式</p>
               <p class="upload-btns">
                 <label class="upload-label">
@@ -212,22 +357,34 @@
 
 <script setup>
 /**
- * App 编辑页左侧「工作区资源」面板。
- *
- * 管理 shared/（核心知识库）与 mailbox/（用户传递）的本地文件树；
- * 用户网盘路径（workspace/ 等）仅作为 @ 引用项暴露，不在此面板展示。
- * 通过 getMentionFileItems() 向系统提示词编辑器提供可引用路径列表。
+ * App 编辑页左侧文件面板。
+ * APP 空间（shared/mailbox 可读写）+ 运行时终端用户空间（只读预览）。
+ * variant=compact：创建/编辑工具弹窗内的资料侧栏。
  */
 import { ref, reactive, computed } from 'vue'
 import FolderTypeIcon from '@/components/app/FolderTypeIcon.vue'
 import FolderTreeList from '@/components/app/FolderTreeList.vue'
-import UploadIcon from '@/components/app/UploadIcon.vue'
-import PlusIcon from '@/components/app/PlusIcon.vue'
 import { showSuccess, showError } from '@/composables/useNotification'
 
-const expanded = reactive({ shared: true, mailbox: false })
+/** 模块级共享：编辑页与创建工具弹窗共用同一份文件树 */
+const sharedFiles = ref([
+  { name: 'skills/', path: 'shared/skills/', isDir: true, fileObj: null },
+])
+const mailboxFiles = ref([])
 const expandedPaths = reactive({ 'shared/skills/': false })
+const expanded = reactive({ shared: true, mailbox: false })
+
+const props = defineProps({
+  appName: { type: String, default: '' },
+  /** default：完整编辑页侧栏；compact：创建工具弹窗侧栏 */
+  variant: { type: String, default: 'default' },
+})
+
+const isCompact = computed(() => props.variant === 'compact')
+
+const runtimeExpanded = ref(true)
 const showMailboxHelp = ref(false)
+const showRuntimeHelp = ref(false)
 const showMkdir = ref(false)
 const showUpload = ref(false)
 const mkdirParent = ref('shared/')
@@ -241,12 +398,15 @@ const deleteTarget = ref(null)
 const fileInputRef = ref(null)
 const dirInputRef = ref(null)
 
-const sharedFiles = ref([
-  { name: 'skills/', path: 'shared/skills/', isDir: true, fileObj: null }
-])
-const mailboxFiles = ref([])
+const VIRTUAL_DISK_PATHS = [
+  { label: 'workspace / 工作目录', value: 'workspace/', shortName: 'workspace/', kind: 'folder' },
+  { label: 'temp / 临时区', value: 'temp/', shortName: 'temp/', kind: 'folder' },
+  { label: 'memory / 长期记忆', value: 'memory/', shortName: 'memory/', kind: 'folder' },
+  { label: 'assets / 用户上传', value: 'assets/', shortName: 'assets/', kind: 'folder' },
+]
 
-/** 汇总所有可创建子目录的父路径（含 shared/mailbox 根及已有文件夹） */
+const runtimeFolders = computed(() => VIRTUAL_DISK_PATHS)
+
 const allFolderPaths = computed(() => {
   const paths = new Set(['shared/', 'mailbox/'])
   for (const item of [...sharedFiles.value, ...mailboxFiles.value]) {
@@ -255,21 +415,18 @@ const allFolderPaths = computed(() => {
   return [...paths].sort()
 })
 
-/** 文件夹上传时从 relativePath 提取顶层文件夹名 */
 const folderUploadName = computed(() => {
   if (!pendingFolderItems.value.length) return ''
   const first = pendingFolderItems.value[0].relativePath
   return first.split('/').filter(Boolean)[0] || ''
 })
 
-/** 上传弹窗确认按钮是否可点（文件或文件夹待传列表非空） */
 const canConfirmUpload = computed(() =>
   uploadMode.value === 'folder'
     ? pendingFolderItems.value.length > 0 && !!folderUploadName.value
     : pendingFiles.value.length > 0
 )
 
-/** 上传弹窗确认按钮文案（区分文件数/文件夹文件数） */
 const confirmUploadLabel = computed(() => {
   if (uploadMode.value === 'folder' && pendingFolderItems.value.length) {
     return `上传文件夹 (${pendingFolderItems.value.length})`
@@ -280,12 +437,10 @@ const confirmUploadLabel = computed(() => {
   return '上传'
 })
 
-/** 切换 shared/mailbox 顶层目录的展开/折叠 */
 function toggleDir(name) {
   expanded[name] = !expanded[name]
 }
 
-/** 复制文件路径到剪贴板，优先 Clipboard API，降级 execCommand */
 async function copyPath(path) {
   try {
     if (navigator.clipboard?.writeText) {
@@ -306,19 +461,16 @@ async function copyPath(path) {
   }
 }
 
-/** 将字节数格式化为 B / KB / MB */
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B'
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
   return (bytes / 1024 / 1024).toFixed(1) + ' MB'
 }
 
-/** 根据路径前缀返回 shared 或 mailbox 对应的文件列表 ref */
 function getListForPath(path) {
   return path.startsWith('mailbox/') ? mailboxFiles : sharedFiles
 }
 
-/** 在指定父目录下创建新文件夹并自动展开 */
 function handleMkdir() {
   if (!mkdirName.value.trim()) return
   const dirName = mkdirName.value.trim() + '/'
@@ -332,14 +484,12 @@ function handleMkdir() {
   showMkdir.value = false
 }
 
-/** 打开新建文件夹弹窗并预设父路径 */
 function openMkdirIn(path) {
   mkdirParent.value = path
   mkdirName.value = ''
   showMkdir.value = true
 }
 
-/** 打开上传弹窗并清空待传列表，默认文件模式 */
 function openUploadTo(target) {
   uploadTarget.value = target
   uploadMode.value = 'file'
@@ -348,7 +498,6 @@ function openUploadTo(target) {
   showUpload.value = true
 }
 
-/** 文件选择器变更：切换为单文件上传模式 */
 function handleFileSelect(e) {
   uploadMode.value = 'file'
   pendingFolderItems.value = []
@@ -356,7 +505,6 @@ function handleFileSelect(e) {
   e.target.value = ''
 }
 
-/** 文件夹选择器变更：解析 webkitRelativePath 为相对路径列表 */
 function handleDirSelect(e) {
   const files = Array.from(e.target.files)
   if (!files.length) return
@@ -369,7 +517,6 @@ function handleDirSelect(e) {
   e.target.value = ''
 }
 
-/** 拖拽上传：检测目录则递归读取，否则按多文件处理 */
 async function handleDrop(e) {
   isDragging.value = false
   const items = Array.from(e.dataTransfer.items || [])
@@ -395,12 +542,10 @@ async function handleDrop(e) {
   pendingFiles.value = Array.from(e.dataTransfer.files)
 }
 
-/** 统一路径分隔符为 / */
 function normalizeRelativePath(path) {
   return path.replace(/\\/g, '/')
 }
 
-/** 分批读取 DirectoryReader 的全部条目（API 单次有数量限制） */
 async function readAllEntries(reader) {
   const all = []
   while (true) {
@@ -411,7 +556,6 @@ async function readAllEntries(reader) {
   return all
 }
 
-/** 递归遍历 FileSystemEntry，收集文件及其相对路径 */
 async function readEntry(entry, basePath) {
   if (entry.isFile) {
     return new Promise(resolve => {
@@ -433,12 +577,10 @@ async function readEntry(entry, basePath) {
   return []
 }
 
-/** 从完整路径提取根前缀 shared/ 或 mailbox/ */
 function getRootPrefix(path) {
   return path.startsWith('mailbox/') ? 'mailbox/' : 'shared/'
 }
 
-/** 递归补全中间层目录节点，确保树结构完整 */
 function ensureDirPath(list, dirPath, rootPrefix) {
   if (!dirPath.startsWith(rootPrefix) || dirPath === rootPrefix) return
   const relative = dirPath.slice(rootPrefix.length)
@@ -453,7 +595,6 @@ function ensureDirPath(list, dirPath, rootPrefix) {
   }
 }
 
-/** 上传完成后展开相关父级目录，使新文件可见 */
 function expandAfterUpload(path) {
   const rootPrefix = getRootPrefix(path)
   if (rootPrefix === 'shared/') expanded.shared = true
@@ -468,13 +609,11 @@ function expandAfterUpload(path) {
   }
 }
 
-/** 根据当前上传模式分发到文件或文件夹确认逻辑 */
 function confirmUpload() {
   if (uploadMode.value === 'folder') confirmFolderUpload()
   else confirmFileUpload()
 }
 
-/** 将待传文件写入目标目录列表，展开目录并提示成功 */
 function confirmFileUpload() {
   const list = getListForPath(uploadTarget.value)
   const count = pendingFiles.value.length
@@ -493,7 +632,6 @@ function confirmFileUpload() {
   showSuccess(`已上传 ${count} 个文件到 ${target}`)
 }
 
-/** 将文件夹内所有文件按相对路径写入树，自动补全中间目录 */
 function confirmFolderUpload() {
   const folderName = folderUploadName.value
   if (!folderName) {
@@ -534,7 +672,6 @@ function confirmFolderUpload() {
   showSuccess(`已创建 ${containerPath} 并上传 ${uploadedCount} 个文件`)
 }
 
-/** 取消上传并关闭弹窗，清空待传列表 */
 function cancelUpload() {
   pendingFiles.value = []
   pendingFolderItems.value = []
@@ -542,12 +679,10 @@ function cancelUpload() {
   showUpload.value = false
 }
 
-/** 打开删除确认弹窗 */
 function askDelete(item) {
   deleteTarget.value = item
 }
 
-/** 确认删除：目录则级联删除子路径，文件则精确匹配 */
 function confirmDelete() {
   if (!deleteTarget.value) return
   const path = deleteTarget.value.path
@@ -561,7 +696,6 @@ function confirmDelete() {
   deleteTarget.value = null
 }
 
-/** 通过 Blob URL 触发浏览器下载本地文件 */
 function downloadFile(item) {
   if (item.isDir || !item.fileObj) return
   const url = URL.createObjectURL(item.fileObj)
@@ -572,19 +706,10 @@ function downloadFile(item) {
   URL.revokeObjectURL(url)
 }
 
-/** 用户网盘虚拟目录：不在面板渲染，但可在提示词中 @ 引用 */
-const VIRTUAL_DISK_PATHS = [
-  { label: 'workspace / 工作目录', value: 'workspace/', kind: 'folder' },
-  { label: 'assets / 用户上传', value: 'assets/', kind: 'folder' },
-  { label: 'memory / 长期记忆', value: 'memory/', kind: 'folder' },
-  { label: 'temp / 临时区', value: 'temp/', kind: 'folder' },
-]
-
-/** 供 SystemPromptModal 的 @ 菜单使用：面板目录 + 虚拟网盘 + 已上传文件 */
 function getMentionFileItems() {
   const items = [
-    { label: 'shared / 核心知识库', value: 'shared/', kind: 'folder' },
-    { label: 'mailbox / 用户传递', value: 'mailbox/', kind: 'folder' },
+    { label: 'shared/', value: 'shared/', kind: 'folder' },
+    { label: 'mailbox/', value: 'mailbox/', kind: 'folder' },
     ...VIRTUAL_DISK_PATHS,
   ]
 
@@ -611,223 +736,380 @@ defineExpose({ getMentionFileItems })
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  background: var(--color-surface);
+  font-family: var(--font-sans);
 }
 
-/* ── Panel header ── */
-.panel-header {
-  padding: 20px 24px 16px;
+.file-panel.is-compact {
+  background: #fafbfc;
+  border-right: 1px solid var(--color-border);
+}
+
+.compact-toolbar {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 4px 10px;
+  padding: 12px 14px 8px;
   flex-shrink: 0;
+  border-bottom: 1px solid #eef0f3;
 }
-.panel-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1f2937;
-  letter-spacing: -0.01em;
-}
-.header-btn {
-  color: var(--color-text-muted);
-  cursor: pointer;
-  display: flex;
+
+.compact-tool-item {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+  gap: 5px;
+  padding: 4px 2px;
   border: none;
-  background: none;
-  transition: background 0.15s, color 0.15s;
-}
-.header-btn:hover {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-/* ── Tree view ── */
-.tree-view {
-  padding: 0 16px 20px;
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  scrollbar-width: none;
-}
-.tree-view::-webkit-scrollbar {
-  display: none;
-}
-
-/* ── Folder block ── */
-.folder-block {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.folder-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
-  cursor: pointer;
-  border-radius: 6px;
-  user-select: none;
-  transition: background 0.15s;
-}
-.folder-header:hover {
-  background: #f3f4f6;
-}
-
-.folder-header-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  flex: 1;
-}
-
-.folder-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0;
-}
-
-.folder-action {
-  opacity: 0;
-  color: var(--color-text-muted);
+  background: transparent;
   font-size: 12px;
   font-weight: 500;
-  width: 18px;
-  height: 18px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+
+.compact-tool-item svg {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.compact-tool-item:hover:not(.is-label) {
+  color: var(--color-primary);
+}
+
+.compact-tool-item:hover:not(.is-label) svg {
+  color: var(--color-primary);
+}
+
+.compact-tool-item.is-label {
+  cursor: default;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.compact-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px 12px;
+  min-height: 0;
+}
+
+.compact-tip {
+  margin: 0;
+  padding: 10px 14px 14px;
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+  border-top: 1px solid #eef0f3;
+}
+
+.root-path {
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: opacity 0.2s, color 0.15s, background 0.15s;
-  cursor: pointer;
-}
-.folder-header:hover .folder-action {
-  opacity: 1;
-}
-.folder-action:hover {
-  color: #374151;
-  background: #e5e7eb;
-}
-
-.folder-chevron {
-  color: var(--color-text-muted);
-  font-size: 14px;
-  transition: transform 0.2s;
+  gap: 8px;
+  padding: 12px 18px 4px;
   flex-shrink: 0;
 }
-.folder-header.expanded .folder-chevron {
-  transform: rotate(90deg);
-}
 
-/* Contextual description */
-.folder-desc {
-  margin: 0 8px 6px 32px;
-  font-size: 12px;
-  color: #6b7280;
-  line-height: 1.5;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: top;
-  opacity: 1;
-  max-height: 120px;
-}
-.folder-header.expanded + .folder-desc {
-  opacity: 0;
-  max-height: 0;
-  margin-bottom: 0;
-  overflow: hidden;
-  transform: scaleY(0.9);
-}
-.folder-contents {
-  display: none;
-  margin-left: 14px;
-  border-left: 1px solid var(--color-border);
-  padding-left: 8px;
-}
-.folder-contents.expanded {
-  display: block;
-}
-
-.empty-dir {
-  font-size: 12px;
+.root-path-icon {
   color: var(--color-text-muted);
-  padding: 6px 8px;
-  font-style: italic;
+  flex-shrink: 0;
 }
 
-/* ── File nodes ── */
-.file-node {
+.root-path-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: black;
+  font-family: var(--font-mono, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 14px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  scrollbar-width: thin;
+}
+
+.space-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.space-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.space-title {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #9ca3af;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.space-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: var(--color-bg-secondary);
+  padding: 2px 8px;
+  border-radius: 999px;
+  line-height: 1.4;
+}
+
+.space-badge svg {
+  flex-shrink: 0;
+}
+
+.space-desc {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.space-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.space-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.space-action-btn:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
+  border-color: #d1d5db;
+}
+
+.space-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.tree-root-row {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  font-size: 13px;
-  color: var(--color-text);
   border-radius: 6px;
   cursor: pointer;
   user-select: none;
-  margin-bottom: 2px;
-  position: relative;
   transition: background 0.15s;
 }
-.file-node:hover {
+
+.tree-root-row:hover {
   background: var(--color-bg-secondary);
 }
-.file-icon {
-  color: var(--color-text-muted);
-  font-size: 14px;
-  flex-shrink: 0;
-}
-.file-name {
+
+.tree-root-name {
   flex: 1;
   min-width: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text);
+  font-family: var(--font-mono, monospace);
+}
+
+.mailbox-row .mailbox-lock {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.mailbox-row--locked {
+  cursor: default;
+}
+
+.mailbox-row--locked:hover {
+  background: transparent;
+}
+
+.mailbox-help,
+.runtime-help {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.mailbox-help:hover,
+.runtime-help:hover {
+  background: #e5e7eb;
+  color: var(--color-text-secondary);
+}
+
+.tree-root-children {
+  margin-left: 12px;
+  border-left: 1px solid var(--color-border);
+  padding-left: 8px;
+}
+
+.folder-chevron {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+  width: 12px;
+  text-align: center;
+}
+
+.tree-root-row.expanded .folder-chevron,
+.runtime-card-head.expanded .folder-chevron {
+  transform: rotate(90deg);
+}
+
+.section-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 18px 0;
+}
+
+.runtime-section {
+  padding-bottom: 8px;
+}
+
+.runtime-card {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #fafafa;
+  overflow: hidden;
+}
+
+.runtime-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.runtime-card-head:hover {
+  background: #f3f4f6;
+}
+
+.runtime-card-head svg {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.runtime-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  flex: 1;
+  min-width: 0;
+}
+
+.runtime-card-meta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.runtime-card-body {
+  padding: 0 12px 12px;
+  border-top: 1px dashed var(--color-border);
+}
+
+.runtime-folder-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding-top: 12px;
+}
+
+.runtime-folder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  min-width: 0;
+}
+
+.runtime-folder:hover {
+  border-color: #d1d5db;
+  background: var(--color-bg-secondary);
+}
+
+.runtime-folder-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono, monospace);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--font-mono, monospace);
-  font-size: 12px;
 }
-.file-actions {
-  display: flex;
-  gap: 0;
-  flex-shrink: 0;
-}
-.file-action-btn {
+
+.runtime-footnote {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--color-border);
   font-size: 11px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 1px 2px;
-  border-radius: 4px;
   color: var(--color-text-muted);
-  transition: all 0.1s;
-}
-.file-action-btn:hover {
-  background: var(--color-bg-secondary);
-}
-.file-action-del:hover {
-  color: var(--color-error);
+  line-height: 1.55;
 }
 
 /* ── Modals ── */
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.35);
+  background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 10050;
   padding: 20px;
 }
 
@@ -835,13 +1117,18 @@ defineExpose({ getMentionFileItems })
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
   width: 100%;
   max-width: 460px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
+
+.help-dialog-wide {
+  max-width: 520px;
+}
+
 .help-header {
   display: flex;
   align-items: center;
@@ -852,6 +1139,7 @@ defineExpose({ getMentionFileItems })
   font-weight: 600;
   color: var(--color-text);
 }
+
 .close-x {
   background: none;
   border: none;
@@ -859,6 +1147,7 @@ defineExpose({ getMentionFileItems })
   font-size: 14px;
   color: var(--color-text-muted);
 }
+
 .help-body {
   padding: 16px 20px;
   display: flex;
@@ -870,9 +1159,78 @@ defineExpose({ getMentionFileItems })
   max-height: 60vh;
   overflow-y: auto;
 }
+
 .help-body p {
   margin: 0;
 }
+
+.help-body strong {
+  color: #000000;
+  font-weight: 600;
+}
+
+.help-body-rich {
+  gap: 20px;
+}
+
+.help-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.help-section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.help-sub-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.help-indent {
+  padding-left: 16px;
+}
+
+.help-indent-deep {
+  padding-left: 32px;
+}
+
+.help-indent p+p {
+  margin-top: 8px;
+}
+
+.help-dir-list,
+.help-example-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.help-dir-list li,
+.help-example-list li {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.code-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  color: var(--color-text);
+  background: #f3f4f6;
+  border-radius: 4px;
+  vertical-align: baseline;
+}
+
 .help-footer {
   padding: 12px 20px;
   display: flex;
@@ -880,6 +1238,7 @@ defineExpose({ getMentionFileItems })
   border-top: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
 }
+
 .btn-ok {
   padding: 7px 20px;
   background: var(--color-primary);
@@ -890,6 +1249,7 @@ defineExpose({ getMentionFileItems })
   cursor: pointer;
   transition: all 0.15s;
 }
+
 .btn-ok:hover {
   background: var(--color-primary-hover);
 }
@@ -898,7 +1258,7 @@ defineExpose({ getMentionFileItems })
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
   width: 100%;
   max-width: 380px;
   padding: 20px;
@@ -906,11 +1266,13 @@ defineExpose({ getMentionFileItems })
   flex-direction: column;
   gap: 14px;
 }
+
 .simple-dialog-title {
   font-size: 15px;
   font-weight: 600;
   color: var(--color-text);
 }
+
 .simple-field {
   display: flex;
   flex-direction: column;
@@ -918,6 +1280,7 @@ defineExpose({ getMentionFileItems })
   font-size: 13px;
   color: var(--color-text-secondary);
 }
+
 .simple-select,
 .simple-input {
   padding: 7px 10px;
@@ -929,15 +1292,18 @@ defineExpose({ getMentionFileItems })
   outline: none;
   font-family: inherit;
 }
+
 .simple-select:focus,
 .simple-input:focus {
   border-color: var(--color-primary);
 }
+
 .simple-footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
 }
+
 .btn-ghost-sm {
   padding: 6px 16px;
   font-size: 13px;
@@ -947,6 +1313,7 @@ defineExpose({ getMentionFileItems })
   border-radius: var(--radius-md);
   cursor: pointer;
 }
+
 .btn-primary-sm {
   padding: 6px 16px;
   font-size: 13px;
@@ -956,10 +1323,12 @@ defineExpose({ getMentionFileItems })
   border-radius: var(--radius-md);
   cursor: pointer;
 }
+
 .btn-primary-sm:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
 .btn-danger-sm {
   padding: 6px 16px;
   font-size: 13px;
@@ -969,6 +1338,7 @@ defineExpose({ getMentionFileItems })
   border-radius: var(--radius-md);
   cursor: pointer;
 }
+
 .btn-danger-sm:hover {
   opacity: 0.88;
 }
@@ -983,10 +1353,12 @@ defineExpose({ getMentionFileItems })
   line-height: 1.7;
   transition: border-color 0.15s, background 0.15s;
 }
+
 .upload-zone-active {
   border-color: var(--color-primary);
   background: var(--color-primary-soft);
 }
+
 .upload-target-path {
   padding: 7px 10px;
   border: 1.5px solid var(--color-border);
@@ -996,6 +1368,7 @@ defineExpose({ getMentionFileItems })
   font-size: 13px;
   font-family: var(--font-mono, monospace);
 }
+
 .upload-btns {
   display: flex;
   align-items: center;
@@ -1003,6 +1376,7 @@ defineExpose({ getMentionFileItems })
   gap: 8px;
   flex-wrap: wrap;
 }
+
 .upload-sep {
   color: var(--color-text-muted);
   font-size: 12px;
@@ -1017,10 +1391,12 @@ defineExpose({ getMentionFileItems })
   flex-direction: column;
   gap: 6px;
 }
+
 .folder-upload-preview-title {
   font-size: 12px;
   color: var(--color-text-muted);
 }
+
 .folder-upload-preview-path {
   font-size: 13px;
   font-weight: 600;
@@ -1028,6 +1404,7 @@ defineExpose({ getMentionFileItems })
   font-family: var(--font-mono, monospace);
   word-break: break-all;
 }
+
 .folder-upload-preview-count {
   font-size: 12px;
   color: var(--color-text-secondary);
@@ -1046,6 +1423,7 @@ defineExpose({ getMentionFileItems })
   max-height: 160px;
   overflow-y: auto;
 }
+
 .pending-item {
   display: flex;
   align-items: center;
@@ -1055,6 +1433,7 @@ defineExpose({ getMentionFileItems })
   border-radius: var(--radius-md);
   font-size: 12px;
 }
+
 .pending-name {
   flex: 1;
   min-width: 0;
@@ -1063,11 +1442,13 @@ defineExpose({ getMentionFileItems })
   white-space: nowrap;
   color: var(--color-text-secondary);
 }
+
 .pending-size {
   font-size: 11px;
   color: var(--color-text-muted);
   flex-shrink: 0;
 }
+
 .pending-remove {
   background: none;
   border: none;
@@ -1077,6 +1458,7 @@ defineExpose({ getMentionFileItems })
   padding: 0 2px;
   flex-shrink: 0;
 }
+
 .pending-remove:hover {
   color: var(--color-error);
 }
@@ -1091,6 +1473,7 @@ defineExpose({ getMentionFileItems })
 .modal-leave-active {
   transition: opacity 0.2s;
 }
+
 .modal-enter-from,
 .modal-leave-to {
   opacity: 0;

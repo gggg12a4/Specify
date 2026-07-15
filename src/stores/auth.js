@@ -3,7 +3,7 @@
  *
  * 角色与 API 层对应关系：
  * - admin     → @/api/admin.js（真实后端登录，见 HomepageView 管理入口）
- * - developer → @/api/mockApi.js（开发者门户，创建/编辑 App）
+ * - developer → @/api/developer.js（开发者门户，创建/编辑 App）
  * - user      → @/api/mockApi.js（终端用户门户，运行 App）
  */
 import { defineStore } from 'pinia'
@@ -56,7 +56,7 @@ export const useAuthStore = defineStore('auth', () => {
     _persist()
   }
 
-  /** 清除本地登录态并硬跳转首页，确保各门户状态重置 */
+  /** 清除本地登录态并跳转官网首页 */
   function logout() {
     token.value = null
     currentUser.value = null
@@ -66,7 +66,7 @@ export const useAuthStore = defineStore('auth', () => {
     } catch {
       // ignore
     }
-    window.location.href = '/'
+    window.location.replace('/?loggedOut=1')
   }
 
   /** 局部更新用户资料（如昵称），并同步到 localStorage */

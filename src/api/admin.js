@@ -1,23 +1,11 @@
 /**
  * 平台管理后台 API（真实后端 / JeecgBoot）。
- * 开发者门户、终端用户门户请使用 @/api/mockApi.js。
+ * 开发者门户认证见 @/api/auth.js；其余 mock 能力见本模块。
  */
 import request from './request'
 import { encryptPassword } from '@/utils/crypto'
+export { login, getRandomImage } from './auth'
 
-/**
- * 管理员登录
- */
-export const login = (data) => request.post('/sys/login', data)
-
-/**
- * 获取验证码
- */
-export const getRandomImage = (key) => request.get(`/sys/randomImage/${key}`)
-
-/**
- * 模型与分组管理
- */
 export const getModels = (params) => {
   return request.get('/specifysystem/modelList/list', { params })
 }

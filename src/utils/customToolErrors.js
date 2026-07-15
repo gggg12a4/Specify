@@ -3,7 +3,10 @@ import { SP_TOOLS, SPECIAL_TOOLS, isToolError } from '@/constants/spTools'
 const PLATFORM_KEYS = new Set([...SP_TOOLS, ...SPECIAL_TOOLS].map(t => t.key))
 
 export function isPlatformToolKey(key) {
-  return PLATFORM_KEYS.has(key)
+  if (!key) return false
+  if (PLATFORM_KEYS.has(key)) return true
+  // 本地清单已清空后：SP* 前缀仍视为平台基础工具
+  return String(key).startsWith('SP')
 }
 
 export function findCustomToolRef(key, customTools) {
@@ -34,13 +37,8 @@ export function normalizeSubToolEntry(item, customTools = []) {
 
   if (item.type === 'recommended') {
     const key = item.name || item.custom_tool_id
-    if (isPlatformToolKey(key)) return { type: 'recommended', name: key }
-    const ref = findCustomToolRef(key, customTools)
-    return {
-      type: 'custom',
-      custom_tool_id: ref?.id || key,
-      name: ref?.name || key,
-    }
+    if (!key) return null
+    return { type: 'recommended', name: key }
   }
 
   const key = item.custom_tool_id || item.name

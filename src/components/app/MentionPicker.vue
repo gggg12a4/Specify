@@ -1,5 +1,5 @@
 <template>
-  <div class="mention-picker" :style="style" @mousedown.prevent>
+  <div ref="pickerRef" class="mention-picker" :style="style" @mousedown.prevent>
     <div v-if="folders.length" class="mention-group">
       <div class="mention-group-label">文件夹</div>
       <button
@@ -8,6 +8,7 @@
         type="button"
         class="mention-item"
         :class="{ active: activeIndex === i }"
+        :data-mention-index="i"
         @click="$emit('select', item)"
         @mouseenter="$emit('hover', i)"
       >
@@ -31,6 +32,7 @@
         type="button"
         class="mention-item"
         :class="{ active: activeIndex === folders.length + i }"
+        :data-mention-index="folders.length + i"
         @click="$emit('select', item)"
         @mouseenter="$emit('hover', folders.length + i)"
       >
@@ -54,7 +56,9 @@
  * @ 引用浮层：展示文件夹与已启用工具列表，支持键盘导航与点击选择。
  * 纯展示组件，选择结果通过 select/hover 事件交给 SystemPromptModal 处理。
  */
-defineProps({
+import { ref, watch, nextTick } from 'vue'
+
+const props = defineProps({
   folders: { type: Array, default: () => [] },
   tools: { type: Array, default: () => [] },
   activeIndex: { type: Number, default: 0 },
@@ -62,6 +66,25 @@ defineProps({
 })
 
 defineEmits(['select', 'hover'])
+
+const pickerRef = ref(null)
+
+/** 键盘切换时，将当前高亮项滚入可视区域 */
+function scrollActiveIntoView() {
+  const root = pickerRef.value
+  if (!root) return
+  const active = root.querySelector(`[data-mention-index="${props.activeIndex}"]`)
+  if (!active) return
+  active.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+}
+
+watch(
+  () => props.activeIndex,
+  async () => {
+    await nextTick()
+    scrollActiveIntoView()
+  },
+)
 </script>
 
 <style scoped>

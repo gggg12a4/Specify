@@ -13,6 +13,7 @@
           <div class="dialog-body">
             <McpSchemaFields
               :template-key="templateKey"
+              :templates="templates"
               mode="config"
               :model-value="configValues"
               :errors="errors"
@@ -73,20 +74,25 @@ const props = defineProps({
   visible: { type: Boolean, default: false },
   appId: { type: String, required: true },
   mcp: { type: Object, default: null },
+  templates: { type: Object, default: () => ({}) },
 })
 const emit = defineEmits(['update:visible', 'updated'])
 
 const templateKey = computed(() => props.mcp?.template || DEFAULT_MCP_TEMPLATE)
-const configValues = reactive(mcpRecordToConfigValues(null, DEFAULT_MCP_TEMPLATE, 'config'))
+const configValues = reactive({})
 const errors = ref({})
-const connState = ref('idle')   // idle | testing | success | fail
+const connState = ref('idle')
 const connError = ref('')
 const testing = ref(false)
 
 /** 弹窗打开时用当前 MCP 记录回填表单 */
 watch(() => props.visible, (visible) => {
   if (visible && props.mcp) {
-    Object.assign(configValues, mcpRecordToConfigValues(props.mcp, templateKey.value, 'config'))
+    Object.keys(configValues).forEach((k) => delete configValues[k])
+    Object.assign(
+      configValues,
+      mcpRecordToConfigValues(props.mcp, templateKey.value, 'config', props.templates)
+    )
     connState.value = 'idle'
     errors.value = {}
   }
@@ -99,7 +105,7 @@ watch(configValues, () => {
 
 /** 组装测试连接 API 所需参数 */
 function getTestPayload() {
-  const payload = buildMcpPayload(templateKey.value, configValues)
+  const payload = buildMcpPayload(templateKey.value, configValues, props.templates)
   return {
     url: payload.url,
     authType: 'header',
@@ -109,7 +115,7 @@ function getTestPayload() {
 
 /** 可选：测试修改后的 MCP 配置是否可连通 */
 async function testConn() {
-  errors.value = validateMcpConfig(templateKey.value, 'config', configValues)
+  errors.value = validateMcpConfig(templateKey.value, 'config', configValues, props.templates)
   if (Object.keys(errors.value).length) return
 
   testing.value = true
@@ -132,22 +138,19 @@ async function testConn() {
   }
 }
 
-/** 校验表单后更新 MCP 服务配置 */
-async function handleSave() {
-  errors.value = validateMcpConfig(templateKey.value, 'config', configValues)
+/** 校验表单后更新 MCP 服务配置（写入本地草稿） */
+function handleSave() {
+  errors.value = validateMcpConfig(templateKey.value, 'config', configValues, props.templates)
   if (Object.keys(errors.value).length) return
 
-  const payload = buildMcpPayload(templateKey.value, configValues)
-  const updates = {
+  const payload = buildMcpPayload(templateKey.value, configValues, props.templates)
+  emit('updated', {
+    ...props.mcp,
     ...payload,
-    authType: 'header',
-  }
-
-  const res = await mockApi.updateMcp(props.appId, props.mcp.id, updates)
-  if (res.code === 0) {
-    emit('updated', res.data)
-    emit('update:visible', false)
-  }
+    template: templateKey.value,
+    id: props.mcp.id,
+  })
+  emit('update:visible', false)
 }
 </script>
 

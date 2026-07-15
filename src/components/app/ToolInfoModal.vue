@@ -45,7 +45,7 @@ defineEmits(['close'])
 </script>
 
 <style scoped>
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 10060; }
 .modal-box { background: var(--color-bg); border-radius: 12px; width: 560px; max-width: 96vw; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
 .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px 14px; border-bottom: 1px solid var(--color-border); }
 .modal-header h2 { margin: 0; font-size: 16px; font-weight: 600; color: var(--color-text); }

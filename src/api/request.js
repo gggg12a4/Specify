@@ -8,7 +8,7 @@ const request = axios.create({
 // 请求拦截器
 request.interceptors.request.use(
   config => {
-    // 优先使用本地存储的 token，如果没有则使用写死的测试 token
+    // 使用登录后写入的 token（specify_token）
     const token = localStorage.getItem('specify_token')
     if (token) {
       config.headers['X-Access-Token'] = token // JeecgBoot 使用 X-Access-Token
@@ -26,6 +26,14 @@ request.interceptors.request.use(
 request.interceptors.response.use(
   response => {
     const res = response.data
+    // 业务错误：HTTP 200 + success=false（如注册接口）优先按失败处理
+    if (res.success === false) {
+      return Promise.reject(new Error(res.message || res.msg || 'Error'))
+    }
+    // 业务错误：HTTP 200 但 code 非成功值（JeecgBoot Result）
+    if (res.code !== undefined && res.code !== 0 && res.code !== 200) {
+      return Promise.reject(new Error(res.message || res.msg || 'Error'))
+    }
     // 兼容 JeecgBoot 后端格式 (success: true 或 code: 200) 到前端期望的格式 (code: 0)
     if (res.success === true || res.code === 200 || res.code === 0) {
       return {
@@ -33,11 +41,6 @@ request.interceptors.response.use(
         data: res.result !== undefined ? res.result : res,
         msg: res.message || res.msg
       }
-    }
-    // 如果返回了非成功的业务状态码，也统一包装成 code 属性抛给前端组件
-    if (res.code !== undefined && res.code !== 0 && res.code !== 200) {
-      // 这里的 reject 让后面的 catch 能够捕获到具体的业务错误
-      return Promise.reject(new Error(res.message || res.msg || 'Error'))
     }
     return res
   },

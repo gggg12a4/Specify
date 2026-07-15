@@ -10,7 +10,7 @@
             </button>
           </div>
           <div class="dialog-body">
-            <p class="dialog-message">{{ message }}</p>
+            <p class="dialog-message" v-html="formattedMessage"></p>
           </div>
           <div class="dialog-footer">
             <button class="btn btn-cancel" @click="handleCancel">{{ cancelText }}</button>
@@ -23,7 +23,9 @@
 </template>
 
 <script setup>
-/** 通用确认弹窗：支持危险操作样式与自定义按钮文案 */
+/** 通用确认弹窗：支持危险操作样式与自定义按钮文案；消息支持换行与 **加粗** */
+import { computed } from 'vue'
+
 const props = defineProps({
   visible: { type: Boolean, default: false },
   title: { type: String, default: '确认' },
@@ -33,6 +35,16 @@ const props = defineProps({
   danger: { type: Boolean, default: false }
 })
 const emit = defineEmits(['update:visible', 'confirm', 'cancel'])
+
+const formattedMessage = computed(() => {
+  const escaped = String(props.message || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  return escaped
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>')
+})
 
 /** 确认并关闭弹窗 */
 function handleConfirm() { emit('confirm'); emit('update:visible', false) }
@@ -73,7 +85,16 @@ function handleCancel() { emit('cancel'); emit('update:visible', false) }
 .close-btn:hover { background: var(--color-bg-secondary); color: var(--color-text); }
 
 .dialog-body { padding: 12px 20px 20px; }
-.dialog-message { font-size: 13px; line-height: 1.65; color: var(--color-text-secondary); margin: 0; }
+.dialog-message {
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+.dialog-message :deep(strong) {
+  color: var(--color-text);
+  font-weight: 600;
+}
 
 .dialog-footer {
   display: flex; justify-content: flex-end; gap: 8px;

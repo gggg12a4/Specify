@@ -20,7 +20,7 @@
             v-model="form.name"
             class="field-input"
             :class="{ error: errors.name }"
-            placeholder="全英文或下划线，例如：my_agent"
+            placeholder="输入 App 名称，例如：智能客服助手"
             maxlength="50"
             @keydown.enter="handleSubmit"
           />
@@ -115,6 +115,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { PLATFORMS, PLATFORM_INFO } from '@/constants/platforms'
+import { showError } from '@/composables/useNotification'
 
 const router = useRouter()
 const route = useRoute()
@@ -124,6 +125,7 @@ const nameRef = ref(null)
 const submitting = ref(false)
 const selectedPlatform = ref('claude')
 const isFromTemplate = ref(false)
+const templateAppId = ref(null)
 const templateData = ref(null)
 
 const form = ref({ name: '', description: '' })
@@ -132,7 +134,7 @@ const errors = ref({ name: '' })
 /** 当前选中平台的能力说明信息 */
 const currentPlatform = computed(() => PLATFORM_INFO[selectedPlatform.value])
 
-/** 校验 App 名称：非空且仅允许英文字母与下划线 */
+/** 校验 App 名称：非空 */
 function validate() {
   errors.value.name = ''
   if (!form.value.name.trim()) {
@@ -140,17 +142,10 @@ function validate() {
     return false
   }
 
-  // 校验规则：仅支持全英文+下划线
-  const namePattern = /^[a-zA-Z_]+$/;
-  if (!namePattern.test(form.value.name.trim())) {
-    errors.value.name = 'App 名称仅支持全英文和下划线'
-    return false
-  }
-
   return true
 }
 
-/** 校验通过后创建 App，模板模式合并预填配置，创建完成跳转编辑页 */
+/** 校验通过后调用 API 创建 App，创建完成跳转编辑页 */
 async function handleSubmit() {
   if (!validate()) {
     nameRef.value?.focus()
@@ -158,36 +153,30 @@ async function handleSubmit() {
   }
   submitting.value = true
 
-  let appData = {
-    name: form.value.name.trim(),
-    description: form.value.description.trim(),
-    platform: selectedPlatform.value,
+  try {
+    const appId = await appStore.createAppViaApi({
+      name: form.value.name.trim(),
+      description: form.value.description.trim(),
+      platform: selectedPlatform.value,
+      templateAppId: isFromTemplate.value && templateAppId.value ? templateAppId.value : null,
+    })
+    if (isFromTemplate.value) {
+      localStorage.removeItem('specify_template_clone')
+    }
+    router.push({ name: 'AppEdit', params: { id: appId } })
+  } catch (err) {
+    showError(err.message || '创建 App 失败')
+  } finally {
+    submitting.value = false
   }
-
-  // 如果是从模板克隆，合并模板的数据（系统提示词、工具配置等）
-  if (isFromTemplate.value && templateData.value) {
-    const tplData = JSON.parse(JSON.stringify(templateData.value))
-    delete tplData.id
-    delete tplData.isTemplate
-    appData = { ...tplData, ...appData } // 让刚填写的 name/desc/platform 覆盖模板原本的名字
-  }
-
-  const app = appStore.addApp(appData)
-
-  // 创建后清空模板缓存
-  if (isFromTemplate.value) {
-    localStorage.removeItem('specify_template_clone')
-  }
-
-  submitting.value = false
-  // 无论是否是从模板创建，都直接跳到 AppEdit (由上一次的对话讨论可知不需要进Intro)
-  router.push({ name: 'AppEdit', params: { id: app.id } })
 }
 
 /** 挂载时读取模板克隆数据并聚焦名称输入框 */
-onMounted(() => {
+onMounted(async () => {
   if (route.query.fromTemplate === 'true') {
     isFromTemplate.value = true
+    templateAppId.value = route.query.templateAppId || null
+
     const savedTpl = localStorage.getItem('specify_template_clone')
     if (savedTpl) {
       try {
@@ -197,15 +186,27 @@ onMounted(() => {
         if (templateData.value.platform) {
           selectedPlatform.value = templateData.value.platform
         }
-      } catch (e) {
+      } catch {
         console.error('Failed to parse template clone data')
+      }
+    } else if (templateAppId.value) {
+      const tpl = appStore.templates.find(t => t.id === templateAppId.value)
+      if (tpl) {
+        form.value.name = tpl.name || ''
+        form.value.description = tpl.description || ''
+        if (tpl.platform) selectedPlatform.value = tpl.platform
       }
     }
   }
 
+  try {
+    await appStore.fetchModelGroups()
+  } catch {
+    // 模型分组加载失败不阻塞创建
+  }
+
   nameRef.value?.focus()
   if (isFromTemplate.value) {
-    // 如果是克隆模式，选中文本方便直接修改
     setTimeout(() => {
       nameRef.value?.select()
     }, 50)
